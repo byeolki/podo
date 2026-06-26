@@ -1,4 +1,4 @@
-import { Global, Module, OnApplicationShutdown } from '@nestjs/common';
+import { Global, Module, OnApplicationShutdown, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
@@ -19,7 +19,7 @@ export type Db = BetterSQLite3Database<typeof schema>;
       provide: SQLITE_TOKEN,
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const dbPath = config.get<string>('DB_PATH', path.join(process.cwd(), 'data', 'podo.db'));
+        const dbPath = config.get<string>('db_path', path.join(process.cwd(), 'data', 'podo.db'));
         fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
         const sqlite = new Database(dbPath);
@@ -37,7 +37,7 @@ export type Db = BetterSQLite3Database<typeof schema>;
       useFactory: (sqlite: Database.Database, config: ConfigService) => {
         const db = drizzle(sqlite, { schema });
         const migrationsFolder = config.get<string>(
-          'MIGRATIONS_PATH',
+          'migrations_path',
           path.join(__dirname, 'migrations'),
         );
         migrate(db, { migrationsFolder });
@@ -48,7 +48,9 @@ export type Db = BetterSQLite3Database<typeof schema>;
   exports: [DB_TOKEN, SQLITE_TOKEN],
 })
 export class DatabaseModule implements OnApplicationShutdown {
-  constructor() {}
+  constructor(@Inject(SQLITE_TOKEN) private readonly sqlite: Database.Database) {}
 
-  onApplicationShutdown() {}
+  onApplicationShutdown() {
+    this.sqlite.close();
+  }
 }

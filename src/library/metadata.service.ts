@@ -1,6 +1,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
@@ -80,7 +80,7 @@ export class MetadataService {
       .where(
         and(
           eq(schema.albums.title, albumTitle),
-          artistId ? eq(schema.albums.primary_artist_id, artistId) : eq(schema.albums.primary_artist_id, ''),
+          artistId ? eq(schema.albums.primary_artist_id, artistId) : isNull(schema.albums.primary_artist_id),
         ),
       )
       .get();
@@ -103,7 +103,7 @@ export class MetadataService {
       .where(
         and(
           eq(schema.album_versions.album_id, albumId),
-          year ? eq(schema.album_versions.release_year, year) : eq(schema.album_versions.release_year, 0),
+          year ? eq(schema.album_versions.release_year, year) : isNull(schema.album_versions.release_year),
         ),
       )
       .get();

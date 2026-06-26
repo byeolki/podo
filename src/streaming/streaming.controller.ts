@@ -23,17 +23,19 @@ export class StreamingController {
   ) {}
 
   @Get('stream/:track_id')
-  @ApiOperation({ summary: 'Stream a track (HTTP Range supported)' })
+  @ApiOperation({ summary: 'Stream a track (HTTP Range supported for passthrough; use seek_ms for transcoded)' })
   @ApiQuery({ name: 'media_kind', required: false, enum: ['audio', 'video'] })
   @ApiQuery({ name: 'source_id', required: false })
   @ApiQuery({ name: 'format', required: false, enum: ['aac', 'opus', 'mp3', 'flac'] })
   @ApiQuery({ name: 'bitrate', required: false, type: Number })
+  @ApiQuery({ name: 'seek_ms', required: false, type: Number, description: 'Seek position in ms (for transcoded streams)' })
   async stream(
     @Param('track_id') trackId: string,
     @Query('media_kind') mediaKind?: 'audio' | 'video',
     @Query('source_id') sourceId?: string,
     @Query('format') format?: string,
     @Query('bitrate') bitrate?: string,
+    @Query('seek_ms') seekMs?: string,
     @CurrentUser() user?: JwtPayload,
     @Req() req?: FastifyRequest,
     @Res() reply?: FastifyReply,
@@ -47,6 +49,7 @@ export class StreamingController {
         sourceId,
         format,
         bitrate: bitrate ? parseInt(bitrate, 10) : undefined,
+        seekMs: seekMs ? parseInt(seekMs, 10) : undefined,
       },
       req!,
       reply!,

@@ -1,0 +1,53 @@
+import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { PlaylistsService } from './playlists.service';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtPayload } from '../common/guards/jwt-auth.guard';
+
+class CreatePlaylistDto {
+  name!: string;
+  description?: string;
+}
+
+class UpdatePlaylistDto {
+  name?: string;
+  description?: string;
+  track_ids?: string[];
+}
+
+@ApiTags('playlists')
+@ApiBearerAuth()
+@Controller('api/v1/playlists')
+export class PlaylistsController {
+  constructor(private readonly playlists: PlaylistsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'List my playlists' })
+  findAll(@CurrentUser() user: JwtPayload) {
+    return this.playlists.findAll(user.sub);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get playlist with tracks' })
+  findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.playlists.findOne(id, user.sub);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create playlist' })
+  create(@Body() dto: CreatePlaylistDto, @CurrentUser() user: JwtPayload) {
+    return this.playlists.create(dto, user.sub);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update playlist name, description, or track order' })
+  update(@Param('id') id: string, @Body() dto: UpdatePlaylistDto, @CurrentUser() user: JwtPayload) {
+    return this.playlists.update(id, dto, user.sub);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete playlist' })
+  remove(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.playlists.remove(id, user.sub);
+  }
+}

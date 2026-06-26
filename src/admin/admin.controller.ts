@@ -1,0 +1,74 @@
+import { Controller, Get, Post, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { AdminService } from './admin.service';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { AdminOnly } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtPayload } from '../common/guards/jwt-auth.guard';
+
+class ReviewMappingDto {
+  action!: 'approve' | 'reject';
+}
+
+@ApiTags('admin')
+@ApiBearerAuth()
+@UseGuards(RolesGuard)
+@AdminOnly()
+@Controller('api/v1/admin')
+export class AdminController {
+  constructor(private readonly admin: AdminService) {}
+
+  @Post('library/verify')
+  @ApiOperation({ summary: 'Verify library integrity (check for missing files, orphan metadata)' })
+  verify() {
+    return this.admin.verifyLibraryIntegrity();
+  }
+
+  @Delete('cache/transcode')
+  @ApiOperation({ summary: 'Clear transcoding cache' })
+  clearCache() {
+    return this.admin.clearTranscodeCache();
+  }
+
+  @Get('streams')
+  @ApiOperation({ summary: 'Get active stream sessions' })
+  getActiveStreams() {
+    return this.admin.getActiveStreams();
+  }
+
+  @Get('stats/traffic')
+  @ApiOperation({ summary: 'Get traffic and transcoding stats' })
+  @ApiQuery({ name: 'period', required: false, enum: ['day', 'week', 'month', 'all'] })
+  getTrafficStats(@Query('period') period?: 'day' | 'week' | 'month' | 'all') {
+    return this.admin.getTrafficStats(period ?? 'all');
+  }
+
+  @Get('storage')
+  @ApiOperation({ summary: 'Get storage breakdown by category' })
+  getStorage() {
+    return this.admin.getStorageBreakdown();
+  }
+
+  @Get('mapping-queue')
+  @ApiOperation({ summary: 'List mapping queue entries' })
+  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'approved', 'rejected'] })
+  listMappingQueue(@Query('status') status?: string) {
+    return this.admin.listMappingQueue(status ?? 'pending');
+  }
+
+  @Post('mapping-queue/:id/review')
+  @ApiOperation({ summary: 'Approve or reject a mapping queue entry' })
+  reviewMapping(
+    @Param('id') id: string,
+    @Body() dto: ReviewMappingDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.admin.reviewMappingQueue(id, dto.action, user.sub);
+  }
+
+  @Get('users')
+  @ApiOperation({ summary: 'List all users' })
+  listUsers() {
+    return this.admin.listUsers();
+  }
+}

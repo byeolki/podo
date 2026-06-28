@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, InternalServerErrorException, Inject } from '@nestjs/common';
 import { eq, and, asc, isNull } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
@@ -46,41 +46,32 @@ export class StreamingService {
     const sources = await this.db
       .select()
       .from(schema.sources)
-      .where(
-        and(
-          eq(schema.sources.track_id, req.trackId),
-          eq(schema.sources.media_kind, kind),
-          eq(schema.sources.available, true),
-          isNull(schema.sources.deleted_at),
-        ),
-      )
+      .where(and(eq(schema.sources.track_id, req.trackId), eq(schema.sources.media_kind, kind), eq(schema.sources.available, true), isNull(schema.sources.deleted_at)))
       .orderBy(asc(schema.sources.priority));
 
     if (sources.length === 0) throw new NotFoundException('No available source for this track');
 
     for (const source of sources) {
       if (fs.existsSync(source.locator)) return source;
-      await this.db
-        .update(schema.sources)
-        .set({ available: false, updated_at: new Date() })
-        .where(eq(schema.sources.id, source.id));
+      this.logger.warn(`Source file missing, marking unavailable: ${source.locator}`);
+      await this.db.update(schema.sources).set({ available: false, updated_at: new Date() }).where(eq(schema.sources.id, source.id));
     }
 
     throw new NotFoundException('All sources are unavailable');
   }
 
-  async stream(
-    req: StreamRequest,
-    httpReq: FastifyRequest,
-    reply: FastifyReply,
-  ): Promise<void> {
+  async stream(req: StreamRequest, httpReq: FastifyRequest, reply: FastifyReply): Promise<void> {
     const source = await this.resolveSource(req);
-
     const filePath = source.locator;
-    const fileStat = fs.statSync(filePath);
-    const fileSize = fileStat.size;
 
-    const needsTranscode = this.needsTranscode(source, req.format, req.bitrate);
+    let fileStat: fs.Stats;
+    try {
+      fileStat = fs.statSync(filePath);
+    } catch (e) {
+      this.logger.error(`File disappeared after source resolution: ${filePath}`, (e as Error).message);
+      await this.db.update(schema.sources).set({ available: false, updated_at: new Date() }).where(eq(schema.sources.id, source.id));
+      throw new NotFoundException('Source file no longer available');
+    }
 
     const sessionId = newId();
     await this.createStreamSession(sessionId, req, source);
@@ -90,8 +81,9 @@ export class StreamingService {
       void this.endStreamSession(sessionId);
     });
 
+    const needsTranscode = this.needsTranscode(source, req.format, req.bitrate);
     if (!needsTranscode) {
-      await this.servePassthrough(filePath, fileSize, source, httpReq, reply);
+      await this.servePassthrough(filePath, fileStat.size, source, httpReq, reply);
     } else {
       await this.serveTranscoded(source, req, httpReq, reply, sessionId);
     }
@@ -135,7 +127,6 @@ export class StreamingService {
     const targetFormat = req.format ?? 'aac';
     const targetBitrate = req.bitrate ?? 192;
 
-    // Seek position: explicit seek_ms param takes priority, then derive from Range header
     let startMs = req.seekMs ?? 0;
     if (!startMs) {
       const rangeHeader = httpReq.headers.range;
@@ -150,11 +141,16 @@ export class StreamingService {
 
     if (this.cache.has(cacheKey)) {
       const cachePath = this.cache.getCachePath(cacheKey);
-      const stat = fs.statSync(cachePath);
-      reply.header('Content-Type', this.mimeType(targetFormat));
-      reply.header('Content-Length', stat.size);
-      reply.header('X-Cache', 'HIT');
-      return reply.send(fs.createReadStream(cachePath));
+      try {
+        const stat = fs.statSync(cachePath);
+        reply.header('Content-Type', this.mimeType(targetFormat));
+        reply.header('Content-Length', stat.size);
+        reply.header('X-Cache', 'HIT');
+        return reply.send(fs.createReadStream(cachePath));
+      } catch {
+        this.logger.warn(`Cache file missing for key ${cacheKey}, falling through to transcode`);
+        this.cache.evict(cacheKey);
+      }
     }
 
     const startSecs = startMs / 1000;
@@ -165,11 +161,22 @@ export class StreamingService {
     reply.header('X-Cache', 'MISS');
 
     const cachePath = this.cache.getCachePath(cacheKey);
-    const cacheWriteStream = fs.createWriteStream(cachePath);
-    const passthrough = new PassThrough();
+    let cacheWriteStream: fs.WriteStream;
+    try {
+      cacheWriteStream = fs.createWriteStream(cachePath);
+    } catch (e) {
+      this.logger.error(`Failed to create cache write stream: ${cachePath}`, (e as Error).message);
+      throw new InternalServerErrorException('Transcoding cache unavailable');
+    }
 
+    const passthrough = new PassThrough();
     const proc = spawn('ffmpeg', ffmpegArgs);
     this.activeProcesses.set(sessionId, proc);
+
+    cacheWriteStream.on('error', (err) => {
+      this.logger.error(`Cache write stream error for ${cachePath}: ${err.message}`);
+      try { fs.unlinkSync(cachePath); } catch {}
+    });
 
     proc.stdout.on('data', (chunk: Buffer) => {
       cacheWriteStream.write(chunk);
@@ -210,21 +217,12 @@ export class StreamingService {
     return reply.send(passthrough);
   }
 
-  private buildFfmpegArgs(
-    inputPath: string,
-    format: string,
-    bitrate: number,
-    startSecs: number,
-  ): string[] {
+  private buildFfmpegArgs(inputPath: string, format: string, bitrate: number, startSecs: number): string[] {
     const args: string[] = ['-v', 'error'];
 
-    if (startSecs > 0) {
-      args.push('-ss', startSecs.toFixed(3));
-    }
-
+    if (startSecs > 0) args.push('-ss', startSecs.toFixed(3));
     args.push('-i', inputPath);
-    args.push('-vn');
-    args.push('-b:a', `${bitrate}k`);
+    args.push('-vn', '-b:a', `${bitrate}k`);
 
     if (format === 'aac' || format === 'm4a') {
       args.push('-c:a', 'aac', '-f', 'adts');
@@ -248,26 +246,18 @@ export class StreamingService {
     }
   }
 
-  private needsTranscode(
-    source: typeof schema.sources.$inferSelect,
-    targetFormat?: string,
-    targetBitrate?: number,
-  ): boolean {
+  private needsTranscode(source: typeof schema.sources.$inferSelect, targetFormat?: string, targetBitrate?: number): boolean {
     if (!targetFormat && !targetBitrate) return false;
-
     const fmtMismatch = targetFormat && source.format && !source.format.includes(targetFormat);
     const bitrateTooHigh = targetBitrate && source.bitrate && source.bitrate > targetBitrate * 1.1;
-
     return Boolean(fmtMismatch || bitrateTooHigh);
   }
 
   private parseRange(rangeHeader: string, total: number): { start: number; end: number } {
     const match = /bytes=(\d*)-(\d*)/.exec(rangeHeader);
     if (!match) return { start: 0, end: total - 1 };
-
     const start = match[1] ? parseInt(match[1], 10) : total - parseInt(match[2] ?? '1', 10);
     const end = match[2] ? parseInt(match[2], 10) : total - 1;
-
     return {
       start: Math.max(0, Math.min(start, total - 1)),
       end: Math.max(start, Math.min(end, total - 1)),
@@ -280,21 +270,11 @@ export class StreamingService {
   }
 
   private mimeType(format: string): string {
-    const map: Record<string, string> = {
-      aac: 'audio/aac',
-      opus: 'audio/ogg; codecs=opus',
-      mp3: 'audio/mpeg',
-      flac: 'audio/flac',
-      m4a: 'audio/mp4',
-    };
+    const map: Record<string, string> = { aac: 'audio/aac', opus: 'audio/ogg; codecs=opus', mp3: 'audio/mpeg', flac: 'audio/flac', m4a: 'audio/mp4' };
     return map[format] ?? 'audio/aac';
   }
 
-  private async createStreamSession(
-    sessionId: string,
-    req: StreamRequest,
-    source: typeof schema.sources.$inferSelect,
-  ): Promise<void> {
+  private async createStreamSession(sessionId: string, req: StreamRequest, source: typeof schema.sources.$inferSelect): Promise<void> {
     await this.db.insert(schema.stream_sessions).values({
       id: sessionId,
       user_id: req.userId,
@@ -307,10 +287,7 @@ export class StreamingService {
   }
 
   private async endStreamSession(sessionId: string): Promise<void> {
-    await this.db
-      .update(schema.stream_sessions)
-      .set({ ended_at: new Date() })
-      .where(eq(schema.stream_sessions.id, sessionId));
+    await this.db.update(schema.stream_sessions).set({ ended_at: new Date() }).where(eq(schema.stream_sessions.id, sessionId));
   }
 
   getActiveStreams() {

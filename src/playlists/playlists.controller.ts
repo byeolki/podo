@@ -1,20 +1,21 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { IsString, IsOptional, IsBoolean, IsArray, IsUUID, MinLength, MaxLength } from 'class-validator';
 import { PlaylistsService } from './playlists.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 
 class CreatePlaylistDto {
-  name!: string;
-  description?: string;
-  is_public?: boolean;
+  @IsString() @MinLength(1) @MaxLength(200) name!: string;
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
+  @IsOptional() @IsBoolean() is_public?: boolean;
 }
 
 class UpdatePlaylistDto {
-  name?: string;
-  description?: string;
-  is_public?: boolean;
-  track_ids?: string[];
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(200) name?: string;
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
+  @IsOptional() @IsBoolean() is_public?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) track_ids?: string[];
 }
 
 @ApiTags('playlists')

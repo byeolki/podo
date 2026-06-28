@@ -1,17 +1,18 @@
 import { Controller, Get, Post, Patch, Param, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { IsString, IsOptional, IsBoolean, IsObject, MinLength, MaxLength } from 'class-validator';
 import { ArtistsService } from './artists.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 
 class CreateArtistDto {
-  name!: string;
-  is_custom?: boolean;
+  @IsString() @MinLength(1) @MaxLength(300) name!: string;
+  @IsOptional() @IsBoolean() is_custom?: boolean;
 }
 
 class UpdateArtistDto {
-  name?: string;
-  external_ids?: Record<string, string>;
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(300) name?: string;
+  @IsOptional() @IsObject() external_ids?: Record<string, string>;
 }
 
 @ApiTags('artists')

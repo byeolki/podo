@@ -1,14 +1,15 @@
 import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { IsString, IsOptional, IsInt, IsISO8601, Min } from 'class-validator';
 import { HistoryService } from './history.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 
 class RecordPlayDto {
-  track_id!: string;
-  source_id?: string;
-  played_at!: string;
-  played_duration!: number;
+  @IsString() track_id!: string;
+  @IsOptional() @IsString() source_id?: string;
+  @IsISO8601() played_at!: string;
+  @IsInt() @Min(0) played_duration!: number;
 }
 
 @ApiTags('history')

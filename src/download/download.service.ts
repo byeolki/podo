@@ -103,6 +103,7 @@ export class DownloadService {
     }).catch((e: Error) => {
       job.status = 'failed';
       job.error = e.message;
+      this.logger.error(`Download failed for ${job.url}: ${e.message}`);
       this.events.emit('download.failed', { job_id: job.id, error: e.message });
       throw e;
     });

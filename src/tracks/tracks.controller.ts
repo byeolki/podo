@@ -3,6 +3,7 @@ import {
   UploadedFile, UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { IsString, IsOptional, IsInt, IsArray, ArrayNotEmpty, Min, Max } from 'class-validator';
 import { TracksService } from './tracks.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
@@ -11,20 +12,20 @@ import * as fs from 'fs';
 import { ConfigService } from '@nestjs/config';
 
 class TrackMetadataDto {
-  title?: string;
-  track_number?: number;
-  disc_number?: number;
+  @IsOptional() @IsString() title?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(9999) track_number?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(99) disc_number?: number;
 }
 
 class BulkMetadataDto {
-  track_ids!: string[];
-  title?: string;
-  track_number?: number;
-  disc_number?: number;
+  @IsArray() @ArrayNotEmpty() @IsString({ each: true }) track_ids!: string[];
+  @IsOptional() @IsString() title?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(9999) track_number?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(99) disc_number?: number;
 }
 
 class CoverMappingDto {
-  original_track_id!: string;
+  @IsString() original_track_id!: string;
 }
 
 @ApiTags('tracks')
@@ -46,7 +47,6 @@ export class TracksController {
   ) {
     return this.tracks.findAll(
       limit ? Math.min(parseInt(limit, 10), 200) : 50,
-      cursor ? parseInt(cursor, 10) : undefined,
     );
   }
 

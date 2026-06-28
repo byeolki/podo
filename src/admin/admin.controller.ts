@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { IsIn } from 'class-validator';
 import { AdminService } from './admin.service';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AdminOnly } from '../common/decorators/roles.decorator';
@@ -7,7 +8,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 
 class ReviewMappingDto {
-  action!: 'approve' | 'reject';
+  @IsIn(['approve', 'reject']) action!: 'approve' | 'reject';
 }
 
 @ApiTags('admin')

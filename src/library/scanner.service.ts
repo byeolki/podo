@@ -100,7 +100,7 @@ export class ScannerService {
           if (result === 'added') added++;
           else if (result === 'updated') updated++;
         } catch (e) {
-          this.logger.warn(`Failed to scan ${filePath}: ${e}`);
+          this.logger.warn(`Failed to scan ${filePath}`, e instanceof Error ? e.stack : String(e));
         }
 
         processed++;

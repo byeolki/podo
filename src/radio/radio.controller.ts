@@ -1,14 +1,15 @@
 import { Controller, Get, Post, Query, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
 import { RadioService } from './radio.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 
 class CreateMixDto {
-  name?: string;
-  seed_track_id?: string;
-  seed_artist_id?: string;
-  count?: number;
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() seed_track_id?: string;
+  @IsOptional() @IsString() seed_artist_id?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(200) count?: number;
 }
 
 @ApiTags('radio')

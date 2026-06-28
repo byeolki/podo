@@ -1,12 +1,13 @@
 import { Controller, Post, Get, Param, Body, UseGuards, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { IsUrl, IsOptional, IsBoolean } from 'class-validator';
 import { DownloadService } from './download.service';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AdminOnly } from '../common/decorators/roles.decorator';
 
 class StartDownloadDto {
-  url!: string;
-  audio_only?: boolean;
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true }) url!: string;
+  @IsOptional() @IsBoolean() audio_only?: boolean;
 }
 
 @ApiTags('download')

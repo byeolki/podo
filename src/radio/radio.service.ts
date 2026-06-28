@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { eq, and, inArray, notInArray, isNull, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
@@ -13,6 +13,8 @@ export interface RadioOptions {
 
 @Injectable()
 export class RadioService {
+  private readonly logger = new Logger(RadioService.name);
+
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   async getStation(opts: RadioOptions): Promise<typeof schema.tracks.$inferSelect[]> {
@@ -95,14 +97,13 @@ export class RadioService {
       is_public: false,
     });
 
-    for (let i = 0; i < tracks.length; i++) {
-      await this.db.insert(schema.playlist_tracks).values({
-        playlist_id: id,
-        track_id: tracks[i].id,
-        position: i,
-      }).onConflictDoNothing();
+    if (tracks.length) {
+      await this.db.insert(schema.playlist_tracks).values(
+        tracks.map((t, i) => ({ playlist_id: id, track_id: t.id, position: i })),
+      ).onConflictDoNothing();
     }
 
+    this.logger.log(`Mix created: "${name}" (${tracks.length} tracks) for user=${opts.userId}`);
     return (await this.db.select().from(schema.playlists).where(eq(schema.playlists.id, id)).get())!;
   }
 

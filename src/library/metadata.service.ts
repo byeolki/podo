@@ -1,6 +1,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, inArray } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
@@ -120,22 +120,17 @@ export class MetadataService {
   }
 
   async ensureGenres(genres: string[]): Promise<string[]> {
-    const ids: string[] = [];
-    for (const name of genres) {
-      const existing = await this.db
-        .select()
-        .from(schema.tags)
-        .where(and(eq(schema.tags.name, name), eq(schema.tags.kind, 'genre')))
-        .get();
-      if (existing) {
-        ids.push(existing.id);
-      } else {
-        const id = newId();
-        await this.db.insert(schema.tags).values({ id, name, kind: 'genre' }).onConflictDoNothing();
-        ids.push(id);
-      }
-    }
-    return ids;
+    if (!genres.length) return [];
+
+    const rows = genres.map((name) => ({ id: newId(), name, kind: 'genre' as const }));
+    await this.db.insert(schema.tags).values(rows).onConflictDoNothing();
+
+    const existing = await this.db
+      .select({ id: schema.tags.id, name: schema.tags.name })
+      .from(schema.tags)
+      .where(and(inArray(schema.tags.name, genres), eq(schema.tags.kind, 'genre')));
+
+    return existing.map((r) => r.id);
   }
 
   async fetchMusicBrainz(artist: string, title: string): Promise<Record<string, unknown> | null> {
@@ -170,6 +165,11 @@ export class MetadataService {
   private httpGet(url: string, headers: Record<string, string>): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const req = https.get(url, { headers }, (res) => {
+        if ((res.statusCode ?? 0) >= 300) {
+          res.resume();
+          reject(new Error(`HTTP ${res.statusCode} from ${url}`));
+          return;
+        }
         let body = '';
         res.on('data', (d: Buffer) => { body += d.toString(); });
         res.on('end', () => {
@@ -177,7 +177,7 @@ export class MetadataService {
         });
       });
       req.on('error', reject);
-      req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
+      req.setTimeout(10000, () => { req.destroy(); reject(new Error('MusicBrainz request timeout')); });
     });
   }
 }

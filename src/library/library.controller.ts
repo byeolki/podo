@@ -1,11 +1,12 @@
 import { Controller, Get, Post, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { IsString, MinLength } from 'class-validator';
 import { LibraryService } from './library.service';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AdminOnly } from '../common/decorators/roles.decorator';
 
 class AddRootDto {
-  path!: string;
+  @IsString() @MinLength(1) path!: string;
 }
 
 @ApiTags('library')

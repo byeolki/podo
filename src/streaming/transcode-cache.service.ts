@@ -50,6 +50,13 @@ export class TranscodeCacheService implements OnApplicationShutdown {
     } catch {}
   }
 
+  evict(key: string): void {
+    const entry = this.entries.get(key);
+    if (!entry) return;
+    try { fs.unlinkSync(entry.filePath); } catch {}
+    this.entries.delete(key);
+  }
+
   async clearAll(): Promise<number> {
     let count = 0;
     for (const entry of this.entries.values()) {

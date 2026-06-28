@@ -1,15 +1,16 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { eq, and, isNull, sql, desc, gte } from 'drizzle-orm';
+import { Injectable, Inject, NotFoundException, Logger } from '@nestjs/common';
+import { eq, and, isNull, sql, desc, gte, inArray } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { StreamingService } from '../streaming/streaming.service';
 import { TranscodeCacheService } from '../streaming/transcode-cache.service';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     @Inject(DB_TOKEN) private readonly db: Db,
     private readonly streaming: StreamingService,
@@ -22,15 +23,22 @@ export class AdminService {
       .from(schema.sources)
       .where(and(eq(schema.sources.origin, 'local'), eq(schema.sources.available, true), isNull(schema.sources.deleted_at)));
 
+    const missingIds: string[] = [];
     const missingFiles: string[] = [];
+
     for (const source of sources) {
       if (!fs.existsSync(source.locator)) {
+        missingIds.push(source.id);
         missingFiles.push(source.locator);
-        await this.db
-          .update(schema.sources)
-          .set({ available: false, updated_at: new Date() })
-          .where(eq(schema.sources.id, source.id));
       }
+    }
+
+    if (missingIds.length) {
+      await this.db
+        .update(schema.sources)
+        .set({ available: false, updated_at: new Date() })
+        .where(inArray(schema.sources.id, missingIds));
+      this.logger.warn(`Integrity check: marked ${missingIds.length} sources unavailable`);
     }
 
     const orphanMeta = await this.db
@@ -48,6 +56,7 @@ export class AdminService {
 
   async clearTranscodeCache() {
     const count = await this.cache.clearAll();
+    this.logger.log(`Transcode cache cleared: ${count} entries`);
     return { cleared: count };
   }
 
@@ -61,9 +70,7 @@ export class AdminService {
 
   async getTrafficStats(period: 'day' | 'week' | 'month' | 'all') {
     const cutoff = this.getCutoff(period);
-    const filter = cutoff
-      ? gte(schema.stream_sessions.started_at, cutoff)
-      : undefined;
+    const filter = cutoff ? gte(schema.stream_sessions.started_at, cutoff) : undefined;
 
     const [totalSessions, byUser] = await Promise.all([
       this.db
@@ -116,11 +123,7 @@ export class AdminService {
   }
 
   async reviewMappingQueue(id: string, action: 'approve' | 'reject', reviewerId: string) {
-    const entry = await this.db
-      .select()
-      .from(schema.mapping_queue)
-      .where(eq(schema.mapping_queue.id, id))
-      .get();
+    const entry = await this.db.select().from(schema.mapping_queue).where(eq(schema.mapping_queue.id, id)).get();
     if (!entry) throw new NotFoundException('Mapping queue entry not found');
 
     const status = action === 'approve' ? 'approved' : 'rejected';
@@ -129,25 +132,22 @@ export class AdminService {
       .set({ status, reviewed_by: reviewerId, reviewed_at: new Date() })
       .where(eq(schema.mapping_queue.id, id));
 
+    this.logger.log(`Mapping queue ${id}: ${action}d by ${reviewerId}`);
     return { id, status };
   }
 
   async listUsers() {
     return this.db
-      .select({
-        id: schema.users.id,
-        name: schema.users.name,
-        email: schema.users.email,
-        role: schema.users.role,
-        created_at: schema.users.created_at,
-      })
+      .select({ id: schema.users.id, name: schema.users.name, email: schema.users.email, role: schema.users.role, created_at: schema.users.created_at })
       .from(schema.users);
   }
 
   async getSystemHealth() {
-    const dbCount = await this.db.$count(schema.tracks);
-    const sourceCount = await this.db.$count(schema.sources);
-    const userCount = await this.db.$count(schema.users);
+    const [dbCount, sourceCount, userCount] = await Promise.all([
+      this.db.$count(schema.tracks),
+      this.db.$count(schema.sources),
+      this.db.$count(schema.users),
+    ]);
 
     return {
       status: 'ok',
@@ -169,20 +169,32 @@ export class AdminService {
   }
 
   private dirSize(dirPath: string): number {
+    let total = 0;
     try {
-      let total = 0;
       const walk = (p: string) => {
-        const entries = fs.readdirSync(p, { withFileTypes: true });
+        let entries: fs.Dirent[];
+        try {
+          entries = fs.readdirSync(p, { withFileTypes: true });
+        } catch {
+          return;
+        }
         for (const e of entries) {
           const full = path.join(p, e.name);
-          if (e.isDirectory()) walk(full);
-          else total += fs.statSync(full).size;
+          if (e.isDirectory()) {
+            walk(full);
+          } else {
+            try {
+              total += fs.statSync(full).size;
+            } catch {
+              // skip inaccessible files
+            }
+          }
         }
       };
       walk(dirPath);
-      return total;
     } catch {
-      return 0;
+      // directory doesn't exist
     }
+    return total;
   }
 }

@@ -7,11 +7,13 @@ import { JwtPayload } from '../common/guards/jwt-auth.guard';
 class CreatePlaylistDto {
   name!: string;
   description?: string;
+  is_public?: boolean;
 }
 
 class UpdatePlaylistDto {
   name?: string;
   description?: string;
+  is_public?: boolean;
   track_ids?: string[];
 }
 
@@ -27,8 +29,14 @@ export class PlaylistsController {
     return this.playlists.findAll(user.sub);
   }
 
+  @Get('public')
+  @ApiOperation({ summary: 'List all public playlists' })
+  findPublic() {
+    return this.playlists.findPublic();
+  }
+
   @Get(':id')
-  @ApiOperation({ summary: 'Get playlist with tracks' })
+  @ApiOperation({ summary: 'Get playlist with tracks (public playlists accessible without ownership)' })
   findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.playlists.findOne(id, user.sub);
   }
@@ -40,7 +48,7 @@ export class PlaylistsController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update playlist name, description, or track order' })
+  @ApiOperation({ summary: 'Update playlist name, description, visibility, or track order' })
   update(@Param('id') id: string, @Body() dto: UpdatePlaylistDto, @CurrentUser() user: JwtPayload) {
     return this.playlists.update(id, dto, user.sub);
   }

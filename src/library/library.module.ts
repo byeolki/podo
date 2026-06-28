@@ -6,9 +6,10 @@ import { WatcherService } from './watcher.service';
 import { FfprobeService } from './ffprobe.service';
 import { MetadataService } from './metadata.service';
 import { SyncModule } from '../sync/sync.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
-  imports: [SyncModule],
+  imports: [SyncModule, AiModule],
   providers: [LibraryService, ScannerService, WatcherService, FfprobeService, MetadataService],
   controllers: [LibraryController],
   exports: [LibraryService, ScannerService, FfprobeService, MetadataService],

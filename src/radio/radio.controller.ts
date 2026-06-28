@@ -1,0 +1,51 @@
+import { Controller, Get, Post, Query, Body } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { RadioService } from './radio.service';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtPayload } from '../common/guards/jwt-auth.guard';
+
+class CreateMixDto {
+  name?: string;
+  seed_track_id?: string;
+  seed_artist_id?: string;
+  count?: number;
+}
+
+@ApiTags('radio')
+@ApiBearerAuth()
+@Controller('api/v1/radio')
+export class RadioController {
+  constructor(private readonly radio: RadioService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Get a radio station (ordered track list based on seed)' })
+  @ApiQuery({ name: 'seed_track_id', required: false })
+  @ApiQuery({ name: 'seed_artist_id', required: false })
+  @ApiQuery({ name: 'count', required: false, type: Number })
+  @ApiQuery({ name: 'exclude', required: false, description: 'Comma-separated track IDs to exclude' })
+  getStation(
+    @Query('seed_track_id') seedTrackId?: string,
+    @Query('seed_artist_id') seedArtistId?: string,
+    @Query('count') count?: string,
+    @Query('exclude') exclude?: string,
+  ) {
+    return this.radio.getStation({
+      seedTrackId,
+      seedArtistId,
+      count: count ? parseInt(count, 10) : undefined,
+      excludeIds: exclude ? exclude.split(',').map((s) => s.trim()).filter(Boolean) : [],
+    });
+  }
+
+  @Post('mix')
+  @ApiOperation({ summary: 'Create a mix playlist from a radio seed' })
+  createMix(@Body() dto: CreateMixDto, @CurrentUser() user: JwtPayload) {
+    return this.radio.createMix({
+      name: dto.name,
+      seedTrackId: dto.seed_track_id,
+      seedArtistId: dto.seed_artist_id,
+      count: dto.count,
+      userId: user.sub,
+    });
+  }
+}

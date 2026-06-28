@@ -16,6 +16,8 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { HistoryModule } from './history/history.module';
 import { UploadModule } from './upload/upload.module';
 import { AdminModule } from './admin/admin.module';
+import { DownloadModule } from './download/download.module';
+import { RadioModule } from './radio/radio.module';
 import { HealthController } from './health/health.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
@@ -36,6 +38,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     HistoryModule,
     UploadModule,
     AdminModule,
+    DownloadModule,
+    RadioModule,
   ],
   controllers: [HealthController],
   providers: [

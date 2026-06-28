@@ -29,6 +29,7 @@
     "drizzle-orm": "^0.44.2",
     "mime-types": "^2.1.35",
     "nanoid": "^3.3.11",
+    "openai": "^6.45.0",
     "p-queue": "^8.1.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

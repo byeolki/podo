@@ -1,10 +1,11 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { eq, and, inArray } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { FfprobeService } from './ffprobe.service';
 import { MetadataService } from './metadata.service';
 import { EventsService } from '../sync/events.service';
+import { AiService } from '../ai/ai.service';
 import { newId } from '../common/id';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -32,6 +33,7 @@ export class ScannerService {
     private readonly ffprobe: FfprobeService,
     private readonly metadata: MetadataService,
     private readonly events: EventsService,
+    @Optional() private readonly ai: AiService | null,
   ) {}
 
   async scanRoot(libraryRootId: string, rootPath: string): Promise<string> {
@@ -49,12 +51,12 @@ export class ScannerService {
     return jobId;
   }
 
-  async scanFile(filePath: string): Promise<void> {
+  async scanFile(filePath: string, origin: 'local' | 'ytdlp' = 'local'): Promise<void> {
     const ext = path.extname(filePath).toLowerCase();
     const kind = mediaKind(ext);
     if (!kind) return;
 
-    await this.scanQueue.add(() => this.upsertSource(filePath, kind));
+    await this.scanQueue.add(() => this.upsertSource(filePath, kind, origin));
   }
 
   async removeFile(filePath: string): Promise<void> {
@@ -141,7 +143,7 @@ export class ScannerService {
     }
   }
 
-  private async upsertSource(filePath: string, kind: 'audio' | 'video'): Promise<'added' | 'updated' | 'skipped'> {
+  private async upsertSource(filePath: string, kind: 'audio' | 'video', origin: 'local' | 'ytdlp' = 'local'): Promise<'added' | 'updated' | 'skipped'> {
     let stat: fs.Stats;
     try {
       stat = fs.statSync(filePath);
@@ -165,6 +167,30 @@ export class ScannerService {
     if (!probe) return 'skipped';
 
     const meta = this.metadata.parseTags(probe);
+
+    let isCover = false;
+    let originalArtistId: string | null = null;
+
+    if (this.ai?.enabled && (!meta.title || !meta.artist)) {
+      const aiResult = await this.ai.extractMetadata(path.basename(filePath), {
+        title: meta.title,
+        artist: meta.artist,
+        album: meta.album,
+        genre: meta.genres.join(', ') || null,
+      });
+      if (aiResult) {
+        if (!meta.title && aiResult.title) meta.title = aiResult.title;
+        if (!meta.artist && aiResult.artist) meta.artist = aiResult.artist;
+        if (!meta.album && aiResult.album) meta.album = aiResult.album;
+        if (!meta.year && aiResult.year) meta.year = aiResult.year;
+        if (!meta.genres.length && aiResult.genres.length) meta.genres = aiResult.genres;
+        isCover = aiResult.is_cover;
+        if (aiResult.is_cover && aiResult.original_artist) {
+          originalArtistId = await this.metadata.resolveOrCreateArtist(aiResult.original_artist);
+        }
+      }
+    }
+
     const title = meta.title ?? path.basename(filePath, path.extname(filePath));
     const fileHash = this.hashFile(filePath);
 
@@ -191,6 +217,8 @@ export class ScannerService {
         track_number: meta.track_number ?? undefined,
         disc_number: meta.disc_number ?? undefined,
         canonical_duration: probe.duration ?? undefined,
+        is_cover: isCover,
+        original_artist_id: originalArtistId ?? undefined,
         updated_at: new Date(),
       }).where(eq(schema.tracks.id, trackId));
 
@@ -225,6 +253,8 @@ export class ScannerService {
       track_number: meta.track_number ?? undefined,
       disc_number: meta.disc_number ?? undefined,
       canonical_duration: probe.duration ?? undefined,
+      is_cover: isCover,
+      original_artist_id: originalArtistId ?? undefined,
     });
 
     if (artistId) {
@@ -243,7 +273,7 @@ export class ScannerService {
       id: sourceId,
       track_id: trackId,
       media_kind: kind,
-      origin: 'local',
+      origin,
       format: probe.format,
       codec: probe.codec,
       bitrate: probe.bitrate ?? undefined,

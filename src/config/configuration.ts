@@ -15,4 +15,7 @@ export default () => ({
   musicbrainz_user_agent: process.env.MUSICBRAINZ_USER_AGENT ?? 'podo/0.1.0',
   metrics_enabled: process.env.METRICS_ENABLED === 'true',
   migrations_path: process.env.MIGRATIONS_PATH ?? path.join(__dirname, '..', 'db', 'migrations'),
+  openai_api_key: process.env.OPENAI_API_KEY ?? '',
+  openai_model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+  ytdlp_path: process.env.YTDLP_PATH ?? 'yt-dlp',
 });

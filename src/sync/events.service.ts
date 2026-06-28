@@ -9,7 +9,11 @@ export type EventName =
   | 'scan.progress'
   | 'scan.completed'
   | 'scan.failed'
-  | 'library.changed';
+  | 'library.changed'
+  | 'download.started'
+  | 'download.progress'
+  | 'download.completed'
+  | 'download.failed';
 
 @Injectable()
 export class EventsService {

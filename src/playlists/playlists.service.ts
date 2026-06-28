@@ -15,6 +15,13 @@ export class PlaylistsService {
       .where(and(eq(schema.playlists.owner_user_id, userId), isNull(schema.playlists.deleted_at)));
   }
 
+  findPublic() {
+    return this.db
+      .select()
+      .from(schema.playlists)
+      .where(and(eq(schema.playlists.is_public, true), isNull(schema.playlists.deleted_at)));
+  }
+
   async findOne(id: string, userId: string) {
     const playlist = await this.db
       .select()
@@ -22,7 +29,7 @@ export class PlaylistsService {
       .where(and(eq(schema.playlists.id, id), isNull(schema.playlists.deleted_at)))
       .get();
     if (!playlist) throw new NotFoundException('Playlist not found');
-    if (playlist.owner_user_id !== userId) throw new ForbiddenException();
+    if (playlist.owner_user_id !== userId && !playlist.is_public) throw new ForbiddenException();
 
     const tracks = await this.db
       .select({ track: schema.tracks, position: schema.playlist_tracks.position })
@@ -34,19 +41,26 @@ export class PlaylistsService {
     return { ...playlist, tracks: tracks.map((t) => ({ ...t.track, position: t.position })) };
   }
 
-  async create(dto: { name: string; description?: string }, userId: string) {
+  async create(dto: { name: string; description?: string; is_public?: boolean }, userId: string) {
     const id = newId();
-    await this.db.insert(schema.playlists).values({ id, owner_user_id: userId, name: dto.name, description: dto.description });
+    await this.db.insert(schema.playlists).values({
+      id,
+      owner_user_id: userId,
+      name: dto.name,
+      description: dto.description,
+      is_public: dto.is_public ?? false,
+    });
     return this.db.select().from(schema.playlists).where(eq(schema.playlists.id, id)).get();
   }
 
-  async update(id: string, dto: { name?: string; description?: string; track_ids?: string[] }, userId: string) {
-    const playlist = await this.requireOwner(id, userId);
+  async update(id: string, dto: { name?: string; description?: string; is_public?: boolean; track_ids?: string[] }, userId: string) {
+    await this.requireOwner(id, userId);
 
-    if (dto.name || dto.description !== undefined) {
+    if (dto.name || dto.description !== undefined || dto.is_public !== undefined) {
       await this.db.update(schema.playlists).set({
         ...(dto.name && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.is_public !== undefined && { is_public: dto.is_public }),
         updated_at: new Date(),
       }).where(eq(schema.playlists.id, id));
     }

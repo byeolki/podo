@@ -156,6 +156,13 @@ export class TracksService {
   }
 
   async addCoverMapping(coverTrackId: string, originalTrackId: string, userId: string) {
+    const [cover, original] = await Promise.all([
+      this.db.select({ id: schema.tracks.id }).from(schema.tracks).where(eq(schema.tracks.id, coverTrackId)).get(),
+      this.db.select({ id: schema.tracks.id }).from(schema.tracks).where(eq(schema.tracks.id, originalTrackId)).get(),
+    ]);
+    if (!cover) throw new NotFoundException('Cover track not found');
+    if (!original) throw new NotFoundException('Original track not found');
+
     const id = newId();
     await this.db
       .insert(schema.cover_mappings)

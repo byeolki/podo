@@ -35,8 +35,12 @@ export class WatcherService implements OnApplicationShutdown {
         this.logger.debug(`File removed: ${filePath}`);
         void this.scanner.removeFile(filePath);
       })
-      .on('error', (err) => {
-        this.logger.error(`Watcher error: ${err}`);
+      .on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EACCES' || err.code === 'EPERM') {
+          this.logger.debug(`Watcher skipping inaccessible path: ${err.path ?? err.message}`);
+        } else {
+          this.logger.warn(`Watcher error: ${err.message}`);
+        }
       });
 
     this.logger.log(`Watching ${paths.length} path(s)`);

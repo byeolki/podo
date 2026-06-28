@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
@@ -16,6 +16,9 @@ export class FavoritesService {
   }
 
   async add(userId: string, trackId: string) {
+    const track = await this.db.select({ id: schema.tracks.id }).from(schema.tracks).where(eq(schema.tracks.id, trackId)).get();
+    if (!track) throw new NotFoundException('Track not found');
+
     await this.db
       .insert(schema.favorites)
       .values({ user_id: userId, track_id: trackId })

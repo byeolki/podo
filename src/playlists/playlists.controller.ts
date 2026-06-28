@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsOptional, IsBoolean, IsArray, IsUUID, MinLength, MaxLength } from 'class-validator';
 import { PlaylistsService } from './playlists.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
+import { Public } from '../common/decorators/public.decorator';
 
 class CreatePlaylistDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
@@ -30,6 +31,7 @@ export class PlaylistsController {
     return this.playlists.findAll(user.sub);
   }
 
+  @Public()
   @Get('public')
   @ApiOperation({ summary: 'List all public playlists' })
   findPublic() {
@@ -55,6 +57,7 @@ export class PlaylistsController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete playlist' })
   remove(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.playlists.remove(id, user.sub);

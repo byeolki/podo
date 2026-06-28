@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { eq, desc, gte, and, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
@@ -9,6 +9,9 @@ export class HistoryService {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   async record(dto: { userId: string; trackId: string; sourceId?: string; playedAt: Date; playedDuration: number }) {
+    const track = await this.db.select({ id: schema.tracks.id }).from(schema.tracks).where(eq(schema.tracks.id, dto.trackId)).get();
+    if (!track) throw new NotFoundException('Track not found');
+
     const id = newId();
     await this.db.insert(schema.play_history).values({
       id,

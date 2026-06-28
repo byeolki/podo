@@ -11,6 +11,7 @@ import * as schema from '../db/schema';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ConfigService } from '@nestjs/config';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('streaming')
 @ApiBearerAuth()
@@ -56,6 +57,7 @@ export class StreamingController {
     );
   }
 
+  @Public()
   @Get('artwork/:id')
   @ApiOperation({ summary: 'Get artwork image' })
   async artwork(@Param('id') id: string, @Res() reply: FastifyReply) {
@@ -79,6 +81,7 @@ export class StreamingController {
     return reply.send(fs.createReadStream(artworkPath));
   }
 
+  @Public()
   @Get('lyrics/:track_id')
   @ApiOperation({ summary: 'Get track lyrics' })
   async lyrics(@Param('track_id') trackId: string) {

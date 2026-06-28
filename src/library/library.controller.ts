@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, MinLength } from 'class-validator';
 import { LibraryService } from './library.service';
@@ -30,6 +30,7 @@ export class LibraryController {
   }
 
   @Delete('roots/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Remove a library root' })
   removeRoot(@Param('id') id: string) {
     return this.library.removeRoot(id);

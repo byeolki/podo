@@ -38,9 +38,10 @@ export class ArtistsService {
       id,
       name: dto.name.trim(),
       is_custom: dto.is_custom ?? true,
+      external_ids: {},
       created_by: userId,
     });
-    return this.db.select().from(schema.artists).where(eq(schema.artists.id, id)).get();
+    return this.findOne(id);
   }
 
   async update(id: string, dto: { name?: string; external_ids?: Record<string, string> }) {

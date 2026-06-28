@@ -47,7 +47,7 @@ export class ScannerService {
     this.activeScanJobId = jobId;
     this.events.emit('scan.started', { job_id: jobId, root: rootPath });
 
-    setImmediate(() => this.runScan(jobId, rootPath));
+    setImmediate(() => this.runScan(jobId, libraryRootId, rootPath));
     return jobId;
   }
 
@@ -76,7 +76,7 @@ export class ScannerService {
     this.events.emit('source.removed', { source_id: source.id, track_id: source.track_id });
   }
 
-  private async runScan(jobId: string, rootPath: string): Promise<void> {
+  private async runScan(jobId: string, libraryRootId: string, rootPath: string): Promise<void> {
     try {
       const files = this.walkDir(rootPath);
       const total = files.length;
@@ -127,7 +127,7 @@ export class ScannerService {
       await this.db
         .update(schema.library_roots)
         .set({ last_scan_at: new Date() })
-        .where(eq(schema.library_roots.id, (await this.db.select().from(schema.scan_jobs).where(eq(schema.scan_jobs.id, jobId)).get())?.library_root_id ?? ''));
+        .where(eq(schema.library_roots.id, libraryRootId));
 
       this.events.emit('scan.completed', { job_id: jobId, total, added, updated });
     } catch (e) {

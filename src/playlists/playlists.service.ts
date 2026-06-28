@@ -67,12 +67,10 @@ export class PlaylistsService {
 
     if (dto.track_ids) {
       await this.db.delete(schema.playlist_tracks).where(eq(schema.playlist_tracks.playlist_id, id));
-      for (let i = 0; i < dto.track_ids.length; i++) {
-        await this.db.insert(schema.playlist_tracks).values({
-          playlist_id: id,
-          track_id: dto.track_ids[i],
-          position: i,
-        }).onConflictDoNothing();
+      if (dto.track_ids.length) {
+        await this.db.insert(schema.playlist_tracks).values(
+          dto.track_ids.map((track_id, i) => ({ playlist_id: id, track_id, position: i })),
+        ).onConflictDoNothing();
       }
     }
 

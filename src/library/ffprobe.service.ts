@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { spawn } from 'child_process';
 
 export interface ProbeResult {
@@ -12,10 +12,25 @@ export interface ProbeResult {
 }
 
 @Injectable()
-export class FfprobeService {
+export class FfprobeService implements OnApplicationBootstrap {
   private readonly logger = new Logger(FfprobeService.name);
+  private available = true;
+
+  async onApplicationBootstrap() {
+    await new Promise<void>((resolve) => {
+      const proc = spawn('ffprobe', ['-version']);
+      proc.on('error', () => {
+        this.available = false;
+        this.logger.warn('ffprobe not found — library scanning and transcoding will be disabled');
+        resolve();
+      });
+      proc.on('close', () => resolve());
+    });
+  }
 
   async probe(filePath: string): Promise<ProbeResult | null> {
+    if (!this.available) return null;
+
     return new Promise((resolve) => {
       const proc = spawn('ffprobe', [
         '-v', 'quiet',
@@ -65,6 +80,7 @@ export class FfprobeService {
       });
 
       proc.on('error', (err) => {
+        this.available = false;
         this.logger.error(`ffprobe spawn error: ${err.message}`);
         resolve(null);
       });

@@ -9,6 +9,7 @@ interface PlayerState {
   currentTime: number
   duration: number
   audioRef: HTMLAudioElement | null
+  normalize: boolean
 
   setQueue: (tracks: Track[], startIndex?: number) => void
   play: () => void
@@ -21,6 +22,11 @@ interface PlayerState {
   setDuration: (d: number) => void
   setAudioRef: (el: HTMLAudioElement | null) => void
   playTrack: (track: Track, queue?: Track[]) => void
+  setNormalize: (v: boolean) => void
+}
+
+function loadNormalize(): boolean {
+  try { return localStorage.getItem('podo_normalize') === 'true' } catch { return false }
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -31,6 +37,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   currentTime: 0,
   duration: 0,
   audioRef: null,
+  normalize: loadNormalize(),
 
   setQueue: (tracks, startIndex = 0) => {
     set({ queue: tracks, currentIndex: startIndex })
@@ -84,6 +91,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const tracks = queue ?? [track]
     const idx = tracks.findIndex((t) => t.id === track.id)
     set({ queue: tracks, currentIndex: idx >= 0 ? idx : 0, isPlaying: true })
+  },
+
+  setNormalize: (v) => {
+    try { localStorage.setItem('podo_normalize', v ? 'true' : 'false') } catch {}
+    set({ normalize: v })
   },
 }))
 

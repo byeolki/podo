@@ -30,6 +30,7 @@ export class StreamingController {
   @ApiQuery({ name: 'format', required: false, enum: ['aac', 'opus', 'mp3', 'flac'] })
   @ApiQuery({ name: 'bitrate', required: false, type: Number })
   @ApiQuery({ name: 'seek_ms', required: false, type: Number, description: 'Seek position in ms (for transcoded streams)' })
+  @ApiQuery({ name: 'normalize', required: false, type: Boolean })
   async stream(
     @Param('track_id') trackId: string,
     @Query('media_kind') mediaKind?: 'audio' | 'video',
@@ -37,6 +38,7 @@ export class StreamingController {
     @Query('format') format?: string,
     @Query('bitrate') bitrate?: string,
     @Query('seek_ms') seekMs?: string,
+    @Query('normalize') normalize?: string,
     @CurrentUser() user?: JwtPayload,
     @Req() req?: FastifyRequest,
     @Res() reply?: FastifyReply,
@@ -51,6 +53,7 @@ export class StreamingController {
         format,
         bitrate: bitrate ? parseInt(bitrate, 10) : undefined,
         seekMs: seekMs ? parseInt(seekMs, 10) : undefined,
+        normalize: normalize === '1' || normalize === 'true',
       },
       req!,
       reply!,

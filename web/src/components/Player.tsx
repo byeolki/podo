@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
 import { getStreamUrl, getArtworkUrl } from '../api/client'
 import { formatDuration } from '../api/tracks'
@@ -13,7 +13,7 @@ export default function Player() {
     isPlaying, volume, currentTime, duration,
     toggle, next, prev, setVolume,
     setCurrentTime, setDuration, setAudioRef,
-    queue, currentIndex,
+    queue, currentIndex, normalize, setNormalize,
   } = usePlayerStore()
   const [videoOpen, setVideoOpen] = useState(false)
 
@@ -22,11 +22,11 @@ export default function Player() {
     return () => setAudioRef(null)
   }, [setAudioRef])
 
-  // When track changes, update src and auto-play
+  // When track changes or normalize toggles, update src and auto-play
   useEffect(() => {
     const audio = audioRef.current
     if (!audio || !track) return
-    const src = getStreamUrl(track.id)
+    const src = getStreamUrl(track.id, normalize)
     if (audio.src !== src) {
       audio.src = src
     }
@@ -34,7 +34,7 @@ export default function Player() {
       audio.play().catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track?.id, currentIndex])
+  }, [track?.id, currentIndex, normalize])
 
   // Sync play/pause state
   useEffect(() => {
@@ -121,6 +121,15 @@ export default function Player() {
           </span>
         </div>
       </div>
+
+      {/* Normalize toggle */}
+      <button
+        onClick={() => setNormalize(!normalize)}
+        className={`transition-colors flex-shrink-0 ${normalize ? 'text-accent' : 'text-[#6b6b6b] hover:text-[#a1a1a1]'}`}
+        title={normalize ? 'Loudness normalization on' : 'Loudness normalization off'}
+      >
+        <Activity size={16} />
+      </button>
 
       {/* MV button */}
       {track?.has_video && (

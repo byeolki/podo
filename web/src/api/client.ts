@@ -14,9 +14,13 @@ export function clearTokens() {
   localStorage.removeItem('refresh_token')
 }
 
-export function getStreamUrl(trackId: string): string {
+export function getStreamUrl(trackId: string, normalize?: boolean): string {
   const token = getToken()
-  return `${BASE}/stream/${trackId}${token ? `?token=${token}` : ''}`
+  const params = new URLSearchParams()
+  if (normalize) params.set('normalize', '1')
+  if (token) params.set('token', token)
+  const qs = params.toString()
+  return `${BASE}/stream/${trackId}${qs ? `?${qs}` : ''}`
 }
 
 export function getVideoStreamUrl(trackId: string): string {

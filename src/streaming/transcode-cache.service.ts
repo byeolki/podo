@@ -24,10 +24,10 @@ export class TranscodeCacheService implements OnApplicationShutdown {
     this.loadExisting();
   }
 
-  getCacheKey(sourceId: string, format: string, bitrate: number, seekMs: number): string {
+  getCacheKey(sourceId: string, format: string, bitrate: number, seekMs: number, normalize?: boolean): string {
     const segmentMs = Math.floor(seekMs / 30000) * 30000;
     return crypto.createHash('sha256')
-      .update(`${sourceId}:${format}:${bitrate}:${segmentMs}`)
+      .update(`${sourceId}:${format}:${bitrate}:${segmentMs}:${normalize ? '1' : '0'}`)
       .digest('hex')
       .slice(0, 32);
   }

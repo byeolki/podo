@@ -19,6 +19,7 @@ export interface StreamRequest {
   format?: string;
   bitrate?: number;
   seekMs?: number;
+  normalize?: boolean;
 }
 
 @Injectable()
@@ -89,7 +90,7 @@ export class StreamingService {
       void this.endStreamSession(sessionId);
     });
 
-    const needsTranscode = this.needsTranscode(source, req.format, req.bitrate);
+    const needsTranscode = this.needsTranscode(source, req.format, req.bitrate) || !!req.normalize;
     if (!needsTranscode) {
       await this.servePassthrough(filePath, fileStat.size, source, httpReq, reply);
     } else {
@@ -133,7 +134,7 @@ export class StreamingService {
     sessionId: string,
   ): Promise<void> {
     const targetFormat = req.format ?? 'aac';
-    const targetBitrate = req.bitrate ?? 192;
+    const targetBitrate = req.bitrate ?? 256;
 
     let startMs = req.seekMs ?? 0;
     if (!startMs) {
@@ -145,7 +146,7 @@ export class StreamingService {
       }
     }
 
-    const cacheKey = this.cache.getCacheKey(source.id, targetFormat, targetBitrate, startMs);
+    const cacheKey = this.cache.getCacheKey(source.id, targetFormat, targetBitrate, startMs, req.normalize);
 
     if (this.cache.has(cacheKey)) {
       const cachePath = this.cache.getCachePath(cacheKey);
@@ -162,7 +163,7 @@ export class StreamingService {
     }
 
     const startSecs = startMs / 1000;
-    const ffmpegArgs = this.buildFfmpegArgs(source.locator, targetFormat, targetBitrate, startSecs);
+    const ffmpegArgs = this.buildFfmpegArgs(source.locator, targetFormat, targetBitrate, startSecs, req.normalize, source.replaygain_track);
 
     reply.header('Content-Type', this.mimeType(targetFormat));
     reply.header('Accept-Ranges', 'none');
@@ -225,12 +226,22 @@ export class StreamingService {
     return reply.send(passthrough);
   }
 
-  private buildFfmpegArgs(inputPath: string, format: string, bitrate: number, startSecs: number): string[] {
+  private buildFfmpegArgs(inputPath: string, format: string, bitrate: number, startSecs: number, normalize?: boolean, replaygainDb?: number | null): string[] {
     const args: string[] = ['-v', 'error'];
 
     if (startSecs > 0) args.push('-ss', startSecs.toFixed(3));
     args.push('-i', inputPath);
-    args.push('-vn', '-b:a', `${bitrate}k`);
+    args.push('-vn');
+
+    if (normalize) {
+      if (replaygainDb != null) {
+        args.push('-af', `volume=${replaygainDb >= 0 ? '+' : ''}${replaygainDb.toFixed(2)}dB`);
+      } else {
+        args.push('-af', 'loudnorm=I=-16:TP=-1.5:LRA=11');
+      }
+    }
+
+    args.push('-b:a', `${bitrate}k`);
 
     if (format === 'aac' || format === 'm4a') {
       args.push('-c:a', 'aac', '-f', 'adts');

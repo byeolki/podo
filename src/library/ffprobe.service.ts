@@ -8,6 +8,8 @@ export interface ProbeResult {
   sample_rate: number | null;
   channels: number | null;
   duration: number | null;
+  replaygain_track: number | null;
+  replaygain_album: number | null;
   tags: Record<string, string>;
 }
 
@@ -64,6 +66,14 @@ export class FfprobeService implements OnApplicationBootstrap {
           const videoStream = streams.find((s) => s.codec_type === 'video');
           const primaryStream = audioStream ?? videoStream;
 
+          const tags = fmt.tags ?? {};
+          const rgTag = (k: string) => tags[k] ?? tags[k.toLowerCase()] ?? null;
+          const parseRg = (v: string | null) => {
+            if (!v) return null;
+            const n = parseFloat(v.replace(/[^0-9.+-]/g, ''));
+            return isNaN(n) ? null : n;
+          };
+
           resolve({
             format: fmt.format_name?.split(',')[0] ?? '',
             codec: primaryStream?.codec_name ?? '',
@@ -71,7 +81,9 @@ export class FfprobeService implements OnApplicationBootstrap {
             sample_rate: audioStream?.sample_rate ? parseInt(audioStream.sample_rate, 10) : null,
             channels: audioStream?.channels ?? null,
             duration: fmt.duration ? Math.round(parseFloat(fmt.duration) * 1000) : null,
-            tags: fmt.tags ?? {},
+            replaygain_track: parseRg(rgTag('REPLAYGAIN_TRACK_GAIN')),
+            replaygain_album: parseRg(rgTag('REPLAYGAIN_ALBUM_GAIN')),
+            tags,
           });
         } catch (e) {
           this.logger.warn(`ffprobe parse error for ${filePath}: ${e}`);

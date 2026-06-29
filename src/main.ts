@@ -40,6 +40,12 @@ async function bootstrap() {
       root: staticDir,
       prefix: '/',
       decorateReply: false,
+      wildcard: false,
+    });
+
+    const instance = app.getHttpAdapter().getInstance();
+    instance.setNotFoundHandler((_req: unknown, reply: { sendFile: (f: string) => void }) => {
+      reply.sendFile('index.html');
     });
   }
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Play, Video } from 'lucide-react'
 import { usePlayerStore } from '../store/player'
 import type { Track } from '../api/tracks'
@@ -16,23 +16,8 @@ interface Props {
 export default function TrackRow({ track, index, queue, showArtist = true, showNumber = false }: Props) {
   const playTrack = usePlayerStore((s) => s.playTrack)
   const currentTrack = usePlayerStore((s) => s.queue[s.currentIndex])
-  const storeCurrentTime = usePlayerStore((s) => s.currentTime)
   const isActive = currentTrack?.id === track.id
   const [videoOpen, setVideoOpen] = useState(false)
-  const wasPlayingRef = useRef(false)
-
-  function openVideo(e: React.MouseEvent) {
-    e.stopPropagation()
-    const store = usePlayerStore.getState()
-    wasPlayingRef.current = store.isPlaying
-    if (store.isPlaying) store.pause()
-    setVideoOpen(true)
-  }
-
-  function closeVideo() {
-    setVideoOpen(false)
-    if (wasPlayingRef.current) usePlayerStore.getState().play()
-  }
 
   return (
     <>
@@ -70,7 +55,7 @@ export default function TrackRow({ track, index, queue, showArtist = true, showN
         <div className="flex items-center gap-2 flex-shrink-0">
           {track.has_video && (
             <button
-              onClick={openVideo}
+              onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }}
               className="opacity-0 group-hover:opacity-100 text-[#6b6b6b] hover:text-accent transition-all"
               title="Watch music video"
             >
@@ -83,7 +68,7 @@ export default function TrackRow({ track, index, queue, showArtist = true, showN
         </div>
       </div>
 
-      {videoOpen && <VideoModal track={track} startTime={isActive ? storeCurrentTime : 0} onClose={closeVideo} />}
+      {videoOpen && <VideoModal track={track} onClose={() => setVideoOpen(false)} />}
     </>
   )
 }

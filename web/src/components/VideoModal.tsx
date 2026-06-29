@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { getVideoStreamUrl } from '../api/client'
+import { usePlayerStore } from '../store/player'
 import type { Track } from '../api/tracks'
 
 interface Props {
   track: Track
-  startTime?: number
   onClose: () => void
 }
 
-export default function VideoModal({ track, startTime = 0, onClose }: Props) {
+export default function VideoModal({ track, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const audioRef = usePlayerStore((s) => s.audioRef)
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -19,6 +20,33 @@ export default function VideoModal({ track, startTime = 0, onClose }: Props) {
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
   }, [onClose])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const video = videoRef.current
+      const audio = audioRef
+      if (!video || !audio) return
+
+      if (audio.paused && !video.paused) {
+        video.pause()
+      } else if (!audio.paused && video.paused) {
+        video.play().catch(() => {})
+      }
+
+      if (Math.abs(video.currentTime - audio.currentTime) > 0.5) {
+        video.currentTime = audio.currentTime
+      }
+    }, 500)
+    return () => clearInterval(id)
+  }, [audioRef])
+
+  function handleLoadedMetadata() {
+    const video = videoRef.current
+    const audio = audioRef
+    if (!video || !audio) return
+    video.currentTime = audio.currentTime
+    if (!audio.paused) video.play().catch(() => {})
+  }
 
   return (
     <div
@@ -47,13 +75,8 @@ export default function VideoModal({ track, startTime = 0, onClose }: Props) {
         <video
           ref={videoRef}
           src={getVideoStreamUrl(track.id)}
-          controls
-          autoPlay
-          onLoadedMetadata={() => {
-            if (videoRef.current && startTime > 0) {
-              videoRef.current.currentTime = startTime
-            }
-          }}
+          muted
+          onLoadedMetadata={handleLoadedMetadata}
           className="w-full rounded-xl bg-black aspect-video"
         />
       </div>

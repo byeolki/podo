@@ -16,18 +16,6 @@ export default function Player() {
     queue, currentIndex,
   } = usePlayerStore()
   const [videoOpen, setVideoOpen] = useState(false)
-  const wasPlayingRef = useRef(false)
-
-  function openVideo() {
-    wasPlayingRef.current = isPlaying
-    if (isPlaying) usePlayerStore.getState().pause()
-    setVideoOpen(true)
-  }
-
-  function closeVideo() {
-    setVideoOpen(false)
-    if (wasPlayingRef.current) usePlayerStore.getState().play()
-  }
 
   useEffect(() => {
     setAudioRef(audioRef.current)
@@ -137,7 +125,7 @@ export default function Player() {
       {/* MV button */}
       {track?.has_video && (
         <button
-          onClick={openVideo}
+          onClick={() => setVideoOpen(true)}
           className="text-[#a1a1a1] hover:text-accent transition-colors flex-shrink-0"
           title="Watch music video"
         >
@@ -167,7 +155,7 @@ export default function Player() {
         />
       </div>
     </div>
-    {videoOpen && track && <VideoModal track={track} startTime={currentTime} onClose={closeVideo} />}
+    {videoOpen && track && <VideoModal track={track} onClose={() => setVideoOpen(false)} />}
     </>
   )
 }

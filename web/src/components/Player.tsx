@@ -16,6 +16,18 @@ export default function Player() {
     queue, currentIndex,
   } = usePlayerStore()
   const [videoOpen, setVideoOpen] = useState(false)
+  const wasPlayingRef = useRef(false)
+
+  function openVideo() {
+    wasPlayingRef.current = isPlaying
+    if (isPlaying) usePlayerStore.getState().pause()
+    setVideoOpen(true)
+  }
+
+  function closeVideo() {
+    setVideoOpen(false)
+    if (wasPlayingRef.current) usePlayerStore.getState().play()
+  }
 
   useEffect(() => {
     setAudioRef(audioRef.current)
@@ -46,7 +58,7 @@ export default function Player() {
 
   return (
     <>
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center px-4 gap-4 z-50">
+    <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center pl-4 pr-8 gap-4 z-50">
       <audio
         ref={audioRef}
         onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
@@ -125,7 +137,7 @@ export default function Player() {
       {/* MV button */}
       {track?.has_video && (
         <button
-          onClick={() => setVideoOpen(true)}
+          onClick={openVideo}
           className="text-[#a1a1a1] hover:text-accent transition-colors flex-shrink-0"
           title="Watch music video"
         >
@@ -134,7 +146,7 @@ export default function Player() {
       )}
 
       {/* Volume */}
-      <div className="flex items-center gap-2 w-32 flex-shrink-0 pr-4">
+      <div className="flex items-center gap-2 w-32 flex-shrink-0">
         <button
           onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
           className="text-[#a1a1a1] hover:text-white transition-colors"
@@ -155,7 +167,7 @@ export default function Player() {
         />
       </div>
     </div>
-    {videoOpen && track && <VideoModal track={track} onClose={() => setVideoOpen(false)} />}
+    {videoOpen && track && <VideoModal track={track} onClose={closeVideo} />}
     </>
   )
 }

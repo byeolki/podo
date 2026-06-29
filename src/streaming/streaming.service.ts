@@ -43,11 +43,19 @@ export class StreamingService {
     }
 
     const kind = req.mediaKind ?? 'audio';
-    const sources = await this.db
+    let sources = await this.db
       .select()
       .from(schema.sources)
       .where(and(eq(schema.sources.track_id, req.trackId), eq(schema.sources.media_kind, kind), eq(schema.sources.available, true), isNull(schema.sources.deleted_at)))
       .orderBy(asc(schema.sources.priority));
+
+    if (sources.length === 0 && !req.mediaKind) {
+      sources = await this.db
+        .select()
+        .from(schema.sources)
+        .where(and(eq(schema.sources.track_id, req.trackId), eq(schema.sources.available, true), isNull(schema.sources.deleted_at)))
+        .orderBy(asc(schema.sources.priority));
+    }
 
     if (sources.length === 0) throw new NotFoundException('No available source for this track');
 

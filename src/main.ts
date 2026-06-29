@@ -7,7 +7,6 @@ import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import fastifyMultipart from '@fastify/multipart';
-import fastifyStatic from '@fastify/static';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -33,16 +32,6 @@ async function bootstrap() {
   await app.register(fastifyMultipart, {
     limits: { fileSize: 500 * 1024 * 1024, files: 20 },
   });
-
-  const staticDir = config.get<string>('static_dir', path.join(process.cwd(), 'public'));
-  if (fs.existsSync(staticDir)) {
-    await app.register(fastifyStatic, {
-      root: staticDir,
-      prefix: '/',
-      decorateReply: false,
-      wildcard: false,
-    });
-  }
 
   app.enableCors({
     origin: '*',

@@ -40,6 +40,7 @@ async function bootstrap() {
       root: staticDir,
       prefix: '/',
       decorateReply: false,
+      wildcard: false,
     });
   }
 

@@ -1,6 +1,6 @@
-import { Controller, Get, Res } from '@nestjs/common';
+import { Controller, Get, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { FastifyReply } from 'fastify';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { Public } from './common/decorators/public.decorator';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -18,8 +18,11 @@ export class FrontendController {
     }
   }
 
-  @Get('*')
-  spa(@Res() reply: FastifyReply) {
+  @Get('*path')
+  spa(@Req() req: FastifyRequest, @Res() reply: FastifyReply) {
+    if (req.url.startsWith('/api/')) {
+      return reply.status(404).send({ statusCode: 404, message: 'Not found' });
+    }
     if (this.indexHtml) {
       return reply.type('text/html').send(this.indexHtml);
     }

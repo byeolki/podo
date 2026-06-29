@@ -167,7 +167,7 @@ export default function Player() {
         />
       </div>
     </div>
-    {videoOpen && track && <VideoModal track={track} onClose={closeVideo} />}
+    {videoOpen && track && <VideoModal track={track} startTime={currentTime} onClose={closeVideo} />}
     </>
   )
 }

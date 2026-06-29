@@ -5,10 +5,11 @@ import type { Track } from '../api/tracks'
 
 interface Props {
   track: Track
+  startTime?: number
   onClose: () => void
 }
 
-export default function VideoModal({ track, onClose }: Props) {
+export default function VideoModal({ track, startTime = 0, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -48,6 +49,11 @@ export default function VideoModal({ track, onClose }: Props) {
           src={getVideoStreamUrl(track.id)}
           controls
           autoPlay
+          onLoadedMetadata={() => {
+            if (videoRef.current && startTime > 0) {
+              videoRef.current.currentTime = startTime
+            }
+          }}
           className="w-full rounded-xl bg-black aspect-video"
         />
       </div>

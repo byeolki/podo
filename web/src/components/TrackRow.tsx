@@ -16,6 +16,7 @@ interface Props {
 export default function TrackRow({ track, index, queue, showArtist = true, showNumber = false }: Props) {
   const playTrack = usePlayerStore((s) => s.playTrack)
   const currentTrack = usePlayerStore((s) => s.queue[s.currentIndex])
+  const storeCurrentTime = usePlayerStore((s) => s.currentTime)
   const isActive = currentTrack?.id === track.id
   const [videoOpen, setVideoOpen] = useState(false)
   const wasPlayingRef = useRef(false)
@@ -82,7 +83,7 @@ export default function TrackRow({ track, index, queue, showArtist = true, showN
         </div>
       </div>
 
-      {videoOpen && <VideoModal track={track} onClose={closeVideo} />}
+      {videoOpen && <VideoModal track={track} startTime={isActive ? storeCurrentTime : 0} onClose={closeVideo} />}
     </>
   )
 }

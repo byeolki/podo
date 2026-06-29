@@ -37,12 +37,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   play: () => {
-    get().audioRef?.play()
     set({ isPlaying: true })
   },
 
   pause: () => {
-    get().audioRef?.pause()
     set({ isPlaying: false })
   },
 

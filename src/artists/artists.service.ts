@@ -29,7 +29,11 @@ export class ArtistsService {
       .innerJoin(schema.track_artists, eq(schema.track_artists.track_id, schema.tracks.id))
       .where(eq(schema.track_artists.artist_id, id));
 
-    return { ...artist, tracks: tracks.map((t) => t.track), covers: covers.map((c) => c.track) };
+    return {
+      ...artist,
+      tracks: tracks.map((t) => ({ ...t.track, duration: t.track.canonical_duration })),
+      covers: covers.map((c) => ({ ...c.track, duration: c.track.canonical_duration })),
+    };
   }
 
   async create(dto: { name: string; is_custom?: boolean }, userId: string) {

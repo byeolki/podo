@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Play } from 'lucide-react'
 import { getAlbum } from '../api/albums'
+import { getArtworkUrl } from '../api/client'
 import { usePlayerStore } from '../store/player'
 import TrackRow from '../components/TrackRow'
 import ArtworkImage from '../components/ArtworkImage'
@@ -28,14 +29,14 @@ export default function AlbumDetail() {
 
       <div className="flex items-start gap-6 mb-8">
         <ArtworkImage
-          src={null}
+          src={getArtworkUrl(album.versions?.[0]?.id)}
           alt={album.title}
           className="w-40 h-40 rounded-xl flex-shrink-0"
         />
         <div>
           <p className="text-xs text-[#6b6b6b] uppercase tracking-wider mb-1">Album</p>
           <h1 className="text-3xl font-bold">{album.title}</h1>
-          {album.year && <p className="text-sm text-[#a1a1a1] mt-1">{album.year}</p>}
+          {album.versions?.[0]?.release_year && <p className="text-sm text-[#a1a1a1] mt-1">{album.versions[0].release_year}</p>}
           <p className="text-sm text-[#a1a1a1]">{allTracks.length} tracks</p>
           {allTracks.length > 0 && (
             <button

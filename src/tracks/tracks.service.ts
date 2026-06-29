@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
-import { eq, and, isNull, asc, inArray } from 'drizzle-orm';
+import { eq, and, isNull, asc, inArray, desc } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
@@ -11,12 +11,34 @@ export class TracksService {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   async findAll(limit = 50) {
-    return this.db
+    const rawTracks = await this.db
       .select()
       .from(schema.tracks)
       .where(isNull(schema.tracks.deleted_at))
       .orderBy(asc(schema.tracks.added_at))
       .limit(limit);
+
+    if (!rawTracks.length) return [];
+
+    const trackIds = rawTracks.map((t) => t.id);
+    const trackArtists = await this.db
+      .select({ track_id: schema.track_artists.track_id, artist: schema.artists, position: schema.track_artists.position })
+      .from(schema.track_artists)
+      .innerJoin(schema.artists, eq(schema.track_artists.artist_id, schema.artists.id))
+      .where(inArray(schema.track_artists.track_id, trackIds))
+      .orderBy(asc(schema.track_artists.position));
+
+    const artistsByTrack = new Map<string, (typeof schema.artists.$inferSelect)[]>();
+    for (const ta of trackArtists) {
+      if (!artistsByTrack.has(ta.track_id)) artistsByTrack.set(ta.track_id, []);
+      artistsByTrack.get(ta.track_id)!.push(ta.artist);
+    }
+
+    return rawTracks.map((t) => ({
+      ...t,
+      duration: t.canonical_duration,
+      artists: artistsByTrack.get(t.id) ?? [],
+    }));
   }
 
   async findOne(id: string) {
@@ -52,6 +74,7 @@ export class TracksService {
 
     return {
       ...track,
+      duration: track.canonical_duration,
       title: override?.title ?? track.title,
       track_number: override?.track_number ?? track.track_number,
       disc_number: override?.disc_number ?? track.disc_number,

@@ -13,7 +13,7 @@ export interface AlbumVersion {
   id: string
   album_id: string
   label: string | null
-  year: number | null
+  release_year: number | null
   artwork_path: string | null
   tracks?: Track[]
 }

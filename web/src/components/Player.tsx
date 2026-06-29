@@ -27,7 +27,6 @@ export default function Player() {
     const src = getStreamUrl(track.id)
     if (audio.src !== src) {
       audio.src = src
-      audio.load()
     }
     if (isPlaying) {
       audio.play().catch(() => {})

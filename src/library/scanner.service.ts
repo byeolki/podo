@@ -208,6 +208,30 @@ export class ScannerService {
       );
     }
 
+    if (!existing) {
+      const siblingTrackId = await this.findSiblingTrackId(filePath);
+      if (siblingTrackId) {
+        const sourceId = newId();
+        await this.db.insert(schema.sources).values({
+          id: sourceId,
+          track_id: siblingTrackId,
+          media_kind: kind,
+          origin,
+          format: probe.format,
+          codec: probe.codec,
+          bitrate: probe.bitrate ?? undefined,
+          sample_rate: probe.sample_rate ?? undefined,
+          channels: probe.channels ?? undefined,
+          duration: probe.duration ?? undefined,
+          locator: filePath,
+          file_hash: fileHash,
+          file_size: stat.size,
+        }).onConflictDoNothing();
+        this.events.emit('track.upserted', { track_id: siblingTrackId });
+        return 'added';
+      }
+    }
+
     if (existing) {
       const trackId = existing.track_id;
 
@@ -287,6 +311,22 @@ export class ScannerService {
 
     this.events.emit('track.upserted', { track_id: trackId });
     return 'added';
+  }
+
+  private async findSiblingTrackId(filePath: string): Promise<string | null> {
+    const dir = path.dirname(filePath);
+    const stem = path.basename(filePath, path.extname(filePath));
+    const sources = await this.db
+      .select({ track_id: schema.sources.track_id, locator: schema.sources.locator })
+      .from(schema.sources)
+      .where(eq(schema.sources.available, true));
+    for (const s of sources) {
+      if (s.locator === filePath) continue;
+      if (path.dirname(s.locator) === dir && path.basename(s.locator, path.extname(s.locator)) === stem) {
+        return s.track_id;
+      }
+    }
+    return null;
   }
 
   private async markMissingUnavailable(rootPath: string): Promise<void> {

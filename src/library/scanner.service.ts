@@ -170,8 +170,9 @@ export class ScannerService {
 
     let isCover = false;
     let originalArtistId: string | null = null;
+    let aiOverride: { title?: string; artist?: string; is_cover?: boolean; original_artist?: string } | null = null;
 
-    if (this.ai?.enabled && (!meta.title || !meta.artist)) {
+    if (this.ai?.enabled) {
       const aiResult = await this.ai.extractMetadata(path.basename(filePath), {
         title: meta.title,
         artist: meta.artist,
@@ -188,6 +189,12 @@ export class ScannerService {
         if (aiResult.is_cover && aiResult.original_artist) {
           originalArtistId = await this.metadata.resolveOrCreateArtist(aiResult.original_artist);
         }
+        aiOverride = {
+          title: aiResult.title ?? undefined,
+          artist: aiResult.artist ?? undefined,
+          is_cover: aiResult.is_cover,
+          original_artist: aiResult.original_artist ?? undefined,
+        };
       }
     }
 
@@ -312,6 +319,17 @@ export class ScannerService {
       file_hash: fileHash,
       file_size: stat.size,
     });
+
+    if (aiOverride) {
+      await this.db.insert(schema.track_metadata_overrides).values({
+        track_id: trackId,
+        title: aiOverride.title ?? null,
+        artist: aiOverride.artist ?? null,
+        is_cover: aiOverride.is_cover ?? false,
+        original_artist: aiOverride.original_artist ?? null,
+        updated_at: new Date(),
+      }).onConflictDoNothing();
+    }
 
     this.events.emit('track.upserted', { track_id: trackId });
     return 'added';

@@ -46,7 +46,7 @@ export default function Player() {
 
   return (
     <>
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center pl-4 pr-8 gap-4 z-50">
+    <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center px-4 gap-4 z-50">
       <audio
         ref={audioRef}
         onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
@@ -57,7 +57,7 @@ export default function Player() {
       />
 
       {/* Track info */}
-      <div className="flex items-center gap-3 w-56 flex-shrink-0">
+      <div className="flex items-center gap-3 w-52 flex-shrink-0">
         <ArtworkImage
           src={getArtworkUrl(track?.album_version_id)}
           alt={track?.title}
@@ -122,33 +122,29 @@ export default function Player() {
         </div>
       </div>
 
-      {/* Normalize toggle */}
-      <button
-        onClick={() => setNormalize(!normalize)}
-        className={`transition-colors flex-shrink-0 ${normalize ? 'text-accent' : 'text-[#6b6b6b] hover:text-[#a1a1a1]'}`}
-        title={normalize ? 'Loudness normalization on' : 'Loudness normalization off'}
-      >
-        <Activity size={16} />
-      </button>
-
-      {/* MV button */}
-      {track?.has_video && (
+      {/* Right controls */}
+      <div className="flex items-center gap-3 flex-shrink-0 w-44 justify-end">
+        {track?.has_video && (
+          <button
+            onClick={() => setVideoOpen(true)}
+            className="text-[#6b6b6b] hover:text-accent transition-colors"
+            title="Music video"
+          >
+            <Video size={15} />
+          </button>
+        )}
         <button
-          onClick={() => setVideoOpen(true)}
-          className="text-[#a1a1a1] hover:text-accent transition-colors flex-shrink-0"
-          title="Watch music video"
+          onClick={() => setNormalize(!normalize)}
+          className={`transition-colors ${normalize ? 'text-accent' : 'text-[#6b6b6b] hover:text-[#a1a1a1]'}`}
+          title={normalize ? 'Normalize: on' : 'Normalize: off'}
         >
-          <Video size={16} />
+          <Activity size={15} />
         </button>
-      )}
-
-      {/* Volume */}
-      <div className="flex items-center gap-2 w-32 flex-shrink-0">
         <button
           onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
-          className="text-[#a1a1a1] hover:text-white transition-colors"
+          className="text-[#6b6b6b] hover:text-white transition-colors"
         >
-          {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          {volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
         </button>
         <input
           type="range"
@@ -157,7 +153,7 @@ export default function Player() {
           step={0.01}
           value={volume}
           onChange={(e) => setVolume(Number(e.target.value))}
-          className="flex-1"
+          className="w-20"
           style={{
             background: `linear-gradient(to right, #a855f7 ${volume * 100}%, #333 0%)`,
           }}

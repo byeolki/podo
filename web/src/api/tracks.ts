@@ -1,5 +1,17 @@
 import { api } from './client'
 
+export interface TrackOverride {
+  title: string | null
+  artist: string | null
+  original_artist: string | null
+  is_cover: boolean | null
+  video_locator: string | null
+  track_number: number | null
+  disc_number: number | null
+  updated_at: string
+  updated_by: string | null
+}
+
 export interface Track {
   id: string
   title: string
@@ -14,6 +26,7 @@ export interface Track {
   sources?: Source[]
   artists?: Artist[]
   tags?: Tag[]
+  override?: TrackOverride | null
 }
 
 export interface Source {
@@ -48,7 +61,17 @@ export function getTrack(id: string): Promise<Track & { sources: Source[]; artis
   return api.get(`/tracks/${id}`)
 }
 
-export function updateTrackMetadata(id: string, data: { title?: string; track_number?: number; disc_number?: number }): Promise<Track> {
+export interface TrackMetadataInput {
+  title?: string
+  artist?: string
+  original_artist?: string
+  is_cover?: boolean
+  video_locator?: string
+  track_number?: number
+  disc_number?: number
+}
+
+export function updateTrackMetadata(id: string, data: TrackMetadataInput): Promise<Track> {
   return api.patch(`/tracks/${id}/metadata`, data)
 }
 

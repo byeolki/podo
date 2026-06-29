@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Play, Video } from 'lucide-react'
+import { Play, Video, Pencil } from 'lucide-react'
 import { usePlayerStore } from '../store/player'
 import type { Track } from '../api/tracks'
 import { formatDuration } from '../api/tracks'
 import VideoModal from './VideoModal'
+import TrackEditModal from './TrackEditModal'
 
 interface Props {
   track: Track
@@ -18,6 +19,7 @@ export default function TrackRow({ track, index, queue, showArtist = true, showN
   const currentTrack = usePlayerStore((s) => s.queue[s.currentIndex])
   const isActive = currentTrack?.id === track.id
   const [videoOpen, setVideoOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   return (
     <>
@@ -53,6 +55,13 @@ export default function TrackRow({ track, index, queue, showArtist = true, showN
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
+            className="opacity-0 group-hover:opacity-100 text-[#6b6b6b] hover:text-white transition-all"
+            title="Edit track"
+          >
+            <Pencil size={13} />
+          </button>
           {track.has_video && (
             <button
               onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }}
@@ -69,6 +78,7 @@ export default function TrackRow({ track, index, queue, showArtist = true, showN
       </div>
 
       {videoOpen && <VideoModal track={track} onClose={() => setVideoOpen(false)} />}
+      {editOpen && <TrackEditModal track={track} onClose={() => setEditOpen(false)} />}
     </>
   )
 }

@@ -1,18 +1,18 @@
 import {
-  Controller, Get, Patch, Post, Put, Param, Body, Query, UseGuards,
-  UploadedFile, UseInterceptors,
+  Controller, Get, Patch, Post, Param, Body,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsArray, ArrayNotEmpty, Min, Max } from 'class-validator';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { IsString, IsOptional, IsInt, IsBoolean, IsArray, ArrayNotEmpty, Min, Max } from 'class-validator';
 import { TracksService } from './tracks.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
-import * as path from 'path';
-import * as fs from 'fs';
-import { ConfigService } from '@nestjs/config';
 
 class TrackMetadataDto {
   @IsOptional() @IsString() title?: string;
+  @IsOptional() @IsString() artist?: string;
+  @IsOptional() @IsString() original_artist?: string;
+  @IsOptional() @IsBoolean() is_cover?: boolean;
+  @IsOptional() @IsString() video_locator?: string;
   @IsOptional() @IsInt() @Min(1) @Max(9999) track_number?: number;
   @IsOptional() @IsInt() @Min(1) @Max(99) disc_number?: number;
 }
@@ -32,10 +32,7 @@ class CoverMappingDto {
 @ApiBearerAuth()
 @Controller('api/v1/tracks')
 export class TracksController {
-  constructor(
-    private readonly tracks: TracksService,
-    private readonly config: ConfigService,
-  ) {}
+  constructor(private readonly tracks: TracksService) {}
 
   @Get()
   @ApiOperation({ summary: 'List all tracks' })

@@ -111,6 +111,10 @@ export const track_artists = sqliteTable('track_artists', {
 export const track_metadata_overrides = sqliteTable('track_metadata_overrides', {
   track_id: text('track_id').primaryKey().references(() => tracks.id, { onDelete: 'cascade' }),
   title: text('title'),
+  artist: text('artist'),
+  original_artist: text('original_artist'),
+  is_cover: integer('is_cover', { mode: 'boolean' }),
+  video_locator: text('video_locator'),
   track_number: integer('track_number'),
   disc_number: integer('disc_number'),
   updated_at: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),

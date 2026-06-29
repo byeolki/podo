@@ -44,6 +44,29 @@ export class StreamingService {
     }
 
     const kind = req.mediaKind ?? 'audio';
+
+    if (kind === 'video') {
+      const override = await this.db
+        .select({ video_locator: schema.track_metadata_overrides.video_locator })
+        .from(schema.track_metadata_overrides)
+        .where(eq(schema.track_metadata_overrides.track_id, req.trackId))
+        .get();
+      if (override?.video_locator && fs.existsSync(override.video_locator)) {
+        return {
+          id: `override:${req.trackId}`,
+          track_id: req.trackId,
+          media_kind: 'video',
+          origin: 'local',
+          locator: override.video_locator,
+          available: true,
+          format: null, codec: null, bitrate: null, sample_rate: null, channels: null,
+          duration: null, time_offset: 0, priority: 0, file_hash: null, file_size: null,
+          replaygain_track: null, replaygain_album: null,
+          updated_at: new Date(), created_at: new Date(), deleted_at: null,
+        } as typeof schema.sources.$inferSelect;
+      }
+    }
+
     let sources = await this.db
       .select()
       .from(schema.sources)

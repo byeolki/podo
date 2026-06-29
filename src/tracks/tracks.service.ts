@@ -20,7 +20,7 @@ export class TracksService {
     if (!rawTracks.length) return [];
 
     const trackIds = rawTracks.map((t) => t.id);
-    const [trackArtists, videoSources] = await Promise.all([
+    const [trackArtists, videoSources, overrides] = await Promise.all([
       this.db
         .select({ track_id: schema.track_artists.track_id, artist: schema.artists, position: schema.track_artists.position })
         .from(schema.track_artists)
@@ -31,6 +31,10 @@ export class TracksService {
         .selectDistinct({ track_id: schema.sources.track_id })
         .from(schema.sources)
         .where(and(eq(schema.sources.media_kind, 'video'), eq(schema.sources.available, true), isNull(schema.sources.deleted_at), inArray(schema.sources.track_id, trackIds))),
+      this.db
+        .select()
+        .from(schema.track_metadata_overrides)
+        .where(inArray(schema.track_metadata_overrides.track_id, trackIds)),
     ]);
 
     const artistsByTrack = new Map<string, (typeof schema.artists.$inferSelect)[]>();
@@ -40,13 +44,24 @@ export class TracksService {
     }
 
     const videoTrackIds = new Set(videoSources.map((s) => s.track_id));
+    const overrideByTrack = new Map(overrides.map((o) => [o.track_id, o]));
 
-    return rawTracks.map((t) => ({
-      ...t,
-      duration: t.canonical_duration,
-      artists: artistsByTrack.get(t.id) ?? [],
-      has_video: videoTrackIds.has(t.id),
-    }));
+    return rawTracks.map((t) => {
+      const ov = overrideByTrack.get(t.id);
+      const baseArtists = artistsByTrack.get(t.id) ?? [];
+      const artistsResult = ov?.artist
+        ? [{ id: '', name: ov.artist, is_custom: true, external_ids: {} }]
+        : baseArtists;
+      return {
+        ...t,
+        duration: t.canonical_duration,
+        title: ov?.title ?? t.title,
+        is_cover: ov?.is_cover ?? t.is_cover,
+        artists: artistsResult,
+        has_video: videoTrackIds.has(t.id) || !!ov?.video_locator,
+        override: ov ?? null,
+      };
+    });
   }
 
   async findOne(id: string) {
@@ -80,46 +95,53 @@ export class TracksService {
         .where(eq(schema.track_tags.track_id, id)),
     ]);
 
+    const artistsResult = override?.artist
+      ? [{ id: '', name: override.artist, is_custom: true, external_ids: {}, position: 0, role: 'main' as const }]
+      : artists.map((a) => ({ ...a.artist, position: a.position, role: a.role }));
+
     return {
       ...track,
       duration: track.canonical_duration,
       title: override?.title ?? track.title,
+      is_cover: override?.is_cover ?? track.is_cover,
       track_number: override?.track_number ?? track.track_number,
       disc_number: override?.disc_number ?? track.disc_number,
       sources,
-      artists: artists.map((a) => ({ ...a.artist, position: a.position, role: a.role })),
+      artists: artistsResult,
       tags: tags.map((t) => t.tag),
+      override: override ?? null,
     };
   }
 
   async applyOverride(
     trackId: string,
-    dto: { title?: string; track_number?: number; disc_number?: number },
+    dto: {
+      title?: string;
+      artist?: string;
+      original_artist?: string;
+      is_cover?: boolean;
+      video_locator?: string;
+      track_number?: number;
+      disc_number?: number;
+    },
     userId: string,
   ) {
     const track = await this.db.select().from(schema.tracks).where(eq(schema.tracks.id, trackId)).get();
     if (!track) throw new NotFoundException('Track not found');
 
+    const set: Record<string, unknown> = { updated_by: userId, updated_at: new Date() };
+    if (dto.title !== undefined) set.title = dto.title || null;
+    if (dto.artist !== undefined) set.artist = dto.artist || null;
+    if (dto.original_artist !== undefined) set.original_artist = dto.original_artist || null;
+    if (dto.is_cover !== undefined) set.is_cover = dto.is_cover;
+    if (dto.video_locator !== undefined) set.video_locator = dto.video_locator || null;
+    if (dto.track_number !== undefined) set.track_number = dto.track_number ?? null;
+    if (dto.disc_number !== undefined) set.disc_number = dto.disc_number ?? null;
+
     await this.db
       .insert(schema.track_metadata_overrides)
-      .values({
-        track_id: trackId,
-        title: dto.title ?? null,
-        track_number: dto.track_number ?? null,
-        disc_number: dto.disc_number ?? null,
-        updated_by: userId,
-        updated_at: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: schema.track_metadata_overrides.track_id,
-        set: {
-          ...(dto.title !== undefined && { title: dto.title }),
-          ...(dto.track_number !== undefined && { track_number: dto.track_number }),
-          ...(dto.disc_number !== undefined && { disc_number: dto.disc_number }),
-          updated_by: userId,
-          updated_at: new Date(),
-        },
-      });
+      .values({ track_id: trackId, updated_by: userId, updated_at: new Date(), ...set })
+      .onConflictDoUpdate({ target: schema.track_metadata_overrides.track_id, set });
 
     this.logger.log(`Metadata override: track=${trackId} by user=${userId}`);
     return this.findOne(trackId);

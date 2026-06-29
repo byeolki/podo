@@ -134,7 +134,7 @@ export default function Player() {
       )}
 
       {/* Volume */}
-      <div className="flex items-center gap-2 w-32 flex-shrink-0">
+      <div className="flex items-center gap-2 w-32 flex-shrink-0 pr-4">
         <button
           onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
           className="text-[#a1a1a1] hover:text-white transition-colors"

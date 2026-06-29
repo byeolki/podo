@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Music, Users, Disc3, ListMusic, Radio, Search,
-  History, Settings, LogOut, Grape,
+  History, Settings, LogOut,
 } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
 import { logout } from '../api/auth'
@@ -30,7 +30,7 @@ export default function Sidebar() {
   return (
     <aside className="w-56 flex-shrink-0 bg-[#111] border-r border-[#222] flex flex-col">
       <div className="px-5 py-6 flex items-center gap-2.5">
-        <Grape size={22} className="text-accent" />
+        <img src="/podo_lg.png" alt="Podo" className="w-7 h-7 object-contain" />
         <span className="text-lg font-semibold tracking-tight">Podo</span>
       </div>
 

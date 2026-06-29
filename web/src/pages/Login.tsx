@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Grape } from 'lucide-react'
 import { login, bootstrap, isAuthenticated } from '../api/auth'
 import { useAuthStore } from '../store/auth'
 
@@ -48,9 +47,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f]">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-accent/10 mb-4">
-            <Grape size={28} className="text-accent" />
-          </div>
+          <img src="/podo_lg.png" alt="Podo" className="w-20 h-20 object-contain mb-4 mx-auto" />
           <h1 className="text-2xl font-semibold">Podo</h1>
           <p className="text-sm text-[#a1a1a1] mt-1">
             {mode === 'bootstrap' ? 'Create your admin account' : 'Sign in to your library'}

@@ -2,6 +2,8 @@
   "name": "podo-server",
   "version": "0.1.0",
   "private": true,
+  "author": "byeolki",
+  "license": "AGPL-3.0",
   "scripts": {
     "build": "nest build",
     "start": "nest start",

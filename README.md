@@ -14,7 +14,7 @@ cp .env.example .env
 # Edit .env — set JWT_SECRET
 
 # Edit docker-compose.yml:
-#   image: ghcr.io/your-username/podo:latest
+#   image: ghcr.io/byeolki/podo:latest
 #   volumes: point to your actual music and data paths
 
 docker compose up -d

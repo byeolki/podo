@@ -24,6 +24,10 @@ class BulkMetadataDto {
   @IsOptional() @IsInt() @Min(1) @Max(99) disc_number?: number;
 }
 
+class AiFillDto {
+  @IsArray() @ArrayNotEmpty() @IsString({ each: true }) track_ids!: string[];
+}
+
 class CoverMappingDto {
   @IsString() original_track_id!: string;
 }
@@ -63,6 +67,15 @@ export class TracksController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.tracks.bulkApplyOverride(dto.track_ids, dto, user.sub);
+  }
+
+  @Post('ai-fill')
+  @ApiOperation({ summary: 'AI auto-fill metadata for one or more tracks' })
+  aiFill(
+    @Body() dto: AiFillDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.tracks.aiAutofill(dto.track_ids, user.sub);
   }
 
   @Get(':id/lyrics')

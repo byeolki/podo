@@ -75,6 +75,16 @@ export function updateTrackMetadata(id: string, data: TrackMetadataInput): Promi
   return api.patch(`/tracks/${id}/metadata`, data)
 }
 
+export interface AiFillResult {
+  track_id: string
+  applied: boolean
+  result: { title: string | null; artist: string | null; is_cover: boolean; original_artist: string | null } | null
+}
+
+export function aiAutofillTracks(trackIds: string[]): Promise<AiFillResult[]> {
+  return api.post('/tracks/ai-fill', { track_ids: trackIds })
+}
+
 export function formatDuration(ms: number | null): string {
   if (!ms) return '--:--'
   const s = Math.floor(ms / 1000)

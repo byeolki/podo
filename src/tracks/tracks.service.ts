@@ -1,14 +1,19 @@
-import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, Logger, Optional } from '@nestjs/common';
 import { eq, and, isNull, asc, inArray, desc } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
+import * as path from 'path';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class TracksService {
   private readonly logger = new Logger(TracksService.name);
 
-  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
+  constructor(
+    @Inject(DB_TOKEN) private readonly db: Db,
+    @Optional() private readonly ai: AiService | null,
+  ) {}
 
   async findAll() {
     const rawTracks = await this.db
@@ -206,6 +211,57 @@ export class TracksService {
 
   async getLyrics(trackId: string) {
     return this.db.select().from(schema.lyrics).where(eq(schema.lyrics.track_id, trackId)).get();
+  }
+
+  async aiAutofill(trackIds: string[], userId: string): Promise<{ track_id: string; applied: boolean; result: Record<string, unknown> | null }[]> {
+    if (!this.ai?.enabled) return trackIds.map((id) => ({ track_id: id, applied: false, result: null }));
+
+    const tracks = await this.db
+      .select({ id: schema.tracks.id, title: schema.tracks.title })
+      .from(schema.tracks)
+      .where(inArray(schema.tracks.id, trackIds));
+
+    const sources = await this.db
+      .select({ track_id: schema.sources.track_id, locator: schema.sources.locator, media_kind: schema.sources.media_kind })
+      .from(schema.sources)
+      .where(and(inArray(schema.sources.track_id, trackIds), eq(schema.sources.available, true), isNull(schema.sources.deleted_at)));
+
+    const sourceByTrack = new Map<string, string>();
+    for (const s of sources) {
+      if (s.media_kind === 'audio' && !sourceByTrack.has(s.track_id)) {
+        sourceByTrack.set(s.track_id, s.locator);
+      }
+    }
+    for (const s of sources) {
+      if (!sourceByTrack.has(s.track_id)) sourceByTrack.set(s.track_id, s.locator);
+    }
+
+    const results: { track_id: string; applied: boolean; result: Record<string, unknown> | null }[] = [];
+
+    for (const track of tracks) {
+      const locator = sourceByTrack.get(track.id);
+      if (!locator) { results.push({ track_id: track.id, applied: false, result: null }); continue; }
+
+      const filename = path.basename(locator);
+      const aiResult = await this.ai.extractMetadata(filename, { title: track.title });
+
+      if (!aiResult) { results.push({ track_id: track.id, applied: false, result: null }); continue; }
+
+      const set: Record<string, unknown> = { updated_by: userId, updated_at: new Date() };
+      if (aiResult.title) set.title = aiResult.title;
+      if (aiResult.artist) set.artist = aiResult.artist;
+      if (aiResult.is_cover !== undefined) set.is_cover = aiResult.is_cover;
+      if (aiResult.original_artist) set.original_artist = aiResult.original_artist;
+
+      await this.db
+        .insert(schema.track_metadata_overrides)
+        .values({ track_id: track.id, updated_by: userId, updated_at: new Date(), ...set })
+        .onConflictDoUpdate({ target: schema.track_metadata_overrides.track_id, set });
+
+      results.push({ track_id: track.id, applied: true, result: aiResult as unknown as Record<string, unknown> });
+    }
+
+    return results;
   }
 
   async addCoverMapping(coverTrackId: string, originalTrackId: string, userId: string) {

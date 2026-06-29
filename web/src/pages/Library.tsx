@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { Play, Shuffle } from 'lucide-react'
-import { getTracks } from '../api/tracks'
+import { useState, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Play, Shuffle, Sparkles, X } from 'lucide-react'
+import { getTracks, aiAutofillTracks } from '../api/tracks'
 import { usePlayerStore } from '../store/player'
 import TrackRow from '../components/TrackRow'
 
@@ -11,6 +12,26 @@ export default function Library() {
   })
 
   const { setQueue, play } = usePlayerStore()
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const queryClient = useQueryClient()
+
+  const { mutate: runAiFill, isPending: aiFilling } = useMutation({
+    mutationFn: (ids: string[]) => aiAutofillTracks(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tracks'] })
+      setSelectedIds(new Set())
+    },
+  })
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }, [])
+
+  const clearSelection = () => setSelectedIds(new Set())
 
   function playAll() {
     setQueue(tracks, 0)
@@ -23,6 +44,8 @@ export default function Library() {
     play()
   }
 
+  const hasSelection = selectedIds.size > 0
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -30,7 +53,7 @@ export default function Library() {
           <h1 className="text-2xl font-semibold">Library</h1>
           <p className="text-sm text-[#a1a1a1] mt-0.5">{tracks.length} tracks</p>
         </div>
-        {tracks.length > 0 && (
+        {tracks.length > 0 && !hasSelection && (
           <div className="flex gap-2">
             <button
               onClick={playAll}
@@ -43,6 +66,25 @@ export default function Library() {
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm font-medium transition-colors"
             >
               <Shuffle size={14} /> Shuffle
+            </button>
+          </div>
+        )}
+        {hasSelection && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-[#a1a1a1]">{selectedIds.size} selected</span>
+            <button
+              onClick={() => runAiFill([...selectedIds])}
+              disabled={aiFilling}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <Sparkles size={14} />
+              {aiFilling ? 'Filling…' : 'AI Fill'}
+            </button>
+            <button
+              onClick={clearSelection}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm transition-colors"
+            >
+              <X size={14} /> Cancel
             </button>
           </div>
         )}
@@ -62,11 +104,19 @@ export default function Library() {
       ) : (
         <div className="space-y-0.5">
           {tracks.map((track, i) => (
-            <TrackRow key={track.id} track={track} index={i} queue={tracks} showNumber />
+            <TrackRow
+              key={track.id}
+              track={track}
+              index={i}
+              queue={tracks}
+              showNumber
+              selected={selectedIds.has(track.id)}
+              onSelect={toggleSelect}
+              selectionActive={hasSelection}
+            />
           ))}
         </div>
       )}
-
     </div>
   )
 }

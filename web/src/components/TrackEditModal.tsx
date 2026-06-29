@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Sparkles } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { updateTrackMetadata } from '../api/tracks'
+import { updateTrackMetadata, aiAutofillTracks } from '../api/tracks'
 import type { Track, TrackMetadataInput } from '../api/tracks'
 
 interface Props {
@@ -23,6 +23,19 @@ export default function TrackEditModal({ track, onClose }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tracks'] })
       onClose()
+    },
+  })
+
+  const { mutate: runAiFill, isPending: aiFilling } = useMutation({
+    mutationFn: () => aiAutofillTracks([track.id]),
+    onSuccess: (results) => {
+      const r = results[0]?.result
+      if (r) {
+        if (r.title) setTitle(r.title)
+        if (r.artist) setArtist(r.artist)
+        if (r.is_cover !== undefined) setIsCover(r.is_cover)
+        if (r.original_artist) setOriginalArtist(r.original_artist)
+      }
     },
   })
 
@@ -48,9 +61,21 @@ export default function TrackEditModal({ track, onClose }: Props) {
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
           <h2 className="text-sm font-semibold">Edit Track</h2>
-          <button onClick={onClose} className="text-[#6b6b6b] hover:text-white transition-colors">
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => runAiFill()}
+              disabled={aiFilling}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-xs text-[#a1a1a1] hover:text-white transition-colors disabled:opacity-50"
+              title="Auto-fill with AI"
+            >
+              <Sparkles size={12} />
+              {aiFilling ? 'Filling…' : 'AI Fill'}
+            </button>
+            <button onClick={onClose} className="text-[#6b6b6b] hover:text-white transition-colors">
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">

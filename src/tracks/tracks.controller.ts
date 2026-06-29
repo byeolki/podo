@@ -38,12 +38,9 @@ export class TracksController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'List tracks' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max 200, default 50' })
-  findAll(@Query('limit') limit?: string) {
-    return this.tracks.findAll(
-      limit ? Math.min(parseInt(limit, 10), 200) : 50,
-    );
+  @ApiOperation({ summary: 'List all tracks' })
+  findAll() {
+    return this.tracks.findAll();
   }
 
   @Get(':id')

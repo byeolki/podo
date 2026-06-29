@@ -40,8 +40,8 @@ export interface Tag {
   name: string
 }
 
-export function getTracks(limit = 50): Promise<Track[]> {
-  return api.get(`/tracks?limit=${limit}`)
+export function getTracks(): Promise<Track[]> {
+  return api.get('/tracks')
 }
 
 export function getTrack(id: string): Promise<Track & { sources: Source[]; artists: Artist[] }> {

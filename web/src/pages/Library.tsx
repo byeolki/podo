@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Play, Shuffle } from 'lucide-react'
 import { getTracks } from '../api/tracks'
@@ -6,10 +5,9 @@ import { usePlayerStore } from '../store/player'
 import TrackRow from '../components/TrackRow'
 
 export default function Library() {
-  const [limit, setLimit] = useState(100)
   const { data: tracks = [], isLoading } = useQuery({
-    queryKey: ['tracks', limit],
-    queryFn: () => getTracks(limit),
+    queryKey: ['tracks'],
+    queryFn: getTracks,
   })
 
   const { setQueue, play } = usePlayerStore()
@@ -69,16 +67,6 @@ export default function Library() {
         </div>
       )}
 
-      {tracks.length >= limit && (
-        <div className="text-center mt-6">
-          <button
-            onClick={() => setLimit((l) => l + 100)}
-            className="px-4 py-2 text-sm text-[#a1a1a1] hover:text-white border border-[#333] rounded-lg transition-colors"
-          >
-            Load more
-          </button>
-        </div>
-      )}
     </div>
   )
 }

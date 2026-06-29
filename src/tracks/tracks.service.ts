@@ -10,13 +10,12 @@ export class TracksService {
 
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
-  async findAll(limit = 50) {
+  async findAll() {
     const rawTracks = await this.db
       .select()
       .from(schema.tracks)
       .where(isNull(schema.tracks.deleted_at))
-      .orderBy(asc(schema.tracks.added_at))
-      .limit(limit);
+      .orderBy(asc(schema.tracks.added_at));
 
     if (!rawTracks.length) return [];
 

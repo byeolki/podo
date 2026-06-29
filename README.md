@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/podo_lg.png" alt="Podo" width="120" />
+</p>
+
 # Podo
 
 Self-hosted music streaming server. One container, no external dependencies.

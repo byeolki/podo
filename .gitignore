@@ -11,6 +11,4 @@ deploy/.env
 
 *.tsbuildinfo
 
-# Claude Code internals (keep specs, ignore session state)
-.claude/settings.local.json
-.claude/*.session*
+.claude/

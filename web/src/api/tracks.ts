@@ -10,6 +10,7 @@ export interface Track {
   is_cover: boolean
   original_artist_id: string | null
   album_version_id: string | null
+  has_video?: boolean
   sources?: Source[]
   artists?: Artist[]
   tags?: Tag[]

@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
 import { getStreamUrl, getArtworkUrl } from '../api/client'
 import { formatDuration } from '../api/tracks'
 import ArtworkImage from './ArtworkImage'
+import VideoModal from './VideoModal'
 
 export default function Player() {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -14,6 +15,7 @@ export default function Player() {
     setCurrentTime, setDuration, setAudioRef,
     queue, currentIndex,
   } = usePlayerStore()
+  const [videoOpen, setVideoOpen] = useState(false)
 
   useEffect(() => {
     setAudioRef(audioRef.current)
@@ -43,6 +45,7 @@ export default function Player() {
   }, [isPlaying])
 
   return (
+    <>
     <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center px-4 gap-4 z-50">
       <audio
         ref={audioRef}
@@ -119,6 +122,17 @@ export default function Player() {
         </div>
       </div>
 
+      {/* MV button */}
+      {track?.has_video && (
+        <button
+          onClick={() => setVideoOpen(true)}
+          className="text-[#a1a1a1] hover:text-accent transition-colors flex-shrink-0"
+          title="Watch music video"
+        >
+          <Video size={16} />
+        </button>
+      )}
+
       {/* Volume */}
       <div className="flex items-center gap-2 w-32 flex-shrink-0">
         <button
@@ -141,5 +155,7 @@ export default function Player() {
         />
       </div>
     </div>
+    {videoOpen && track && <VideoModal track={track} onClose={() => setVideoOpen(false)} />}
+    </>
   )
 }

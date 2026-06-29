@@ -19,6 +19,11 @@ export function getStreamUrl(trackId: string): string {
   return `${BASE}/stream/${trackId}${token ? `?token=${token}` : ''}`
 }
 
+export function getVideoStreamUrl(trackId: string): string {
+  const token = getToken()
+  return `${BASE}/stream/${trackId}?media_kind=video${token ? `&token=${token}` : ''}`
+}
+
 export function getArtworkUrl(id: string | null | undefined): string | null {
   if (!id) return null
   return `${BASE}/artwork/${id}`

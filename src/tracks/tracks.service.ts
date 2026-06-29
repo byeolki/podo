@@ -21,12 +21,18 @@ export class TracksService {
     if (!rawTracks.length) return [];
 
     const trackIds = rawTracks.map((t) => t.id);
-    const trackArtists = await this.db
-      .select({ track_id: schema.track_artists.track_id, artist: schema.artists, position: schema.track_artists.position })
-      .from(schema.track_artists)
-      .innerJoin(schema.artists, eq(schema.track_artists.artist_id, schema.artists.id))
-      .where(inArray(schema.track_artists.track_id, trackIds))
-      .orderBy(asc(schema.track_artists.position));
+    const [trackArtists, videoSources] = await Promise.all([
+      this.db
+        .select({ track_id: schema.track_artists.track_id, artist: schema.artists, position: schema.track_artists.position })
+        .from(schema.track_artists)
+        .innerJoin(schema.artists, eq(schema.track_artists.artist_id, schema.artists.id))
+        .where(inArray(schema.track_artists.track_id, trackIds))
+        .orderBy(asc(schema.track_artists.position)),
+      this.db
+        .selectDistinct({ track_id: schema.sources.track_id })
+        .from(schema.sources)
+        .where(and(eq(schema.sources.media_kind, 'video'), eq(schema.sources.available, true), isNull(schema.sources.deleted_at), inArray(schema.sources.track_id, trackIds))),
+    ]);
 
     const artistsByTrack = new Map<string, (typeof schema.artists.$inferSelect)[]>();
     for (const ta of trackArtists) {
@@ -34,10 +40,13 @@ export class TracksService {
       artistsByTrack.get(ta.track_id)!.push(ta.artist);
     }
 
+    const videoTrackIds = new Set(videoSources.map((s) => s.track_id));
+
     return rawTracks.map((t) => ({
       ...t,
       duration: t.canonical_duration,
       artists: artistsByTrack.get(t.id) ?? [],
+      has_video: videoTrackIds.has(t.id),
     }));
   }
 

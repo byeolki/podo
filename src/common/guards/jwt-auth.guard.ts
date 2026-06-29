@@ -42,6 +42,8 @@ export class JwtAuthGuard {
   private extractToken(req: FastifyRequest): string | null {
     const auth = req.headers.authorization;
     if (auth?.startsWith('Bearer ')) return auth.slice(7);
+    const queryToken = (req.query as Record<string, string>)?.token;
+    if (queryToken) return queryToken;
     return null;
   }
 }

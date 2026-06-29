@@ -10,7 +10,9 @@
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "build:web": "cd web && npm run build",
+    "build:all": "npm run build:web && npm run build"
   },
   "dependencies": {
     "@fastify/multipart": "^9.0.3",

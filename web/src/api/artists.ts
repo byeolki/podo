@@ -1,6 +1,12 @@
 import { api } from './client'
 import type { Track } from './tracks'
 
+export interface LastFmInfo {
+  bio?: string
+  image?: string
+  tags?: string[]
+}
+
 export interface Artist {
   id: string
   name: string
@@ -8,13 +14,14 @@ export interface Artist {
   external_ids: Record<string, string>
   created_at: string
   tracks?: Track[]
+  lastfm?: LastFmInfo | null
 }
 
 export function getArtists(): Promise<Artist[]> {
   return api.get('/artists')
 }
 
-export function getArtist(id: string): Promise<Artist & { tracks: Track[]; covers: Track[] }> {
+export function getArtist(id: string): Promise<Artist & { tracks: Track[]; lastfm: LastFmInfo | null }> {
   return api.get(`/artists/${id}`)
 }
 

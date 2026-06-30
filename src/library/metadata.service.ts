@@ -54,35 +54,14 @@ export class MetadataService {
     };
   }
 
-  async resolveOrCreateArtist(name: string): Promise<string> {
-    const normalized = name.trim();
-    const existing = await this.db
-      .select()
-      .from(schema.artists)
-      .where(eq(schema.artists.name, normalized))
-      .get();
-
-    if (existing) return existing.id;
-
-    const id = newId();
-    await this.db.insert(schema.artists).values({ id, name: normalized });
-    return id;
-  }
-
   async resolveOrCreateAlbumVersion(
     albumTitle: string,
-    artistId: string | null,
     year: number | null,
   ): Promise<string> {
     const album = await this.db
       .select()
       .from(schema.albums)
-      .where(
-        and(
-          eq(schema.albums.title, albumTitle),
-          artistId ? eq(schema.albums.primary_artist_id, artistId) : isNull(schema.albums.primary_artist_id),
-        ),
-      )
+      .where(eq(schema.albums.title, albumTitle))
       .get();
 
     let albumId: string;
@@ -90,11 +69,7 @@ export class MetadataService {
       albumId = album.id;
     } else {
       albumId = newId();
-      await this.db.insert(schema.albums).values({
-        id: albumId,
-        title: albumTitle,
-        primary_artist_id: artistId ?? undefined,
-      });
+      await this.db.insert(schema.albums).values({ id: albumId, title: albumTitle });
     }
 
     const version = await this.db

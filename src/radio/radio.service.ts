@@ -1,12 +1,12 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { eq, and, inArray, notInArray, isNull, sql } from 'drizzle-orm';
+import { eq, and, notInArray, isNull, inArray, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
 
 export interface RadioOptions {
   seedTrackId?: string;
-  seedArtistId?: string;
+  seedArtistName?: string;
   count?: number;
   excludeIds?: string[];
 }
@@ -21,7 +21,7 @@ export class RadioService {
     const count = Math.min(opts.count ?? 50, 200);
     const excludeIds = opts.excludeIds ?? [];
 
-    const seedArtistIds = await this.resolveSeedArtists(opts);
+    const seedArtistNames = await this.resolveSeedArtistNames(opts);
     const seedTagIds = await this.resolveSeedTags(opts);
 
     const scored: Array<{ track: typeof schema.tracks.$inferSelect; score: number }> = [];
@@ -32,14 +32,19 @@ export class RadioService {
       excludeIds.length ? notInArray(schema.tracks.id, excludeIds) : undefined,
     );
 
-    if (seedArtistIds.length) {
-      const rows = await this.db
-        .select({ track: schema.tracks })
-        .from(schema.tracks)
-        .innerJoin(schema.track_artists, eq(schema.track_artists.track_id, schema.tracks.id))
-        .where(and(baseCond, inArray(schema.track_artists.artist_id, seedArtistIds)));
-
-      for (const { track } of rows) {
+    if (seedArtistNames.length) {
+      const likeConditions = seedArtistNames.map((n) =>
+        sql`(lower(COALESCE(ov.artist, t.artist, '')) LIKE lower(${'%' + n + '%'})
+          OR lower(COALESCE(ov.original_artist, '')) LIKE lower(${'%' + n + '%'}))`,
+      );
+      const rows = await this.db.all<typeof schema.tracks.$inferSelect>(sql`
+        SELECT t.* FROM tracks t
+        LEFT JOIN track_metadata_overrides ov ON ov.track_id = t.id
+        WHERE t.deleted_at IS NULL
+          AND (${sql.join(likeConditions, sql` OR `)})
+          ${excludeIds.length ? sql`AND t.id NOT IN (${sql.join(excludeIds.map((id) => sql`${id}`), sql`,`)})` : sql``}
+      `);
+      for (const track of rows) {
         if (seen.has(track.id)) continue;
         seen.add(track.id);
         scored.push({ track, score: 3 + Math.random() });
@@ -107,20 +112,25 @@ export class RadioService {
     return (await this.db.select().from(schema.playlists).where(eq(schema.playlists.id, id)).get())!;
   }
 
-  private async resolveSeedArtists(opts: RadioOptions): Promise<string[]> {
-    const ids = new Set<string>();
+  private async resolveSeedArtistNames(opts: RadioOptions): Promise<string[]> {
+    const names = new Set<string>();
 
-    if (opts.seedArtistId) ids.add(opts.seedArtistId);
+    if (opts.seedArtistName) names.add(opts.seedArtistName);
 
     if (opts.seedTrackId) {
-      const rows = await this.db
-        .select({ artist_id: schema.track_artists.artist_id })
-        .from(schema.track_artists)
-        .where(eq(schema.track_artists.track_id, opts.seedTrackId));
-      for (const r of rows) ids.add(r.artist_id);
+      const row = await this.db.all<{ artist: string | null; ov_artist: string | null }>(sql`
+        SELECT t.artist, ov.artist as ov_artist FROM tracks t
+        LEFT JOIN track_metadata_overrides ov ON ov.track_id = t.id
+        WHERE t.id = ${opts.seedTrackId}
+      `);
+      const raw = row[0];
+      const artistRaw = raw?.ov_artist ?? raw?.artist;
+      if (artistRaw) {
+        for (const n of artistRaw.split(',').map((s) => s.trim()).filter(Boolean)) names.add(n);
+      }
     }
 
-    return [...ids];
+    return [...names];
   }
 
   private async resolveSeedTags(opts: RadioOptions): Promise<string[]> {

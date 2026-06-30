@@ -20,10 +20,6 @@ export class AlbumsService {
       .from(schema.album_versions)
       .where(eq(schema.album_versions.album_id, id));
 
-    const artist = album.primary_artist_id
-      ? await this.db.select().from(schema.artists).where(eq(schema.artists.id, album.primary_artist_id)).get()
-      : null;
-
     const versionIds = versions.map((v) => v.id);
     let versionsWithTracks = versions.map((v) => ({ ...v, tracks: [] as Record<string, unknown>[] }));
 
@@ -34,24 +30,10 @@ export class AlbumsService {
         .where(and(inArray(schema.tracks.album_version_id, versionIds), isNull(schema.tracks.deleted_at)));
 
       if (rawTracks.length > 0) {
-        const trackIds = rawTracks.map((t) => t.id);
-        const trackArtists = await this.db
-          .select({ track_id: schema.track_artists.track_id, artist: schema.artists, position: schema.track_artists.position })
-          .from(schema.track_artists)
-          .innerJoin(schema.artists, eq(schema.track_artists.artist_id, schema.artists.id))
-          .where(inArray(schema.track_artists.track_id, trackIds))
-          .orderBy(asc(schema.track_artists.position));
-
-        const artistsByTrack = new Map<string, (typeof schema.artists.$inferSelect)[]>();
-        for (const ta of trackArtists) {
-          if (!artistsByTrack.has(ta.track_id)) artistsByTrack.set(ta.track_id, []);
-          artistsByTrack.get(ta.track_id)!.push(ta.artist);
-        }
-
         const enrichedTracks = rawTracks.map((t) => ({
           ...t,
           duration: t.canonical_duration,
-          artists: artistsByTrack.get(t.id) ?? [],
+          artists: (t.artist ?? '').split(',').map((n) => ({ name: n.trim() })).filter((a) => a.name),
         }));
 
         const tracksByVersion = new Map<string, typeof enrichedTracks>();
@@ -70,7 +52,7 @@ export class AlbumsService {
       }
     }
 
-    return { ...album, artist, versions: versionsWithTracks };
+    return { ...album, versions: versionsWithTracks };
   }
 
   async updateArtwork(albumVersionId: string, artworkPath: string) {

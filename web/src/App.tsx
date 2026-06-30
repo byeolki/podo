@@ -40,7 +40,7 @@ export default function App() {
         <Route index element={<Navigate to="/library" replace />} />
         <Route path="library" element={<Library />} />
         <Route path="artists" element={<Artists />} />
-        <Route path="artists/:id" element={<ArtistDetail />} />
+        <Route path="artists/:name" element={<ArtistDetail />} />
         <Route path="playlists" element={<Playlists />} />
         <Route path="playlists/:id" element={<PlaylistDetail />} />
         <Route path="radio" element={<Radio />} />

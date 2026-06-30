@@ -169,7 +169,6 @@ export class ScannerService {
     const meta = this.metadata.parseTags(probe);
 
     let isCover = false;
-    let originalArtistId: string | null = null;
     let aiOverride: { title?: string; artist?: string; is_cover?: boolean; original_artist?: string } | null = null;
 
     if (this.ai?.enabled) {
@@ -186,9 +185,6 @@ export class ScannerService {
         if (!meta.year && aiResult.year) meta.year = aiResult.year;
         if (!meta.genres.length && aiResult.genres.length) meta.genres = aiResult.genres;
         isCover = aiResult.is_cover;
-        if (aiResult.is_cover && aiResult.original_artist) {
-          originalArtistId = await this.metadata.resolveOrCreateArtist(aiResult.original_artist);
-        }
         aiOverride = {
           title: aiResult.title ?? undefined,
           artist: aiResult.artist ?? undefined,
@@ -201,18 +197,9 @@ export class ScannerService {
     const title = meta.title ?? path.basename(filePath, path.extname(filePath));
     const fileHash = this.hashFile(filePath);
 
-    const artistId = meta.artist ? await this.metadata.resolveOrCreateArtist(meta.artist) : null;
-    const albumArtistId = meta.album_artist
-      ? await this.metadata.resolveOrCreateArtist(meta.album_artist)
-      : artistId;
-
     let albumVersionId: string | null = null;
     if (meta.album) {
-      albumVersionId = await this.metadata.resolveOrCreateAlbumVersion(
-        meta.album,
-        albumArtistId,
-        meta.year,
-      );
+      albumVersionId = await this.metadata.resolveOrCreateAlbumVersion(meta.album, meta.year);
     }
 
     if (!existing) {
@@ -244,12 +231,12 @@ export class ScannerService {
 
       await this.db.update(schema.tracks).set({
         title,
+        artist: meta.artist ?? undefined,
         album_version_id: albumVersionId ?? undefined,
         track_number: meta.track_number ?? undefined,
         disc_number: meta.disc_number ?? undefined,
         canonical_duration: probe.duration ?? undefined,
         is_cover: isCover,
-        original_artist_id: originalArtistId ?? undefined,
         updated_at: new Date(),
       }).where(eq(schema.tracks.id, trackId));
 
@@ -269,11 +256,6 @@ export class ScannerService {
         updated_at: new Date(),
       }).where(eq(schema.sources.id, existing.id));
 
-      if (artistId) {
-        await this.db.delete(schema.track_artists).where(eq(schema.track_artists.track_id, trackId));
-        await this.db.insert(schema.track_artists).values({ track_id: trackId, artist_id: artistId, position: 0 });
-      }
-
       this.events.emit('track.upserted', { track_id: trackId });
       return 'updated';
     }
@@ -282,17 +264,13 @@ export class ScannerService {
     await this.db.insert(schema.tracks).values({
       id: trackId,
       title,
+      artist: meta.artist ?? undefined,
       album_version_id: albumVersionId ?? undefined,
       track_number: meta.track_number ?? undefined,
       disc_number: meta.disc_number ?? undefined,
       canonical_duration: probe.duration ?? undefined,
       is_cover: isCover,
-      original_artist_id: originalArtistId ?? undefined,
     });
-
-    if (artistId) {
-      await this.db.insert(schema.track_artists).values({ track_id: trackId, artist_id: artistId, position: 0 });
-    }
 
     if (meta.genres.length) {
       const tagIds = await this.metadata.ensureGenres(meta.genres);

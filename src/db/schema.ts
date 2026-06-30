@@ -41,29 +41,14 @@ export const refresh_tokens = sqliteTable('refresh_tokens', {
 
 // ─── Artists ──────────────────────────────────────────────────────────────────
 
-export const artists = sqliteTable('artists', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  is_custom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
-  external_ids: text('external_ids', { mode: 'json' }).notNull().default('{}'),
-  created_by: text('created_by').references(() => users.id),
-  updated_at: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
-  created_at: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
-}, (t) => [
-  index('idx_artists_name').on(t.name),
-]);
-
 // ─── Albums ───────────────────────────────────────────────────────────────────
 
 export const albums = sqliteTable('albums', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
-  primary_artist_id: text('primary_artist_id').references(() => artists.id),
   updated_at: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
   created_at: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
-}, (t) => [
-  index('idx_albums_primary_artist').on(t.primary_artist_id),
-]);
+});
 
 export const album_versions = sqliteTable('album_versions', {
   id: text('id').primaryKey(),
@@ -84,12 +69,12 @@ export const album_versions = sqliteTable('album_versions', {
 export const tracks = sqliteTable('tracks', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
+  artist: text('artist'),
   album_version_id: text('album_version_id').references(() => album_versions.id),
   track_number: integer('track_number'),
   disc_number: integer('disc_number'),
   canonical_duration: integer('canonical_duration'),
   is_cover: integer('is_cover', { mode: 'boolean' }).notNull().default(false),
-  original_artist_id: text('original_artist_id').references(() => artists.id),
   play_count: integer('play_count').notNull().default(0),
   added_by: text('added_by').references(() => users.id),
   added_at: integer('added_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
@@ -98,16 +83,6 @@ export const tracks = sqliteTable('tracks', {
 }, (t) => [
   index('idx_tracks_album_version').on(t.album_version_id),
   index('idx_tracks_updated_at').on(t.updated_at),
-]);
-
-export const track_artists = sqliteTable('track_artists', {
-  track_id: text('track_id').notNull().references(() => tracks.id, { onDelete: 'cascade' }),
-  artist_id: text('artist_id').notNull().references(() => artists.id, { onDelete: 'cascade' }),
-  position: integer('position').notNull().default(0),
-  role: text('role', { enum: ['main', 'featuring'] }).notNull().default('main'),
-}, (t) => [
-  primaryKey({ columns: [t.track_id, t.artist_id] }),
-  index('idx_track_artists_artist').on(t.artist_id),
 ]);
 
 export const track_metadata_overrides = sqliteTable('track_metadata_overrides', {
@@ -335,5 +310,4 @@ export const artist_aliases = sqliteTable('artist_aliases', {
 // ─── FTS5 virtual tables (raw SQL in migration) ────────────────────────────────
 // Defined as raw SQL in the initial migration, not as Drizzle table objects.
 // tracks_fts: content='tracks', content_rowid='rowid' (title)
-// artists_fts: content='artists', content_rowid='rowid' (name)
 // albums_fts: content='albums', content_rowid='rowid' (title)

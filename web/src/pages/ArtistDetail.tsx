@@ -7,11 +7,12 @@ import { usePlayerStore } from '../store/player'
 import TrackRow from '../components/TrackRow'
 
 export default function ArtistDetail() {
-  const { id } = useParams<{ id: string }>()
+  const { name } = useParams<{ name: string }>()
+  const decodedName = name ? decodeURIComponent(name) : ''
   const { data: artist, isLoading } = useQuery({
-    queryKey: ['artist', id],
-    queryFn: () => getArtist(id!),
-    enabled: !!id,
+    queryKey: ['artist', decodedName],
+    queryFn: () => getArtist(decodedName),
+    enabled: !!decodedName,
   })
   const playTrack = usePlayerStore((s) => s.playTrack)
 

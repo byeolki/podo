@@ -1,15 +1,13 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
-import { eq, asc, sql } from 'drizzle-orm';
+import { Injectable, Inject } from '@nestjs/common';
+import { eq, isNull, sql } from 'drizzle-orm';
 import * as https from 'https';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
-import { newId } from '../common/id';
 import { TracksService } from '../tracks/tracks.service';
 
 const LASTFM_CACHE_TTL = 30 * 24 * 3600 * 1000;
 
 export interface LastFmArtistInfo {
-  bio?: string;
   image?: string;
   tags?: string[];
 }
@@ -21,47 +19,76 @@ export class ArtistsService {
     private readonly tracks: TracksService,
   ) {}
 
-  findAll() {
-    return this.db.all<{
-      id: string;
-      name: string;
-      is_custom: boolean;
-      external_ids: Record<string, string>;
-      created_at: Date;
-      track_count: number;
-      is_performer: number;
-      image: string | null;
+  async findAll(): Promise<{ name: string; track_count: number; is_performer: boolean; image: string | null }[]> {
+    const rows = await this.db.all<{
+      ov_artist: string | null;
+      ov_original_artist: string | null;
+      t_artist: string | null;
+      is_cover: number;
     }>(sql`
-      SELECT
-        a.id, a.name, a.is_custom, a.external_ids, a.created_at,
-        COUNT(ta.artist_id) as track_count,
-        MAX(CASE WHEN ov.is_cover = 1 AND instr(',' || ov.artist || ',', ',' || a.name || ',') > 0 THEN 1 ELSE 0 END) as is_performer,
-        json_extract(mc.data, '$.image') as image
-      FROM artists a
-      LEFT JOIN track_artists ta ON ta.artist_id = a.id
-      LEFT JOIN track_metadata_overrides ov ON ov.track_id = ta.track_id
-      LEFT JOIN mb_cache mc ON mc.key = 'lastfm:artist:' || lower(a.name)
-      GROUP BY a.id
-      ORDER BY a.name
+      SELECT ov.artist as ov_artist, ov.original_artist as ov_original_artist,
+             t.artist as t_artist, COALESCE(ov.is_cover, t.is_cover, 0) as is_cover
+      FROM tracks t
+      LEFT JOIN track_metadata_overrides ov ON ov.track_id = t.id
+      WHERE t.deleted_at IS NULL
     `);
+
+    const artistMap = new Map<string, { name: string; track_count: number; is_performer: boolean }>();
+
+    const add = (raw: string, isPerformer: boolean) => {
+      for (const n of raw.split(',').map((s) => s.trim()).filter(Boolean)) {
+        const key = n.toLowerCase();
+        const existing = artistMap.get(key);
+        if (existing) {
+          existing.track_count++;
+          if (isPerformer) existing.is_performer = true;
+        } else {
+          artistMap.set(key, { name: n, track_count: 1, is_performer: isPerformer });
+        }
+      }
+    };
+
+    for (const r of rows) {
+      if (r.ov_artist) add(r.ov_artist, true);
+      if (r.ov_original_artist) add(r.ov_original_artist, false);
+      if (!r.ov_artist && !r.ov_original_artist && r.t_artist) add(r.t_artist, false);
+    }
+
+    const artists = [...artistMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+    const cacheRows = await this.db.all<{ key: string; image: string | null }>(sql`
+      SELECT key, json_extract(data, '$.image') as image FROM mb_cache
+      WHERE key LIKE 'lastfm:artist:%'
+    `);
+    const imageByKey = new Map(cacheRows.map((r) => [r.key, r.image]));
+
+    return artists.map((a) => ({
+      ...a,
+      image: imageByKey.get(`lastfm:artist:${a.name.toLowerCase()}`) ?? null,
+    }));
   }
 
-  async findOne(id: string) {
-    const artist = await this.db.select().from(schema.artists).where(eq(schema.artists.id, id)).get();
-    if (!artist) throw new NotFoundException('Artist not found');
+  async findByName(name: string) {
+    const lower = name.toLowerCase();
+    const rows = await this.db.all<{ track_id: string }>(sql`
+      SELECT DISTINCT t.id as track_id
+      FROM tracks t
+      LEFT JOIN track_metadata_overrides ov ON ov.track_id = t.id
+      WHERE t.deleted_at IS NULL AND (
+        lower(ov.artist) = ${lower} OR
+        lower(ov.original_artist) = ${lower} OR
+        lower(t.artist) = ${lower} OR
+        (',' || lower(COALESCE(ov.artist,'')) || ',') LIKE ('%,' || ${lower} || ',%') OR
+        (',' || lower(COALESCE(ov.original_artist,'')) || ',') LIKE ('%,' || ${lower} || ',%')
+      )
+    `);
 
-    const [rows, lastfm] = await Promise.all([
-      this.db.select({ track_id: schema.track_artists.track_id }).from(schema.track_artists).where(eq(schema.track_artists.artist_id, id)),
-      this.getLastFmInfo(artist.name),
+    const [fullTracks, lastfm] = await Promise.all([
+      this.tracks.findByIds(rows.map((r) => r.track_id)),
+      this.getLastFmInfo(name),
     ]);
 
-    const fullTracks = await this.tracks.findByIds(rows.map((r) => r.track_id));
-
-    return {
-      ...artist,
-      tracks: fullTracks,
-      lastfm,
-    };
+    return { name, tracks: fullTracks, lastfm };
   }
 
   private async getLastFmInfo(name: string): Promise<LastFmArtistInfo | null> {
@@ -69,11 +96,7 @@ export class ArtistsService {
     if (!apiKey) return null;
 
     const cacheKey = `lastfm:artist:${name.toLowerCase()}`;
-    const cached = this.db
-      .select()
-      .from(schema.mb_cache)
-      .where(eq(schema.mb_cache.key, cacheKey))
-      .get();
+    const cached = this.db.select().from(schema.mb_cache).where(eq(schema.mb_cache.key, cacheKey)).get();
 
     if (cached && Date.now() - cached.fetched_at.getTime() < LASTFM_CACHE_TTL) {
       return cached.data as LastFmArtistInfo | null;
@@ -81,12 +104,7 @@ export class ArtistsService {
 
     try {
       const url = `https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(name)}&api_key=${apiKey}&format=json&autocorrect=1`;
-      const data = await this.httpGet(url) as {
-        artist?: {
-          tags?: { tag?: { name: string }[] };
-        };
-        error?: number;
-      };
+      const data = await this.httpGet(url) as { artist?: { tags?: { tag?: { name: string }[] } }; error?: number };
 
       if (data.error || !data.artist) {
         this.cacheLastFm(cacheKey, null);
@@ -150,26 +168,5 @@ export class ArtistsService {
       req.on('error', reject);
       req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
     });
-  }
-
-  async create(dto: { name: string; is_custom?: boolean }, userId: string) {
-    const id = newId();
-    await this.db.insert(schema.artists).values({
-      id, name: dto.name.trim(), is_custom: dto.is_custom ?? true, external_ids: {}, created_by: userId,
-    });
-    return this.findOne(id);
-  }
-
-  async update(id: string, dto: { name?: string; external_ids?: Record<string, string> }) {
-    const artist = await this.db.select().from(schema.artists).where(eq(schema.artists.id, id)).get();
-    if (!artist) throw new NotFoundException('Artist not found');
-
-    await this.db.update(schema.artists).set({
-      ...(dto.name && { name: dto.name.trim() }),
-      ...(dto.external_ids && { external_ids: dto.external_ids }),
-      updated_at: new Date(),
-    }).where(eq(schema.artists.id, id));
-
-    return this.findOne(id);
   }
 }

@@ -33,7 +33,7 @@ export default function Artists() {
   const visible = useMemo(() => {
     let list = artists
 
-    if (filter === 'performers') list = list.filter((a) => a.is_performer === 1)
+    if (filter === 'performers') list = list.filter((a) => a.is_performer)
     else if (filter === 'originals') list = list.filter((a) => !a.is_performer)
 
     const t = q.trim().toLowerCase()
@@ -127,8 +127,8 @@ export default function Artists() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {visible.map((artist) => (
             <Link
-              key={artist.id}
-              to={`/artists/${artist.id}`}
+              key={artist.name}
+              to={`/artists/${encodeURIComponent(artist.name)}`}
               className="group p-4 rounded-xl bg-[#181818] hover:bg-[#222] transition-colors"
             >
               {artist.image ? (

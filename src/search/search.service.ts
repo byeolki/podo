@@ -106,16 +106,11 @@ export class SearchService {
   private searchTracks(terms: string[], limit: number): SearchHit[] {
     const seen = new Map<string, { title: string; artist?: string }>();
 
-    const artistSub = `(
-      SELECT COALESCE(ov2.original_artist, (SELECT GROUP_CONCAT(a2.name, ', ') FROM track_artists ta2 JOIN artists a2 ON a2.id = ta2.artist_id WHERE ta2.track_id = t.id))
-      FROM track_metadata_overrides ov2 WHERE ov2.track_id = t.id
-    )`;
-
     for (const term of terms) {
       try {
         const ftsQuery = this.toFtsQuery(term);
         const rows = this.sqlite.prepare(
-          `SELECT t.id, COALESCE(ov.title, t.title) as title, ${artistSub} as artist
+          `SELECT t.id, COALESCE(ov.title, t.title) as title, COALESCE(ov.artist, t.artist) as artist
            FROM tracks_fts f
            JOIN tracks t ON t.rowid = f.rowid
            LEFT JOIN track_metadata_overrides ov ON ov.track_id = t.id
@@ -129,17 +124,15 @@ export class SearchService {
 
     if (terms.length > 0) {
       const conditions = terms.map(() =>
-        `(lower(COALESCE(ov.artist,'')) LIKE lower(?) OR lower(COALESCE(ov.original_artist,'')) LIKE lower(?) OR lower(COALESCE(a.name,'')) LIKE lower(?))`,
+        `(lower(COALESCE(ov.artist,'')) LIKE lower(?) OR lower(COALESCE(ov.original_artist,'')) LIKE lower(?) OR lower(COALESCE(t.artist,'')) LIKE lower(?))`,
       ).join(' OR ');
       const params: unknown[] = terms.flatMap((t) => [`%${t}%`, `%${t}%`, `%${t}%`]);
       params.push(limit);
       try {
         const rows = this.sqlite.prepare(
-          `SELECT DISTINCT t.id, COALESCE(ov.title, t.title) as title, ${artistSub} as artist
+          `SELECT DISTINCT t.id, COALESCE(ov.title, t.title) as title, COALESCE(ov.artist, t.artist) as artist
            FROM tracks t
            LEFT JOIN track_metadata_overrides ov ON ov.track_id = t.id
-           LEFT JOIN track_artists ta ON ta.track_id = t.id
-           LEFT JOIN artists a ON a.id = ta.artist_id
            WHERE t.deleted_at IS NULL AND (${conditions})
            LIMIT ?`,
         ).all(...params) as { id: string; title: string; artist: string | null }[];
@@ -154,14 +147,26 @@ export class SearchService {
     const seen = new Map<string, string>();
     for (const term of terms) {
       try {
-        const ftsQuery = this.toFtsQuery(term);
+        const likeParam = `%${term}%`;
         const rows = this.sqlite.prepare(
-          `SELECT a.id, a.name FROM artists_fts f JOIN artists a ON a.rowid = f.rowid WHERE artists_fts MATCH ? ORDER BY rank LIMIT ?`,
-        ).all(ftsQuery, limit) as { id: string; name: string }[];
-        for (const r of rows) if (!seen.has(r.id)) seen.set(r.id, r.name);
+          `SELECT DISTINCT COALESCE(ov.artist, t.artist) as name
+           FROM tracks t
+           LEFT JOIN track_metadata_overrides ov ON ov.track_id = t.id
+           WHERE t.deleted_at IS NULL
+             AND (lower(COALESCE(ov.artist,'')) LIKE lower(?)
+               OR lower(COALESCE(ov.original_artist,'')) LIKE lower(?)
+               OR lower(COALESCE(t.artist,'')) LIKE lower(?))
+           LIMIT ?`,
+        ).all(likeParam, likeParam, likeParam, limit) as { name: string | null }[];
+        for (const r of rows) {
+          if (!r.name) continue;
+          for (const n of r.name.split(',').map((s) => s.trim()).filter(Boolean)) {
+            if (!seen.has(n.toLowerCase())) seen.set(n.toLowerCase(), n);
+          }
+        }
       } catch {}
     }
-    return [...seen.entries()].slice(0, limit).map(([id, name]) => ({ id, name, type: 'artist' as const }));
+    return [...seen.values()].slice(0, limit).map((name) => ({ id: name, name, type: 'artist' as const }));
   }
 
   private searchAlbums(terms: string[], limit: number): SearchHit[] {

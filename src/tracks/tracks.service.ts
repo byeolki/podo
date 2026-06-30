@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Inject, Logger, Optional } from '@nestjs/common';
-import { eq, and, isNull, asc, desc, inArray, sql } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc, inArray, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
@@ -8,6 +8,12 @@ import { AiService } from '../ai/ai.service';
 
 export type SortOption = 'newest' | 'oldest' | 'popular' | 'plays';
 export type FilterOption = 'all' | 'mine' | 'favorites';
+
+function resolveArtists(ovArtist: string | null, trackArtist: string | null): { name: string }[] {
+  const raw = ovArtist ?? trackArtist;
+  if (!raw) return [];
+  return raw.split(',').map((n) => ({ name: n.trim() })).filter((a) => a.name);
+}
 
 @Injectable()
 export class TracksService {
@@ -61,13 +67,7 @@ export class TracksService {
     if (!rawTracks.length) return [];
 
     const trackIds = rawTracks.map((t) => t.id);
-    const [trackArtists, videoSources, overrides, allFavs, userFavs] = await Promise.all([
-      this.db
-        .select({ track_id: schema.track_artists.track_id, artist: schema.artists, position: schema.track_artists.position })
-        .from(schema.track_artists)
-        .innerJoin(schema.artists, eq(schema.track_artists.artist_id, schema.artists.id))
-        .where(inArray(schema.track_artists.track_id, trackIds))
-        .orderBy(asc(schema.track_artists.position)),
+    const [videoSources, overrides, allFavs, userFavs] = await Promise.all([
       this.db
         .selectDistinct({ track_id: schema.sources.track_id })
         .from(schema.sources)
@@ -86,12 +86,6 @@ export class TracksService {
         .where(and(inArray(schema.favorites.track_id, trackIds), eq(schema.favorites.user_id, userId))),
     ]);
 
-    const artistsByTrack = new Map<string, (typeof schema.artists.$inferSelect)[]>();
-    for (const ta of trackArtists) {
-      if (!artistsByTrack.has(ta.track_id)) artistsByTrack.set(ta.track_id, []);
-      artistsByTrack.get(ta.track_id)!.push(ta.artist);
-    }
-
     const videoTrackIds = new Set(videoSources.map((s) => s.track_id));
     const overrideByTrack = new Map(overrides.map((o) => [o.track_id, o]));
 
@@ -103,16 +97,13 @@ export class TracksService {
 
     let results = rawTracks.map((t) => {
       const ov = overrideByTrack.get(t.id);
-      const baseArtists = artistsByTrack.get(t.id) ?? [];
-      const artistsResult = ov?.artist
-        ? [{ id: '', name: ov.artist, is_custom: true, external_ids: {} }]
-        : baseArtists;
+      const artists = resolveArtists(ov?.artist ?? null, t.artist ?? null);
       return {
         ...t,
         duration: t.canonical_duration,
         title: ov?.title ?? t.title,
         is_cover: ov?.is_cover ?? t.is_cover,
-        artists: artistsResult,
+        artists,
         has_video: videoTrackIds.has(t.id) || !!ov?.video_locator,
         override: ov ?? null,
         play_count: t.play_count,
@@ -138,13 +129,7 @@ export class TracksService {
     if (!rawTracks.length) return [];
 
     const trackIds = rawTracks.map((t) => t.id);
-    const [trackArtists, videoSources, overrides] = await Promise.all([
-      this.db
-        .select({ track_id: schema.track_artists.track_id, artist: schema.artists, position: schema.track_artists.position })
-        .from(schema.track_artists)
-        .innerJoin(schema.artists, eq(schema.track_artists.artist_id, schema.artists.id))
-        .where(inArray(schema.track_artists.track_id, trackIds))
-        .orderBy(asc(schema.track_artists.position)),
+    const [videoSources, overrides] = await Promise.all([
       this.db
         .selectDistinct({ track_id: schema.sources.track_id })
         .from(schema.sources)
@@ -155,26 +140,18 @@ export class TracksService {
         .where(inArray(schema.track_metadata_overrides.track_id, trackIds)),
     ]);
 
-    const artistsByTrack = new Map<string, (typeof schema.artists.$inferSelect)[]>();
-    for (const ta of trackArtists) {
-      if (!artistsByTrack.has(ta.track_id)) artistsByTrack.set(ta.track_id, []);
-      artistsByTrack.get(ta.track_id)!.push(ta.artist);
-    }
     const videoTrackIds = new Set(videoSources.map((s) => s.track_id));
     const overrideByTrack = new Map(overrides.map((o) => [o.track_id, o]));
 
     return rawTracks.map((t) => {
       const ov = overrideByTrack.get(t.id);
-      const baseArtists = artistsByTrack.get(t.id) ?? [];
-      const artistsResult = ov?.artist
-        ? [{ id: '', name: ov.artist, is_custom: true, external_ids: {} }]
-        : baseArtists;
+      const artists = resolveArtists(ov?.artist ?? null, t.artist ?? null);
       return {
         ...t,
         duration: t.canonical_duration,
         title: ov?.title ?? t.title,
         is_cover: ov?.is_cover ?? t.is_cover,
-        artists: artistsResult,
+        artists,
         has_video: videoTrackIds.has(t.id) || !!ov?.video_locator,
         override: ov ?? null,
         play_count: t.play_count,
@@ -192,17 +169,11 @@ export class TracksService {
       .get();
     if (!track) throw new NotFoundException('Track not found');
 
-    const [sources, artists, override, tags] = await Promise.all([
+    const [sources, override, tags] = await Promise.all([
       this.db
         .select()
         .from(schema.sources)
         .where(and(eq(schema.sources.track_id, id), isNull(schema.sources.deleted_at))),
-      this.db
-        .select({ artist: schema.artists, position: schema.track_artists.position, role: schema.track_artists.role })
-        .from(schema.track_artists)
-        .innerJoin(schema.artists, eq(schema.track_artists.artist_id, schema.artists.id))
-        .where(eq(schema.track_artists.track_id, id))
-        .orderBy(asc(schema.track_artists.position)),
       this.db
         .select()
         .from(schema.track_metadata_overrides)
@@ -215,9 +186,7 @@ export class TracksService {
         .where(eq(schema.track_tags.track_id, id)),
     ]);
 
-    const artistsResult = override?.artist
-      ? [{ id: '', name: override.artist, is_custom: true, external_ids: {}, position: 0, role: 'main' as const }]
-      : artists.map((a) => ({ ...a.artist, position: a.position, role: a.role }));
+    const artistsResult = resolveArtists(override?.artist ?? null, track.artist ?? null);
 
     return {
       ...track,
@@ -305,67 +274,13 @@ export class TracksService {
     if (dto.track_number !== undefined) set.track_number = dto.track_number ?? null;
     if (dto.disc_number !== undefined) set.disc_number = dto.disc_number ?? null;
 
-    const artistFieldsChanging = dto.original_artist !== undefined || dto.artist !== undefined;
-    if (artistFieldsChanging) {
-      await this.db
-        .delete(schema.track_artists)
-        .where(
-          sql`${schema.track_artists.track_id} = ${trackId} AND ${schema.track_artists.artist_id} IN (SELECT id FROM artists WHERE is_custom = 1)`,
-        );
-    }
-
     await this.db
       .insert(schema.track_metadata_overrides)
       .values({ track_id: trackId, updated_by: userId, updated_at: new Date(), ...set })
       .onConflictDoUpdate({ target: schema.track_metadata_overrides.track_id, set });
 
-    if (dto.original_artist !== undefined) {
-      await this.syncArtistsToTable(trackId, dto.original_artist ?? '', userId);
-    }
-    if (dto.artist !== undefined) {
-      await this.syncArtistsToTable(trackId, dto.artist ?? '', userId);
-    }
-
-    if (artistFieldsChanging) {
-      await this.pruneOrphanArtists();
-    }
-
     this.logger.log(`Metadata override: track=${trackId} by user=${userId}`);
     return this.findOne(trackId);
-  }
-
-  private async pruneOrphanArtists() {
-    await this.db
-      .delete(schema.artists)
-      .where(
-        sql`${schema.artists.is_custom} = 1 AND ${schema.artists.id} NOT IN (SELECT DISTINCT artist_id FROM track_artists)`,
-      );
-  }
-
-  private async syncArtistsToTable(trackId: string, artistField: string, userId?: string) {
-    const names = artistField.split(',').map((n) => n.trim()).filter(Boolean);
-    for (let i = 0; i < names.length; i++) {
-      const name = names[i];
-      let artist = await this.db
-        .select()
-        .from(schema.artists)
-        .where(sql`lower(${schema.artists.name}) = lower(${name})`)
-        .get();
-
-      if (!artist) {
-        const id = newId();
-        await this.db.insert(schema.artists).values({
-          id, name, is_custom: true, external_ids: {},
-          created_by: userId ?? null, updated_at: new Date(), created_at: new Date(),
-        });
-        artist = { id, name, is_custom: true, external_ids: {}, created_by: userId ?? null, updated_at: new Date(), created_at: new Date() };
-      }
-
-      await this.db
-        .insert(schema.track_artists)
-        .values({ track_id: trackId, artist_id: artist!.id, position: i, role: 'main' })
-        .onConflictDoNothing();
-    }
   }
 
   async bulkApplyOverride(
@@ -498,14 +413,6 @@ export class TracksService {
         .insert(schema.track_metadata_overrides)
         .values({ track_id: track.id, updated_by: userId, updated_at: new Date(), ...set })
         .onConflictDoUpdate({ target: schema.track_metadata_overrides.track_id, set });
-
-      if (aiResult.original_artist || aiResult.artist) {
-        await this.db
-          .delete(schema.track_artists)
-          .where(sql`${schema.track_artists.track_id} = ${track.id} AND ${schema.track_artists.artist_id} IN (SELECT id FROM artists WHERE is_custom = 1)`);
-      }
-      if (aiResult.original_artist) await this.syncArtistsToTable(track.id, aiResult.original_artist, userId);
-      if (aiResult.artist) await this.syncArtistsToTable(track.id, aiResult.artist, userId);
 
       results.push({ track_id: track.id, applied: true, skipped: false, result: aiResult as unknown as Record<string, unknown> });
     }

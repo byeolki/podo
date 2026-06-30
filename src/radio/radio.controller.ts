@@ -8,7 +8,7 @@ import { JwtPayload } from '../common/guards/jwt-auth.guard';
 class CreateMixDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() seed_track_id?: string;
-  @IsOptional() @IsString() seed_artist_id?: string;
+  @IsOptional() @IsString() seed_artist_name?: string;
   @IsOptional() @IsInt() @Min(1) @Max(200) count?: number;
 }
 
@@ -21,18 +21,18 @@ export class RadioController {
   @Get()
   @ApiOperation({ summary: 'Get a radio station (ordered track list based on seed)' })
   @ApiQuery({ name: 'seed_track_id', required: false })
-  @ApiQuery({ name: 'seed_artist_id', required: false })
+  @ApiQuery({ name: 'seed_artist_name', required: false })
   @ApiQuery({ name: 'count', required: false, type: Number })
   @ApiQuery({ name: 'exclude', required: false, description: 'Comma-separated track IDs to exclude' })
   getStation(
     @Query('seed_track_id') seedTrackId?: string,
-    @Query('seed_artist_id') seedArtistId?: string,
+    @Query('seed_artist_name') seedArtistName?: string,
     @Query('count') count?: string,
     @Query('exclude') exclude?: string,
   ) {
     return this.radio.getStation({
       seedTrackId,
-      seedArtistId,
+      seedArtistName,
       count: count ? parseInt(count, 10) : undefined,
       excludeIds: exclude ? exclude.split(',').map((s) => s.trim()).filter(Boolean) : [],
     });
@@ -44,7 +44,7 @@ export class RadioController {
     return this.radio.createMix({
       name: dto.name,
       seedTrackId: dto.seed_track_id,
-      seedArtistId: dto.seed_artist_id,
+      seedArtistName: dto.seed_artist_name,
       count: dto.count,
       userId: user.sub,
     });

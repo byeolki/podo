@@ -13,6 +13,8 @@ export interface Artist {
   is_custom: boolean
   external_ids: Record<string, string>
   created_at: string
+  track_count?: number
+  is_performer?: number
   tracks?: Track[]
   lastfm?: LastFmInfo | null
 }

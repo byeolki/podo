@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Shuffle, Sparkles, X, ChevronDown, Trash2, CheckSquare, Square } from 'lucide-react'
+import { Play, Shuffle, Sparkles, X, ChevronDown, Trash2, CheckSquare, Square, Search } from 'lucide-react'
 import { getTracks, aiAutofillTracks, deleteTracks } from '../api/tracks'
 import type { SortOption, FilterOption } from '../api/tracks'
 import { usePlayerStore } from '../store/player'
@@ -25,11 +25,22 @@ export default function Library() {
   const [sortOpen, setSortOpen] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [q, setQ] = useState('')
 
   const { data: tracks = [], isLoading } = useQuery({
     queryKey: ['tracks', sort, filter],
     queryFn: () => getTracks({ sort, filter }),
   })
+
+  const filteredTracks = useMemo(() => {
+    const t = q.trim().toLowerCase()
+    if (!t) return tracks
+    return tracks.filter((tr) => {
+      const title = tr.title?.toLowerCase() ?? ''
+      const artist = tr.override?.original_artist?.toLowerCase() ?? tr.artists?.map((a) => a.name).join(' ').toLowerCase() ?? ''
+      return title.includes(t) || artist.includes(t)
+    })
+  }, [tracks, q])
 
   const { setQueue, play } = usePlayerStore()
   const queryClient = useQueryClient()
@@ -64,18 +75,7 @@ export default function Library() {
     setSelectedIds(new Set())
   }
 
-  function playAll() {
-    setQueue(tracks, 0)
-    play()
-  }
-
-  function shuffle() {
-    const shuffled = [...tracks].sort(() => Math.random() - 0.5)
-    setQueue(shuffled, 0)
-    play()
-  }
-
-  const allSelected = tracks.length > 0 && selectedIds.size === tracks.length
+  const allSelected = filteredTracks.length > 0 && selectedIds.size === filteredTracks.length
   const hasSelection = selectedIds.size > 0
 
   return (
@@ -83,7 +83,7 @@ export default function Library() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-semibold">Library</h1>
-          <p className="text-sm text-[#a1a1a1] mt-0.5">{tracks.length} tracks</p>
+          <p className="text-sm text-[#a1a1a1] mt-0.5">{filteredTracks.length}{q ? ` / ${tracks.length}` : ''} tracks</p>
         </div>
 
         {!selectionMode && tracks.length > 0 && (
@@ -95,13 +95,13 @@ export default function Library() {
               <CheckSquare size={14} /> Select
             </button>
             <button
-              onClick={playAll}
+              onClick={() => { setQueue(filteredTracks, 0); play() }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium transition-colors"
             >
               <Play size={14} fill="currentColor" /> Play all
             </button>
             <button
-              onClick={shuffle}
+              onClick={() => { const s = [...filteredTracks].sort(() => Math.random() - 0.5); setQueue(s, 0); play() }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm font-medium transition-colors"
             >
               <Shuffle size={14} /> Shuffle
@@ -112,7 +112,7 @@ export default function Library() {
         {selectionMode && (
           <div className="flex items-center gap-2">
             <button
-              onClick={allSelected ? deselectAll : selectAll}
+              onClick={allSelected ? deselectAll : () => setSelectedIds(new Set(filteredTracks.map((t) => t.id)))}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm transition-colors"
             >
               {allSelected ? <Square size={14} /> : <CheckSquare size={14} />}
@@ -153,6 +153,23 @@ export default function Library() {
               <X size={14} /> Cancel
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Search bar */}
+      <div className="relative mb-3">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#555]" />
+        <input
+          type="text"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search tracks..."
+          className="w-full bg-[#181818] border border-[#2a2a2a] rounded-lg pl-8 pr-4 py-2 text-sm focus:outline-none focus:border-accent transition-colors"
+        />
+        {q && (
+          <button onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-white">
+            <X size={13} />
+          </button>
         )}
       </div>
 
@@ -213,12 +230,12 @@ export default function Library() {
         </div>
       ) : (
         <div className="space-y-0.5">
-          {tracks.map((track, i) => (
+          {filteredTracks.map((track, i) => (
             <TrackRow
               key={track.id}
               track={track}
               index={i}
-              queue={tracks}
+              queue={filteredTracks}
               showNumber
               selected={selectedIds.has(track.id)}
               onSelect={toggleSelect}

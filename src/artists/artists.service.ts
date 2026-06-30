@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, sql } from 'drizzle-orm';
 import * as https from 'https';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
@@ -22,7 +22,25 @@ export class ArtistsService {
   ) {}
 
   findAll() {
-    return this.db.select().from(schema.artists).orderBy(asc(schema.artists.name));
+    return this.db.all<{
+      id: string;
+      name: string;
+      is_custom: boolean;
+      external_ids: Record<string, string>;
+      created_at: Date;
+      track_count: number;
+      is_performer: number;
+    }>(sql`
+      SELECT
+        a.id, a.name, a.is_custom, a.external_ids, a.created_at,
+        COUNT(ta.artist_id) as track_count,
+        MAX(CASE WHEN ov.is_cover = 1 AND instr(',' || ov.artist || ',', ',' || a.name || ',') > 0 THEN 1 ELSE 0 END) as is_performer
+      FROM artists a
+      LEFT JOIN track_artists ta ON ta.artist_id = a.id
+      LEFT JOIN track_metadata_overrides ov ON ov.track_id = ta.track_id
+      GROUP BY a.id
+      ORDER BY a.name
+    `);
   }
 
   async findOne(id: string) {

@@ -60,7 +60,7 @@ export default function Search() {
               <h2 className="text-base font-semibold mb-2">Tracks</h2>
               <div className="space-y-0.5">
                 {resultTracks.map((track) => (
-                  <TrackRow key={track.id} track={track} queue={resultTracks} hideCoverLabel />
+                  <TrackRow key={track.id} track={track} queue={resultTracks} />
                 ))}
               </div>
             </section>

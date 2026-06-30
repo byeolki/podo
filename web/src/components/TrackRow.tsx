@@ -14,7 +14,6 @@ interface Props {
   queue?: Track[]
   showArtist?: boolean
   showNumber?: boolean
-  hideCoverLabel?: boolean
   selected?: boolean
   selectionActive?: boolean
   onSelect?: (id: string) => void
@@ -22,7 +21,7 @@ interface Props {
 
 export default function TrackRow({
   track, index, queue,
-  showArtist = true, showNumber = false, hideCoverLabel = false,
+  showArtist = true, showNumber = false,
   selected = false, selectionActive = false, onSelect,
 }: Props) {
   const playTrack = usePlayerStore((s) => s.playTrack)
@@ -104,7 +103,7 @@ export default function TrackRow({
           {(showArtist || isCover) && (
             <p className="text-xs text-[#777] truncate leading-tight mt-0.5">
               {artistStr}
-              {!hideCoverLabel && isCover && performer && (
+              {isCover && performer && (
                 <span className="text-[#777]">
                   {artistStr ? ' · ' : ''}
                   <span className="text-[#a855f7]">cover</span>

@@ -128,6 +128,62 @@ export class TracksService {
     return results;
   }
 
+  async findByIds(ids: string[]) {
+    if (!ids.length) return [];
+    const rawTracks = await this.db
+      .select()
+      .from(schema.tracks)
+      .where(and(isNull(schema.tracks.deleted_at), inArray(schema.tracks.id, ids)));
+
+    if (!rawTracks.length) return [];
+
+    const trackIds = rawTracks.map((t) => t.id);
+    const [trackArtists, videoSources, overrides] = await Promise.all([
+      this.db
+        .select({ track_id: schema.track_artists.track_id, artist: schema.artists, position: schema.track_artists.position })
+        .from(schema.track_artists)
+        .innerJoin(schema.artists, eq(schema.track_artists.artist_id, schema.artists.id))
+        .where(inArray(schema.track_artists.track_id, trackIds))
+        .orderBy(asc(schema.track_artists.position)),
+      this.db
+        .selectDistinct({ track_id: schema.sources.track_id })
+        .from(schema.sources)
+        .where(and(eq(schema.sources.media_kind, 'video'), eq(schema.sources.available, true), isNull(schema.sources.deleted_at), inArray(schema.sources.track_id, trackIds))),
+      this.db
+        .select()
+        .from(schema.track_metadata_overrides)
+        .where(inArray(schema.track_metadata_overrides.track_id, trackIds)),
+    ]);
+
+    const artistsByTrack = new Map<string, (typeof schema.artists.$inferSelect)[]>();
+    for (const ta of trackArtists) {
+      if (!artistsByTrack.has(ta.track_id)) artistsByTrack.set(ta.track_id, []);
+      artistsByTrack.get(ta.track_id)!.push(ta.artist);
+    }
+    const videoTrackIds = new Set(videoSources.map((s) => s.track_id));
+    const overrideByTrack = new Map(overrides.map((o) => [o.track_id, o]));
+
+    return rawTracks.map((t) => {
+      const ov = overrideByTrack.get(t.id);
+      const baseArtists = artistsByTrack.get(t.id) ?? [];
+      const artistsResult = ov?.artist
+        ? [{ id: '', name: ov.artist, is_custom: true, external_ids: {} }]
+        : baseArtists;
+      return {
+        ...t,
+        duration: t.canonical_duration,
+        title: ov?.title ?? t.title,
+        is_cover: ov?.is_cover ?? t.is_cover,
+        artists: artistsResult,
+        has_video: videoTrackIds.has(t.id) || !!ov?.video_locator,
+        override: ov ?? null,
+        play_count: t.play_count,
+        favorite_count: 0,
+        is_favorited: false,
+      };
+    });
+  }
+
   async findOne(id: string) {
     const track = await this.db
       .select()

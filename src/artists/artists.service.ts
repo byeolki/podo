@@ -83,8 +83,6 @@ export class ArtistsService {
       const url = `https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(name)}&api_key=${apiKey}&format=json&autocorrect=1`;
       const data = await this.httpGet(url) as {
         artist?: {
-          bio?: { summary?: string };
-          image?: { '#text': string; size: string }[];
           tags?: { tag?: { name: string }[] };
         };
         error?: number;
@@ -95,15 +93,40 @@ export class ArtistsService {
         return null;
       }
 
-      const a = data.artist;
-      const rawBio = a.bio?.summary ?? '';
-      const bio = rawBio.replace(/<a\b[^>]*>.*?<\/a>/gi, '').replace(/<[^>]+>/g, '').trim() || undefined;
-      const image = a.image?.find((img) => img.size === 'extralarge' || img.size === 'large')?.['#text'] || undefined;
-      const tags = (a.tags?.tag ?? []).slice(0, 5).map((t) => t.name).filter(Boolean);
+      const tags = (data.artist.tags?.tag ?? []).slice(0, 5).map((t) => t.name).filter(Boolean);
+      const image = await this.getWikipediaImage(name);
 
-      const info: LastFmArtistInfo = { bio, image: image || undefined, tags: tags.length ? tags : undefined };
+      const info: LastFmArtistInfo = { image: image || undefined, tags: tags.length ? tags : undefined };
       this.cacheLastFm(cacheKey, info);
       return info;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getWikipediaImage(name: string): Promise<string | null> {
+    try {
+      const direct = await this.httpGet(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`,
+      ) as { thumbnail?: { source: string }; type?: string };
+
+      if (direct.type !== 'disambiguation' && direct.thumbnail?.source) {
+        return direct.thumbnail.source;
+      }
+
+      const search = await this.httpGet(
+        `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&srlimit=1`,
+      ) as { query?: { search?: { title: string }[] } };
+
+      const title = search.query?.search?.[0]?.title;
+      if (!title) return null;
+
+      const page = await this.httpGet(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+      ) as { thumbnail?: { source: string }; type?: string };
+
+      if (page.type === 'disambiguation') return null;
+      return page.thumbnail?.source ?? null;
     } catch {
       return null;
     }

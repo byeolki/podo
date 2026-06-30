@@ -72,7 +72,6 @@ export default function TrackEditModal({ track, onClose }: Props) {
   )
   const [isCover, setIsCover] = useState(ov?.is_cover ?? track.is_cover ?? false)
   const [videoLocator, setVideoLocator] = useState(ov?.video_locator ?? '')
-  const [altTitles, setAltTitles] = useState<string[]>(splitArtists(ov?.alternate_titles))
 
   const queryClient = useQueryClient()
   const { mutate, isPending, error } = useMutation({
@@ -104,7 +103,6 @@ export default function TrackEditModal({ track, onClose }: Props) {
       is_cover: isCover,
       original_artist: origArtists.join(', ') || undefined,
       video_locator: videoLocator.trim() || undefined,
-      alternate_titles: altTitles.join(', ') || undefined,
     })
   }
 
@@ -167,11 +165,6 @@ export default function TrackEditModal({ track, onClose }: Props) {
           <div className={isCover ? '' : 'hidden'}>
             <label className="block text-xs text-[#6b6b6b] mb-1.5">Cover by</label>
             <TagInput tags={coverByArtists} onChange={setCoverByArtists} placeholder="Add cover artist, press Enter" />
-          </div>
-
-          <div>
-            <label className="block text-xs text-[#6b6b6b] mb-1.5">Alternate titles</label>
-            <TagInput tags={altTitles} onChange={setAltTitles} placeholder="바람의 노래, wind song…" />
           </div>
 
           <div>

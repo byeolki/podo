@@ -6,6 +6,7 @@ export interface SearchHit {
   id: string;
   name: string;
   type: 'track' | 'artist' | 'album';
+  artist?: string;
 }
 
 @Injectable()
@@ -46,22 +47,27 @@ export class SearchService {
   }
 
   private searchTracks(terms: string[], rawQuery: string, limit: number): SearchHit[] {
-    const seen = new Map<string, string>();
+    const seen = new Map<string, { title: string; artist?: string }>();
+
+    const artistSub = `(
+      SELECT COALESCE(ov2.original_artist, (SELECT GROUP_CONCAT(a2.name, ', ') FROM track_artists ta2 JOIN artists a2 ON a2.id = ta2.artist_id WHERE ta2.track_id = t.id))
+      FROM track_metadata_overrides ov2 WHERE ov2.track_id = t.id
+    )`;
 
     // FTS title search for each expanded term
     for (const term of terms) {
       try {
         const ftsQuery = this.toFtsQuery(term);
         const rows = this.sqlite.prepare(
-          `SELECT t.id, COALESCE(ov.title, t.title) as title
+          `SELECT t.id, COALESCE(ov.title, t.title) as title, ${artistSub} as artist
            FROM tracks_fts f
            JOIN tracks t ON t.rowid = f.rowid
            LEFT JOIN track_metadata_overrides ov ON ov.track_id = t.id
            WHERE tracks_fts MATCH ? AND t.deleted_at IS NULL
            ORDER BY rank
            LIMIT ?`,
-        ).all(ftsQuery, limit) as { id: string; title: string }[];
-        for (const r of rows) if (!seen.has(r.id)) seen.set(r.id, r.title);
+        ).all(ftsQuery, limit) as { id: string; title: string; artist: string | null }[];
+        for (const r of rows) if (!seen.has(r.id)) seen.set(r.id, { title: r.title, artist: r.artist ?? undefined });
       } catch {}
     }
 
@@ -74,19 +80,19 @@ export class SearchService {
       params.push(limit);
       try {
         const rows = this.sqlite.prepare(
-          `SELECT DISTINCT t.id, COALESCE(ov.title, t.title) as title
+          `SELECT DISTINCT t.id, COALESCE(ov.title, t.title) as title, ${artistSub} as artist
            FROM tracks t
            LEFT JOIN track_metadata_overrides ov ON ov.track_id = t.id
            LEFT JOIN track_artists ta ON ta.track_id = t.id
            LEFT JOIN artists a ON a.id = ta.artist_id
            WHERE t.deleted_at IS NULL AND (${conditions})
            LIMIT ?`,
-        ).all(...params) as { id: string; title: string }[];
-        for (const r of rows) if (!seen.has(r.id)) seen.set(r.id, r.title);
+        ).all(...params) as { id: string; title: string; artist: string | null }[];
+        for (const r of rows) if (!seen.has(r.id)) seen.set(r.id, { title: r.title, artist: r.artist ?? undefined });
       } catch {}
     }
 
-    return [...seen.entries()].slice(0, limit).map(([id, name]) => ({ id, name, type: 'track' as const }));
+    return [...seen.entries()].slice(0, limit).map(([id, { title, artist }]) => ({ id, name: title, artist, type: 'track' as const }));
   }
 
   private searchArtists(terms: string[], limit: number): SearchHit[] {

@@ -1,7 +1,7 @@
 import { api } from './client'
 
 export interface SearchResults {
-  tracks: Array<{ id: string; name: string; type: 'track' }>
+  tracks: Array<{ id: string; name: string; type: 'track'; artist?: string }>
   artists: Array<{ id: string; name: string; type: 'artist' }>
   albums: Array<{ id: string; name: string; type: 'album' }>
 }

@@ -62,7 +62,10 @@ export default function Search() {
                     onDoubleClick={() => getTrack(hit.id).then((t) => playTrack(t))}
                   >
                     <Music size={14} className="text-[#555] flex-shrink-0" />
-                    <span className="text-sm">{hit.name}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm truncate">{hit.name}</p>
+                      {hit.artist && <p className="text-xs text-[#777] truncate">{hit.artist}</p>}
+                    </div>
                   </div>
                 ))}
               </div>

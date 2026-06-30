@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { IsIn } from 'class-validator';
 import { AdminService } from './admin.service';
+import { UploadService } from '../upload/upload.service';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AdminOnly } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -11,13 +12,20 @@ class ReviewMappingDto {
   @IsIn(['approve', 'reject']) action!: 'approve' | 'reject';
 }
 
+class RenameFileDto {
+  filename!: string;
+}
+
 @ApiTags('admin')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)
 @AdminOnly()
 @Controller('api/v1/admin')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly upload: UploadService,
+  ) {}
 
   @Post('library/verify')
   @ApiOperation({ summary: 'Verify library integrity (check for missing files, orphan metadata)' })
@@ -71,5 +79,30 @@ export class AdminController {
   @ApiOperation({ summary: 'List all users' })
   listUsers() {
     return this.admin.listUsers();
+  }
+
+  @Get('files')
+  @ApiOperation({ summary: 'List all uploaded files' })
+  listFiles(@CurrentUser() user: JwtPayload) {
+    return this.upload.listFiles(user.sub, true);
+  }
+
+  @Patch('files/:sourceId')
+  @ApiOperation({ summary: 'Rename an uploaded file' })
+  renameFile(
+    @Param('sourceId') sourceId: string,
+    @Body() dto: RenameFileDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.upload.renameFile(sourceId, dto.filename, user.sub, true);
+  }
+
+  @Delete('files/:sourceId')
+  @ApiOperation({ summary: 'Delete an uploaded file' })
+  deleteFile(
+    @Param('sourceId') sourceId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.upload.deleteFile(sourceId, user.sub, true);
   }
 }

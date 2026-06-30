@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Music, Users, ListMusic, Radio,
-  History, Settings, LogOut,
+  History, Settings, LogOut, Upload,
 } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
 import { logout } from '../api/auth'
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/playlists', icon: ListMusic, label: 'Playlists' },
   { to: '/radio', icon: Radio, label: 'Radio' },
   { to: '/history', icon: History, label: 'History' },
+  { to: '/upload', icon: Upload, label: 'Upload' },
 ]
 
 export default function Sidebar() {

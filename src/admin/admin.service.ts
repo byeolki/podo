@@ -6,6 +6,7 @@ import { StreamingService } from '../streaming/streaming.service';
 import { TranscodeCacheService } from '../streaming/transcode-cache.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 @Injectable()
 export class AdminService {
@@ -112,6 +113,7 @@ export class AdminService {
       upload_dir: { path: uploadDir, size_bytes: this.dirSize(uploadDir) },
       artwork_dir: { path: artworkDir, size_bytes: this.dirSize(artworkDir) },
       transcode_cache: { path: cacheStats.dir, size_bytes: cacheStats.size_bytes },
+      disk: this.getDiskUsage(uploadDir),
     };
   }
 
@@ -166,6 +168,20 @@ export class AdminService {
     if (period === 'week') return new Date(now - 7 * 86400000);
     if (period === 'month') return new Date(now - 30 * 86400000);
     return null;
+  }
+
+  private getDiskUsage(targetPath: string): { total_bytes: number; free_bytes: number; used_bytes: number } {
+    try {
+      const output = execSync(`df -B1 "${targetPath}"`, { encoding: 'utf8' });
+      const lines = output.trim().split('\n');
+      const parts = lines[lines.length - 1].trim().split(/\s+/);
+      const total_bytes = parseInt(parts[1], 10);
+      const used_bytes = parseInt(parts[2], 10);
+      const free_bytes = parseInt(parts[3], 10);
+      return { total_bytes, free_bytes, used_bytes };
+    } catch {
+      return { total_bytes: 0, free_bytes: 0, used_bytes: 0 };
+    }
   }
 
   private dirSize(dirPath: string): number {

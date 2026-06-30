@@ -7,5 +7,6 @@ import { LibraryModule } from '../library/library.module';
   imports: [LibraryModule],
   providers: [UploadService],
   controllers: [UploadController],
+  exports: [UploadService],
 })
 export class UploadModule {}

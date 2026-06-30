@@ -12,6 +12,7 @@ import PlaylistDetail from './pages/PlaylistDetail'
 import Radio from './pages/Radio'
 import Admin from './pages/Admin'
 import History from './pages/History'
+import Upload from './pages/Upload'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="playlists/:id" element={<PlaylistDetail />} />
         <Route path="radio" element={<Radio />} />
         <Route path="history" element={<History />} />
+        <Route path="upload" element={<Upload />} />
         <Route path="admin" element={<Admin />} />
       </Route>
     </Routes>

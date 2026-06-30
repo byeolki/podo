@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Folder, Plus, Trash2, RefreshCw, Download, Users, Activity,
-  HardDrive, Shield, X, type LucideIcon,
+  HardDrive, Shield, X, Pencil, Check, FileAudio, FileVideo, Files, type LucideIcon,
 } from 'lucide-react'
 import {
   getHealth, getUsers, getStorage, clearTranscodeCache, verifyIntegrity, formatBytes,
 } from '../api/admin'
 import { getRoots, addRoot, removeRoot, triggerScan, getScanJobs, startDownload, getDownloads } from '../api/library'
 import { createInvite } from '../api/auth'
+import { listAllFiles, adminRenameFile, adminDeleteFile, type UploadedFile } from '../api/upload'
 
-type Tab = 'library' | 'downloads' | 'users' | 'health'
+type Tab = 'library' | 'downloads' | 'users' | 'health' | 'files'
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -303,6 +304,27 @@ function HealthTab() {
               <Trash2 size={12} /> Clear Transcode Cache
             </button>
           </div>
+
+          {'disk' in storage && (storage as { disk: { total_bytes: number; used_bytes: number; free_bytes: number } }).disk.total_bytes > 0 && (() => {
+            const disk = (storage as { disk: { total_bytes: number; used_bytes: number; free_bytes: number } }).disk
+            const pct = Math.round((disk.used_bytes / disk.total_bytes) * 100)
+            return (
+              <div className="mb-3 p-3 rounded-lg bg-[#181818] border border-[#222]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Disk</span>
+                  <span className="text-xs text-[#a1a1a1]">{formatBytes(disk.used_bytes)} / {formatBytes(disk.total_bytes)}</span>
+                </div>
+                <div className="h-1.5 bg-[#333] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-yellow-500' : 'bg-accent'}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <p className="text-xs text-[#555] mt-1">{formatBytes(disk.free_bytes)} free</p>
+              </div>
+            )
+          })()}
+
           <div className="space-y-1.5">
             {[
               { label: 'Uploads', path: storage.upload_dir.path, size_bytes: storage.upload_dir.size_bytes },
@@ -325,12 +347,133 @@ function HealthTab() {
   )
 }
 
+function AdminFileRow({ file, onRename, onDelete }: {
+  file: UploadedFile
+  onRename: (sourceId: string, name: string) => void
+  onDelete: (sourceId: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const ext = file.filename.lastIndexOf('.') > 0 ? file.filename.slice(file.filename.lastIndexOf('.')) : ''
+  const [name, setName] = useState(() => ext ? file.filename.slice(0, file.filename.lastIndexOf('.')) : file.filename)
+  const isVideo = ['.mp4', '.m4v', '.mkv'].includes(ext.toLowerCase())
+
+  const handleRename = () => {
+    const trimmed = name.trim()
+    if (trimmed && trimmed + ext !== file.filename) onRename(file.source_id, trimmed + ext)
+    setEditing(false)
+  }
+
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#181818] border border-[#222] hover:border-[#333] transition-colors">
+      <div className="flex-shrink-0 text-[#555]">
+        {isVideo ? <FileVideo size={15} /> : <FileAudio size={15} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        {editing ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRename()
+                if (e.key === 'Escape') setEditing(false)
+              }}
+              className="flex-1 bg-[#111] border border-accent rounded px-2 py-0.5 text-sm focus:outline-none"
+            />
+            <span className="text-sm text-[#555]">{ext}</span>
+            <button onClick={handleRename} className="p-1 text-green-400 hover:text-green-300"><Check size={13} /></button>
+            <button onClick={() => setEditing(false)} className="p-1 text-[#555] hover:text-white"><X size={13} /></button>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm font-medium truncate">{file.track_title || file.filename}</p>
+            <p className="text-xs text-[#555] truncate font-mono">{file.filename} {file.added_by_name && <span>· {file.added_by_name}</span>}</p>
+          </>
+        )}
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {file.file_size != null && <span className="text-xs text-[#555]">{formatBytes(file.file_size)}</span>}
+        {!editing && (
+          <div className="flex items-center gap-1">
+            <button onClick={() => setEditing(true)} className="p-1 text-[#555] hover:text-white transition-colors" title="Rename"><Pencil size={13} /></button>
+            <button onClick={() => onDelete(file.source_id)} className="p-1 text-[#555] hover:text-red-400 transition-colors" title="Delete"><Trash2 size={13} /></button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FilesTab() {
+  const qc = useQueryClient()
+  const { data: files = [], isLoading } = useQuery({ queryKey: ['admin-files'], queryFn: listAllFiles })
+
+  const renameMut = useMutation({
+    mutationFn: ({ sourceId, filename }: { sourceId: string; filename: string }) => adminRenameFile(sourceId, filename),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-files'] }),
+  })
+  const deleteMut = useMutation({
+    mutationFn: (sourceId: string) => adminDeleteFile(sourceId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-files'] }),
+  })
+
+  const handleDelete = (sourceId: string) => {
+    if (confirm('Delete this file from disk and library?')) deleteMut.mutate(sourceId)
+  }
+
+  const totalSize = files.reduce((acc, f) => acc + (f.file_size ?? 0), 0)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-semibold">Uploaded Files</h3>
+          <p className="text-xs text-[#555] mt-0.5">{files.length} files · {formatBytes(totalSize)}</p>
+        </div>
+        <button
+          onClick={() => qc.invalidateQueries({ queryKey: ['admin-files'] })}
+          className="p-1.5 text-[#555] hover:text-white transition-colors"
+          title="Refresh"
+        >
+          <RefreshCw size={14} />
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-1.5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-12 rounded-lg bg-[#181818] animate-pulse" />
+          ))}
+        </div>
+      ) : files.length === 0 ? (
+        <div className="text-center py-12 text-[#555]">
+          <Files size={28} className="mx-auto mb-2 opacity-40" />
+          <p className="text-sm">No uploaded files</p>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {files.map((file) => (
+            <AdminFileRow
+              key={file.source_id}
+              file={file}
+              onRename={(sourceId, filename) => renameMut.mutate({ sourceId, filename })}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Admin() {
   const [tab, setTab] = useState<Tab>('library')
 
   const tabs: { id: Tab; label: string; icon: LucideIcon }[] = [
     { id: 'library', label: 'Library', icon: Folder },
     { id: 'downloads', label: 'Downloads', icon: Download },
+    { id: 'files', label: 'Files', icon: Files },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'health', label: 'Health', icon: Activity },
   ]
@@ -356,6 +499,7 @@ export default function Admin() {
 
       {tab === 'library' && <LibraryTab />}
       {tab === 'downloads' && <DownloadsTab />}
+      {tab === 'files' && <FilesTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'health' && <HealthTab />}
     </div>

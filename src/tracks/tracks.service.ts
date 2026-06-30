@@ -305,6 +305,15 @@ export class TracksService {
     if (dto.track_number !== undefined) set.track_number = dto.track_number ?? null;
     if (dto.disc_number !== undefined) set.disc_number = dto.disc_number ?? null;
 
+    const artistFieldsChanging = dto.original_artist !== undefined || dto.artist !== undefined;
+    if (artistFieldsChanging) {
+      await this.db
+        .delete(schema.track_artists)
+        .where(
+          sql`${schema.track_artists.track_id} = ${trackId} AND ${schema.track_artists.artist_id} IN (SELECT id FROM artists WHERE is_custom = 1)`,
+        );
+    }
+
     await this.db
       .insert(schema.track_metadata_overrides)
       .values({ track_id: trackId, updated_by: userId, updated_at: new Date(), ...set })
@@ -317,8 +326,20 @@ export class TracksService {
       await this.syncArtistsToTable(trackId, dto.artist ?? '', userId);
     }
 
+    if (artistFieldsChanging) {
+      await this.pruneOrphanArtists();
+    }
+
     this.logger.log(`Metadata override: track=${trackId} by user=${userId}`);
     return this.findOne(trackId);
+  }
+
+  private async pruneOrphanArtists() {
+    await this.db
+      .delete(schema.artists)
+      .where(
+        sql`${schema.artists.is_custom} = 1 AND ${schema.artists.id} NOT IN (SELECT DISTINCT artist_id FROM track_artists)`,
+      );
   }
 
   private async syncArtistsToTable(trackId: string, artistField: string, userId?: string) {
@@ -478,6 +499,11 @@ export class TracksService {
         .values({ track_id: track.id, updated_by: userId, updated_at: new Date(), ...set })
         .onConflictDoUpdate({ target: schema.track_metadata_overrides.track_id, set });
 
+      if (aiResult.original_artist || aiResult.artist) {
+        await this.db
+          .delete(schema.track_artists)
+          .where(sql`${schema.track_artists.track_id} = ${track.id} AND ${schema.track_artists.artist_id} IN (SELECT id FROM artists WHERE is_custom = 1)`);
+      }
       if (aiResult.original_artist) await this.syncArtistsToTable(track.id, aiResult.original_artist, userId);
       if (aiResult.artist) await this.syncArtistsToTable(track.id, aiResult.artist, userId);
 

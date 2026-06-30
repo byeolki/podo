@@ -254,42 +254,41 @@ export class TracksService {
       .values({ track_id: trackId, updated_by: userId, updated_at: new Date(), ...set })
       .onConflictDoUpdate({ target: schema.track_metadata_overrides.track_id, set });
 
-    if (dto.original_artist) {
-      await this.syncArtistToTable(trackId, dto.original_artist, userId);
+    if (dto.original_artist !== undefined) {
+      await this.syncArtistsToTable(trackId, dto.original_artist ?? '', userId);
+    }
+    if (dto.artist !== undefined) {
+      await this.syncArtistsToTable(trackId, dto.artist ?? '', userId);
     }
 
     this.logger.log(`Metadata override: track=${trackId} by user=${userId}`);
     return this.findOne(trackId);
   }
 
-  private async syncArtistToTable(trackId: string, artistName: string, userId?: string) {
-    const name = artistName.trim();
-    if (!name) return;
+  private async syncArtistsToTable(trackId: string, artistField: string, userId?: string) {
+    const names = artistField.split(',').map((n) => n.trim()).filter(Boolean);
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      let artist = await this.db
+        .select()
+        .from(schema.artists)
+        .where(sql`lower(${schema.artists.name}) = lower(${name})`)
+        .get();
 
-    let artist = await this.db
-      .select()
-      .from(schema.artists)
-      .where(sql`lower(${schema.artists.name}) = lower(${name})`)
-      .get();
+      if (!artist) {
+        const id = newId();
+        await this.db.insert(schema.artists).values({
+          id, name, is_custom: true, external_ids: {},
+          created_by: userId ?? null, updated_at: new Date(), created_at: new Date(),
+        });
+        artist = { id, name, is_custom: true, external_ids: {}, created_by: userId ?? null, updated_at: new Date(), created_at: new Date() };
+      }
 
-    if (!artist) {
-      const id = newId();
-      await this.db.insert(schema.artists).values({
-        id,
-        name,
-        is_custom: true,
-        external_ids: {},
-        created_by: userId ?? null,
-        updated_at: new Date(),
-        created_at: new Date(),
-      });
-      artist = { id, name, is_custom: true, external_ids: {}, created_by: userId ?? null, updated_at: new Date(), created_at: new Date() };
+      await this.db
+        .insert(schema.track_artists)
+        .values({ track_id: trackId, artist_id: artist!.id, position: i, role: 'main' })
+        .onConflictDoNothing();
     }
-
-    await this.db
-      .insert(schema.track_artists)
-      .values({ track_id: trackId, artist_id: artist.id, position: 0, role: 'main' })
-      .onConflictDoNothing();
   }
 
   async bulkApplyOverride(
@@ -423,9 +422,8 @@ export class TracksService {
         .values({ track_id: track.id, updated_by: userId, updated_at: new Date(), ...set })
         .onConflictDoUpdate({ target: schema.track_metadata_overrides.track_id, set });
 
-      if (aiResult.original_artist) {
-        await this.syncArtistToTable(track.id, aiResult.original_artist, userId);
-      }
+      if (aiResult.original_artist) await this.syncArtistsToTable(track.id, aiResult.original_artist, userId);
+      if (aiResult.artist) await this.syncArtistsToTable(track.id, aiResult.artist, userId);
 
       results.push({ track_id: track.id, applied: true, skipped: false, result: aiResult as unknown as Record<string, unknown> });
     }

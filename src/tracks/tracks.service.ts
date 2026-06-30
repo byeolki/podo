@@ -18,8 +18,8 @@ export class TracksService {
     @Optional() private readonly ai: AiService | null,
   ) {}
 
-  async findAll(userId: string, opts: { sort?: SortOption; filter?: FilterOption } = {}) {
-    const { sort = 'newest', filter = 'all' } = opts;
+  async findAll(userId: string, opts: { sort?: SortOption; filter?: FilterOption; role?: string } = {}) {
+    const { sort = 'newest', filter = 'all', role } = opts;
 
     const orderBy = sort === 'oldest'
       ? asc(schema.tracks.added_at)
@@ -42,10 +42,13 @@ export class TracksService {
         .where(and(isNull(schema.tracks.deleted_at), inArray(schema.tracks.id, favIds)))
         .orderBy(orderBy);
     } else if (filter === 'mine') {
+      const mineCondition = role === 'admin'
+        ? and(isNull(schema.tracks.deleted_at), sql`(${schema.tracks.added_by} = ${userId} OR ${schema.tracks.added_by} IS NULL)`)
+        : and(isNull(schema.tracks.deleted_at), eq(schema.tracks.added_by, userId));
       rawTracks = await this.db
         .select()
         .from(schema.tracks)
-        .where(and(isNull(schema.tracks.deleted_at), eq(schema.tracks.added_by, userId)))
+        .where(mineCondition)
         .orderBy(orderBy);
     } else {
       rawTracks = await this.db

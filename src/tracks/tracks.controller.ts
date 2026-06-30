@@ -49,7 +49,7 @@ export class TracksController {
     const validFilters = ['all', 'mine', 'favorites'] as const;
     const sortOpt = (validSorts as readonly string[]).includes(sort ?? '') ? sort as SortOption : 'newest';
     const filterOpt = (validFilters as readonly string[]).includes(filter ?? '') ? filter as FilterOption : 'all';
-    return this.tracks.findAll(user?.sub ?? '', { sort: sortOpt, filter: filterOpt });
+    return this.tracks.findAll(user?.sub ?? '', { sort: sortOpt, filter: filterOpt, role: user?.role });
   }
 
   @Get(':id')

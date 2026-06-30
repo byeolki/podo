@@ -32,6 +32,10 @@ export function updatePlaylist(id: string, data: { name?: string; description?: 
   return api.patch(`/playlists/${id}`, data)
 }
 
+export function addTracksToPlaylist(id: string, trackIds: string[]): Promise<void> {
+  return api.post(`/playlists/${id}/tracks`, { track_ids: trackIds })
+}
+
 export function deletePlaylist(id: string): Promise<void> {
   return api.delete(`/playlists/${id}`)
 }

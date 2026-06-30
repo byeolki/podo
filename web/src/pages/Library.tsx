@@ -1,10 +1,11 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Shuffle, Sparkles, X, ChevronDown, Trash2, CheckSquare, Square, Search } from 'lucide-react'
+import { Play, Shuffle, Sparkles, X, ChevronDown, Trash2, CheckSquare, Square, Search, ListPlus } from 'lucide-react'
 import { getTracks, aiAutofillTracks, deleteTracks } from '../api/tracks'
 import type { SortOption, FilterOption } from '../api/tracks'
 import { usePlayerStore } from '../store/player'
 import TrackRow from '../components/TrackRow'
+import AddToPlaylistModal from '../components/AddToPlaylistModal'
 
 const SORT_LABELS: Record<SortOption, string> = {
   newest: 'Newest',
@@ -77,9 +78,16 @@ export default function Library() {
 
   const allSelected = filteredTracks.length > 0 && selectedIds.size === filteredTracks.length
   const hasSelection = selectedIds.size > 0
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false)
 
   return (
     <div className="p-6">
+      {playlistModalOpen && (
+        <AddToPlaylistModal
+          trackIds={[...selectedIds]}
+          onClose={() => setPlaylistModalOpen(false)}
+        />
+      )}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-semibold">Library</h1>
@@ -123,6 +131,12 @@ export default function Library() {
 
             {hasSelection && (
               <>
+                <button
+                  onClick={() => setPlaylistModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm font-medium transition-colors"
+                >
+                  <ListPlus size={14} /> Add to playlist
+                </button>
                 <button
                   onClick={() => runAiFill([...selectedIds])}
                   disabled={aiFilling}

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, HttpCode, HttpStatus, ParseArrayPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsOptional, IsBoolean, IsArray, IsUUID, MinLength, MaxLength } from 'class-validator';
 import { PlaylistsService } from './playlists.service';
@@ -54,6 +54,13 @@ export class PlaylistsController {
   @ApiOperation({ summary: 'Update playlist name, description, visibility, or track order' })
   update(@Param('id') id: string, @Body() dto: UpdatePlaylistDto, @CurrentUser() user: JwtPayload) {
     return this.playlists.update(id, dto, user.sub);
+  }
+
+  @Post(':id/tracks')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Append tracks to playlist' })
+  addTracks(@Param('id') id: string, @Body('track_ids') trackIds: string[], @CurrentUser() user: JwtPayload) {
+    return this.playlists.addTracks(id, trackIds ?? [], user.sub);
   }
 
   @Delete(':id')

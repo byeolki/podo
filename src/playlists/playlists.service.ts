@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
-import { eq, and, asc, isNull } from 'drizzle-orm';
+import { eq, and, asc, isNull, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
@@ -75,6 +75,22 @@ export class PlaylistsService {
     }
 
     return this.findOne(id, userId);
+  }
+
+  async addTracks(id: string, trackIds: string[], userId: string) {
+    await this.requireOwner(id, userId);
+    if (!trackIds.length) return;
+
+    const maxPos = await this.db.all<{ pos: number | null }>(
+      sql`SELECT MAX(position) as pos FROM playlist_tracks WHERE playlist_id = ${id}`,
+    );
+    const base = (maxPos[0]?.pos ?? -1) + 1;
+
+    await this.db.insert(schema.playlist_tracks).values(
+      trackIds.map((track_id, i) => ({ playlist_id: id, track_id, position: base + i })),
+    ).onConflictDoNothing();
+
+    await this.db.update(schema.playlists).set({ updated_at: new Date() }).where(eq(schema.playlists.id, id));
   }
 
   async remove(id: string, userId: string) {

@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { eq, and, isNull, sql, desc, gte, inArray } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
@@ -134,6 +134,25 @@ export class AdminService {
 
     this.logger.log(`Mapping queue ${id}: ${action}d by ${reviewerId}`);
     return { id, status };
+  }
+
+  async listAliases() {
+    return this.db.select().from(schema.artist_aliases).orderBy(schema.artist_aliases.name);
+  }
+
+  async addAlias(name: string, alias: string) {
+    const id = (await import('../common/id')).newId();
+    try {
+      await this.db.insert(schema.artist_aliases).values({ id, name: name.trim(), alias: alias.trim(), created_at: new Date() });
+    } catch {
+      throw new ConflictException('Alias pair already exists');
+    }
+    return { id, name, alias };
+  }
+
+  async removeAlias(id: string) {
+    await this.db.delete(schema.artist_aliases).where(eq(schema.artist_aliases.id, id));
+    return { deleted: true };
   }
 
   async listUsers() {

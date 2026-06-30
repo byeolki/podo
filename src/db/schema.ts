@@ -321,6 +321,17 @@ export const stream_sessions = sqliteTable('stream_sessions', {
   index('idx_stream_sessions_started_at').on(t.started_at),
 ]);
 
+// ─── Artist aliases ───────────────────────────────────────────────────────────
+
+export const artist_aliases = sqliteTable('artist_aliases', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  alias: text('alias').notNull(),
+  created_at: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
+}, (t) => [
+  uniqueIndex('idx_artist_aliases_pair').on(t.name, t.alias),
+]);
+
 // ─── FTS5 virtual tables (raw SQL in migration) ────────────────────────────────
 // Defined as raw SQL in the initial migration, not as Drizzle table objects.
 // tracks_fts: content='tracks', content_rowid='rowid' (title)

@@ -12,9 +12,9 @@ interface Props {
 export default function TrackEditModal({ track, onClose }: Props) {
   const ov = track.override
   const [title, setTitle] = useState(ov?.title ?? track.title)
-  const [artist, setArtist] = useState(ov?.artist ?? (track.artists?.[0]?.name ?? ''))
+  const [origArtist, setOrigArtist] = useState(ov?.original_artist ?? '')
+  const [coverBy, setCoverBy] = useState(ov?.artist ?? (track.artists?.[0]?.name ?? ''))
   const [isCover, setIsCover] = useState(ov?.is_cover ?? track.is_cover ?? false)
-  const [originalArtist, setOriginalArtist] = useState(ov?.original_artist ?? '')
   const [videoLocator, setVideoLocator] = useState(ov?.video_locator ?? '')
 
   const queryClient = useQueryClient()
@@ -31,10 +31,10 @@ export default function TrackEditModal({ track, onClose }: Props) {
     onSuccess: (results) => {
       const r = results[0]?.result
       if (r) {
-        if (r.title) setTitle(r.title)
-        if (r.artist) setArtist(r.artist)
-        if (r.is_cover !== undefined) setIsCover(r.is_cover)
-        if (r.original_artist) setOriginalArtist(r.original_artist)
+        if (r.title) setTitle(r.title as string)
+        if (r.is_cover !== undefined) setIsCover(r.is_cover as boolean)
+        if (r.artist) setCoverBy(r.artist as string)
+        if (r.original_artist) setOrigArtist(r.original_artist as string)
       }
     },
   })
@@ -43,9 +43,9 @@ export default function TrackEditModal({ track, onClose }: Props) {
     e.preventDefault()
     mutate({
       title: title.trim() || undefined,
-      artist: artist.trim() || undefined,
+      artist: coverBy.trim() || undefined,
       is_cover: isCover,
-      original_artist: originalArtist.trim() || undefined,
+      original_artist: origArtist.trim() || undefined,
       video_locator: videoLocator.trim() || undefined,
     })
   }
@@ -93,9 +93,10 @@ export default function TrackEditModal({ track, onClose }: Props) {
             <label className="block text-xs text-[#6b6b6b] mb-1.5">Artist</label>
             <input
               type="text"
-              value={artist}
-              onChange={(e) => setArtist(e.target.value)}
-              className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              value={origArtist}
+              onChange={(e) => setOrigArtist(e.target.value)}
+              placeholder="Original artist"
+              className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent placeholder:text-[#444]"
             />
           </div>
 
@@ -103,25 +104,25 @@ export default function TrackEditModal({ track, onClose }: Props) {
             <button
               type="button"
               onClick={() => setIsCover(!isCover)}
-              className={`w-10 h-5 rounded-full transition-colors relative ${isCover ? 'bg-accent' : 'bg-[#333]'}`}
+              className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 overflow-hidden ${isCover ? 'bg-accent' : 'bg-[#333]'}`}
             >
-              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${isCover ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${isCover ? 'translate-x-[20px]' : 'translate-x-0'}`}
+              />
             </button>
             <label className="text-sm text-[#a1a1a1]">Cover song</label>
           </div>
 
-          {isCover && (
-            <div>
-              <label className="block text-xs text-[#6b6b6b] mb-1.5">Original artist</label>
-              <input
-                type="text"
-                value={originalArtist}
-                onChange={(e) => setOriginalArtist(e.target.value)}
-                placeholder="Who originally performed this"
-                className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent placeholder:text-[#444]"
-              />
-            </div>
-          )}
+          <div className={isCover ? '' : 'hidden'}>
+            <label className="block text-xs text-[#6b6b6b] mb-1.5">Cover by</label>
+            <input
+              type="text"
+              value={coverBy}
+              onChange={(e) => setCoverBy(e.target.value)}
+              placeholder="Who covered this song"
+              className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent placeholder:text-[#444]"
+            />
+          </div>
 
           <div>
             <label className="block text-xs text-[#6b6b6b] mb-1.5">Music video path</label>

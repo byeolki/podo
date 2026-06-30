@@ -1,5 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import Database from 'better-sqlite3';
+import * as https from 'https';
 import { SQLITE_TOKEN } from '../db/database.module';
 
 export interface SearchHit {
@@ -9,16 +10,18 @@ export interface SearchHit {
   artist?: string;
 }
 
+const MB_CACHE_TTL = 7 * 24 * 3600 * 1000;
+
 @Injectable()
 export class SearchService {
   constructor(@Inject(SQLITE_TOKEN) private readonly sqlite: Database.Database) {}
 
-  search(query: string, types: string[] = ['track', 'artist', 'album'], limit = 20): Record<string, SearchHit[]> {
-    const terms = [query];
+  async search(query: string, types: string[] = ['track', 'artist', 'album'], limit = 20): Promise<Record<string, SearchHit[]>> {
+    const terms = await this.expandWithMusicBrainz(query);
     const results: Record<string, SearchHit[]> = {};
 
     if (types.includes('track')) {
-      results.tracks = this.searchTracks(terms, query, limit);
+      results.tracks = this.searchTracks(terms, limit);
     }
     if (types.includes('artist')) {
       results.artists = this.searchArtists(terms, limit);
@@ -30,7 +33,77 @@ export class SearchService {
     return results;
   }
 
-  private searchTracks(terms: string[], rawQuery: string, limit: number): SearchHit[] {
+  private async expandWithMusicBrainz(query: string): Promise<string[]> {
+    const terms = new Set([query]);
+    const cacheKey = `alias:${query.toLowerCase()}`;
+
+    try {
+      const cached = this.sqlite
+        .prepare('SELECT data, fetched_at FROM mb_cache WHERE key = ?')
+        .get(cacheKey) as { data: string; fetched_at: number } | undefined;
+
+      if (cached && Date.now() - cached.fetched_at < MB_CACHE_TTL) {
+        const aliases = JSON.parse(cached.data) as string[];
+        aliases.forEach((a) => terms.add(a));
+        return [...terms];
+      }
+
+      const ua = 'podo/1.0 (self-hosted music server)';
+      const searchData = await this.mbGet(
+        `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(query)}&limit=1&fmt=json`,
+        ua,
+      ) as { artists?: { id: string; name: string }[] };
+
+      const artist = searchData.artists?.[0];
+      if (!artist) {
+        this.cacheAliases(cacheKey, []);
+        return [...terms];
+      }
+
+      const detail = await this.mbGet(
+        `https://musicbrainz.org/ws/2/artist/${artist.id}?inc=aliases&fmt=json`,
+        ua,
+      ) as { name: string; aliases?: { name: string }[] };
+
+      const expanded = [detail.name, ...(detail.aliases ?? []).map((a) => a.name)]
+        .filter((n) => n && n.toLowerCase() !== query.toLowerCase());
+
+      this.cacheAliases(cacheKey, expanded);
+      expanded.forEach((a) => terms.add(a));
+    } catch {
+      // MB unavailable or rate-limited — search with original term only
+    }
+
+    return [...terms];
+  }
+
+  private cacheAliases(key: string, aliases: string[]) {
+    try {
+      this.sqlite
+        .prepare('INSERT OR REPLACE INTO mb_cache (key, data, fetched_at) VALUES (?, ?, ?)')
+        .run(key, JSON.stringify(aliases), Date.now());
+    } catch {}
+  }
+
+  private mbGet(url: string, userAgent: string): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      const req = https.get(
+        url,
+        { headers: { 'User-Agent': userAgent, Accept: 'application/json' } },
+        (res) => {
+          let body = '';
+          res.on('data', (c) => (body += c));
+          res.on('end', () => {
+            try { resolve(JSON.parse(body)); } catch { reject(new Error('Invalid JSON')); }
+          });
+        },
+      );
+      req.on('error', reject);
+      req.setTimeout(5000, () => { req.destroy(); reject(new Error('MB timeout')); });
+    });
+  }
+
+  private searchTracks(terms: string[], limit: number): SearchHit[] {
     const seen = new Map<string, { title: string; artist?: string }>();
 
     const artistSub = `(
@@ -38,7 +111,6 @@ export class SearchService {
       FROM track_metadata_overrides ov2 WHERE ov2.track_id = t.id
     )`;
 
-    // FTS title search for each expanded term
     for (const term of terms) {
       try {
         const ftsQuery = this.toFtsQuery(term);
@@ -55,7 +127,6 @@ export class SearchService {
       } catch {}
     }
 
-    // LIKE search on artist name fields (override + track_artists table)
     if (terms.length > 0) {
       const conditions = terms.map(() =>
         `(lower(COALESCE(ov.artist,'')) LIKE lower(?) OR lower(COALESCE(ov.original_artist,'')) LIKE lower(?) OR lower(COALESCE(a.name,'')) LIKE lower(?))`,

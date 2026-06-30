@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Search as SearchIcon, Music, Users, Disc3 } from 'lucide-react'
+import { Search as SearchIcon, Users, Disc3 } from 'lucide-react'
 import { search } from '../api/search'
-import { getTrack } from '../api/tracks'
-import { usePlayerStore } from '../store/player'
+import { getTracks, type Track } from '../api/tracks'
+import TrackRow from '../components/TrackRow'
 
 export default function Search() {
   const [q, setQ] = useState('')
@@ -15,13 +15,19 @@ export default function Search() {
     return () => clearTimeout(t)
   }, [q])
 
+  const { data: allTracks = [] } = useQuery<Track[]>({ queryKey: ['tracks'], queryFn: () => getTracks() })
   const { data, isLoading } = useQuery({
     queryKey: ['search', debouncedQ],
     queryFn: () => search(debouncedQ),
     enabled: debouncedQ.length >= 2,
   })
 
-  const playTrack = usePlayerStore((s) => s.playTrack)
+  const trackMap = useMemo(() => new Map(allTracks.map((t) => [t.id, t])), [allTracks])
+
+  const resultTracks = useMemo(
+    () => (data?.tracks ?? []).map((h) => trackMap.get(h.id)).filter(Boolean) as typeof allTracks,
+    [data?.tracks, trackMap],
+  )
 
   const hasResults = data && (data.tracks.length + data.artists.length + data.albums.length > 0)
 
@@ -49,24 +55,12 @@ export default function Search() {
         <p className="text-[#6b6b6b] text-sm">No results for "{debouncedQ}"</p>
       ) : (
         <div className="space-y-8">
-          {data.tracks.length > 0 && (
+          {resultTracks.length > 0 && (
             <section>
-              <h2 className="flex items-center gap-2 text-base font-semibold mb-3">
-                <Music size={16} /> Tracks
-              </h2>
+              <h2 className="text-base font-semibold mb-2">Tracks</h2>
               <div className="space-y-0.5">
-                {data.tracks.map((hit) => (
-                  <div
-                    key={hit.id}
-                    className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer"
-                    onDoubleClick={() => getTrack(hit.id).then((t) => playTrack(t))}
-                  >
-                    <Music size={14} className="text-[#555] flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm truncate">{hit.name}</p>
-                      {hit.artist && <p className="text-xs text-[#777] truncate">{hit.artist}</p>}
-                    </div>
-                  </div>
+                {resultTracks.map((track) => (
+                  <TrackRow key={track.id} track={track} queue={resultTracks} hideCoverLabel />
                 ))}
               </div>
             </section>

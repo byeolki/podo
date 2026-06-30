@@ -29,6 +29,7 @@ export default function TrackRow({
   const isActive = currentTrack?.id === track.id
   const [videoOpen, setVideoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [hovered, setHovered] = useState(false)
 
   const queryClient = useQueryClient()
   const { mutate: favMutate } = useMutation({
@@ -61,11 +62,13 @@ export default function TrackRow({
   return (
     <>
       <div
-        className={`group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-          selected ? 'bg-accent/15' : isActive ? 'bg-accent/10' : 'hover:bg-white/5'
+        className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+          selected ? 'bg-accent/15' : isActive ? 'bg-accent/10' : hovered ? 'bg-white/5' : ''
         }`}
         onClick={() => { if (selectionActive) onSelect?.(track.id) }}
         onDoubleClick={() => { if (!selectionActive) playTrack(track, queue) }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
         {/* Left col: checkbox (selection mode) OR number→play (normal) */}
         <div className="w-8 flex-shrink-0 flex items-center justify-center">
@@ -81,13 +84,13 @@ export default function TrackRow({
           ) : (
             <>
               {showNumber && (
-                <span className={`text-sm tabular-nums group-hover:hidden ${isActive ? 'text-accent hidden' : 'text-[#555]'}`}>
+                <span className={`text-sm tabular-nums ${isActive || hovered ? 'hidden' : 'text-[#555]'}`}>
                   {index != null ? index + 1 : ''}
                 </span>
               )}
               <button
                 onClick={(e) => { e.stopPropagation(); playTrack(track, queue) }}
-                className={`${showNumber ? 'hidden group-hover:flex' : 'flex'} items-center justify-center text-white hover:text-accent ${isActive ? '!flex text-accent' : ''}`}
+                className={`${showNumber ? (hovered || isActive ? 'flex' : 'hidden') : 'flex'} items-center justify-center text-white hover:text-accent ${isActive ? 'text-accent' : ''}`}
               >
                 <Play size={14} fill="currentColor" />
               </button>
@@ -120,10 +123,10 @@ export default function TrackRow({
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); favMutate() }}
-                className={`p-1 transition-all ${
+                className={`p-1 transition-colors ${
                   track.is_favorited
-                    ? 'text-red-400 opacity-100'
-                    : 'opacity-0 group-hover:opacity-100 text-[#555] hover:text-red-400'
+                    ? 'text-red-400'
+                    : hovered ? 'text-[#555] hover:text-red-400' : 'opacity-0 pointer-events-none'
                 }`}
                 title={track.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
               >
@@ -131,7 +134,7 @@ export default function TrackRow({
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
-                className="opacity-0 group-hover:opacity-100 p-1 text-[#555] hover:text-white transition-all"
+                className={`p-1 text-[#555] hover:text-white transition-colors ${hovered ? '' : 'opacity-0 pointer-events-none'}`}
                 title="Edit"
               >
                 <Pencil size={12} />
@@ -139,7 +142,7 @@ export default function TrackRow({
               {track.has_video && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-[#555] hover:text-accent transition-all"
+                  className={`p-1 text-[#555] hover:text-accent transition-colors ${hovered ? '' : 'opacity-0 pointer-events-none'}`}
                   title="Music video"
                 >
                   <Video size={13} />

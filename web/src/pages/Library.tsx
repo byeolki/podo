@@ -38,8 +38,12 @@ export default function Library() {
     if (!t) return tracks
     return tracks.filter((tr) => {
       const title = tr.title?.toLowerCase() ?? ''
-      const artist = tr.override?.original_artist?.toLowerCase() ?? tr.artists?.map((a) => a.name).join(' ').toLowerCase() ?? ''
-      return title.includes(t) || artist.includes(t)
+      const parts = [
+        tr.override?.artist,
+        tr.override?.original_artist,
+        tr.artists?.map((a) => a.name).join(' '),
+      ].filter(Boolean).join(' ').toLowerCase()
+      return title.includes(t) || parts.includes(t)
     })
   }, [tracks, q])
 

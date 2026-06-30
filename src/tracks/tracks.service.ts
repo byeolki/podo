@@ -1,10 +1,13 @@
 import { Injectable, NotFoundException, Inject, Logger, Optional } from '@nestjs/common';
-import { eq, and, isNull, asc, inArray, desc } from 'drizzle-orm';
+import { eq, and, isNull, asc, desc, inArray, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
 import * as path from 'path';
 import { AiService } from '../ai/ai.service';
+
+export type SortOption = 'newest' | 'oldest' | 'popular' | 'plays';
+export type FilterOption = 'all' | 'mine' | 'favorites';
 
 @Injectable()
 export class TracksService {
@@ -15,17 +18,47 @@ export class TracksService {
     @Optional() private readonly ai: AiService | null,
   ) {}
 
-  async findAll() {
-    const rawTracks = await this.db
-      .select()
-      .from(schema.tracks)
-      .where(isNull(schema.tracks.deleted_at))
-      .orderBy(asc(schema.tracks.added_at));
+  async findAll(userId: string, opts: { sort?: SortOption; filter?: FilterOption } = {}) {
+    const { sort = 'newest', filter = 'all' } = opts;
+
+    const orderBy = sort === 'oldest'
+      ? asc(schema.tracks.added_at)
+      : sort === 'plays'
+        ? desc(schema.tracks.play_count)
+        : desc(schema.tracks.added_at);
+
+    let rawTracks: (typeof schema.tracks.$inferSelect)[];
+
+    if (filter === 'favorites') {
+      const favRows = await this.db
+        .select({ track_id: schema.favorites.track_id })
+        .from(schema.favorites)
+        .where(eq(schema.favorites.user_id, userId));
+      const favIds = favRows.map((f) => f.track_id);
+      if (!favIds.length) return [];
+      rawTracks = await this.db
+        .select()
+        .from(schema.tracks)
+        .where(and(isNull(schema.tracks.deleted_at), inArray(schema.tracks.id, favIds)))
+        .orderBy(orderBy);
+    } else if (filter === 'mine') {
+      rawTracks = await this.db
+        .select()
+        .from(schema.tracks)
+        .where(and(isNull(schema.tracks.deleted_at), eq(schema.tracks.added_by, userId)))
+        .orderBy(orderBy);
+    } else {
+      rawTracks = await this.db
+        .select()
+        .from(schema.tracks)
+        .where(isNull(schema.tracks.deleted_at))
+        .orderBy(orderBy);
+    }
 
     if (!rawTracks.length) return [];
 
     const trackIds = rawTracks.map((t) => t.id);
-    const [trackArtists, videoSources, overrides] = await Promise.all([
+    const [trackArtists, videoSources, overrides, allFavs, userFavs] = await Promise.all([
       this.db
         .select({ track_id: schema.track_artists.track_id, artist: schema.artists, position: schema.track_artists.position })
         .from(schema.track_artists)
@@ -40,6 +73,14 @@ export class TracksService {
         .select()
         .from(schema.track_metadata_overrides)
         .where(inArray(schema.track_metadata_overrides.track_id, trackIds)),
+      this.db
+        .select({ track_id: schema.favorites.track_id })
+        .from(schema.favorites)
+        .where(inArray(schema.favorites.track_id, trackIds)),
+      this.db
+        .select({ track_id: schema.favorites.track_id })
+        .from(schema.favorites)
+        .where(and(inArray(schema.favorites.track_id, trackIds), eq(schema.favorites.user_id, userId))),
     ]);
 
     const artistsByTrack = new Map<string, (typeof schema.artists.$inferSelect)[]>();
@@ -51,7 +92,13 @@ export class TracksService {
     const videoTrackIds = new Set(videoSources.map((s) => s.track_id));
     const overrideByTrack = new Map(overrides.map((o) => [o.track_id, o]));
 
-    return rawTracks.map((t) => {
+    const favCountByTrack = new Map<string, number>();
+    for (const f of allFavs) {
+      favCountByTrack.set(f.track_id, (favCountByTrack.get(f.track_id) ?? 0) + 1);
+    }
+    const userFavSet = new Set(userFavs.map((f) => f.track_id));
+
+    let results = rawTracks.map((t) => {
       const ov = overrideByTrack.get(t.id);
       const baseArtists = artistsByTrack.get(t.id) ?? [];
       const artistsResult = ov?.artist
@@ -65,8 +112,17 @@ export class TracksService {
         artists: artistsResult,
         has_video: videoTrackIds.has(t.id) || !!ov?.video_locator,
         override: ov ?? null,
+        play_count: t.play_count,
+        favorite_count: favCountByTrack.get(t.id) ?? 0,
+        is_favorited: userFavSet.has(t.id),
       };
     });
+
+    if (sort === 'popular') {
+      results = results.sort((a, b) => b.favorite_count - a.favorite_count);
+    }
+
+    return results;
   }
 
   async findOne(id: string) {
@@ -116,6 +172,53 @@ export class TracksService {
       tags: tags.map((t) => t.tag),
       override: override ?? null,
     };
+  }
+
+  async recordPlay(trackId: string, userId: string) {
+    const track = await this.db
+      .select({ id: schema.tracks.id })
+      .from(schema.tracks)
+      .where(eq(schema.tracks.id, trackId))
+      .get();
+    if (!track) return;
+
+    await Promise.all([
+      this.db.insert(schema.play_history).values({
+        id: newId(),
+        track_id: trackId,
+        user_id: userId,
+        played_at: new Date(),
+      }),
+      this.db
+        .update(schema.tracks)
+        .set({ play_count: sql`${schema.tracks.play_count} + 1` })
+        .where(eq(schema.tracks.id, trackId)),
+    ]);
+  }
+
+  async toggleFavorite(trackId: string, userId: string) {
+    const track = await this.db
+      .select({ id: schema.tracks.id })
+      .from(schema.tracks)
+      .where(eq(schema.tracks.id, trackId))
+      .get();
+    if (!track) throw new NotFoundException('Track not found');
+
+    const existing = await this.db
+      .select()
+      .from(schema.favorites)
+      .where(and(eq(schema.favorites.track_id, trackId), eq(schema.favorites.user_id, userId)))
+      .get();
+
+    if (existing) {
+      await this.db
+        .delete(schema.favorites)
+        .where(and(eq(schema.favorites.track_id, trackId), eq(schema.favorites.user_id, userId)));
+      return { favorited: false };
+    } else {
+      await this.db.insert(schema.favorites).values({ track_id: trackId, user_id: userId, created_at: new Date() });
+      return { favorited: true };
+    }
   }
 
   async applyOverride(

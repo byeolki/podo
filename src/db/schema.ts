@@ -90,6 +90,8 @@ export const tracks = sqliteTable('tracks', {
   canonical_duration: integer('canonical_duration'),
   is_cover: integer('is_cover', { mode: 'boolean' }).notNull().default(false),
   original_artist_id: text('original_artist_id').references(() => artists.id),
+  play_count: integer('play_count').notNull().default(0),
+  added_by: text('added_by').references(() => users.id),
   added_at: integer('added_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
   updated_at: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
   deleted_at: integer('deleted_at', { mode: 'timestamp_ms' }),

@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { Play, Video, Pencil, Check } from 'lucide-react'
+import { Play, Video, Pencil, Check, Heart } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { usePlayerStore } from '../store/player'
+import { toggleFavorite } from '../api/tracks'
 import type { Track } from '../api/tracks'
 import { formatDuration } from '../api/tracks'
 import VideoModal from './VideoModal'
@@ -27,6 +29,29 @@ export default function TrackRow({
   const isActive = currentTrack?.id === track.id
   const [videoOpen, setVideoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+
+  const queryClient = useQueryClient()
+  const { mutate: favMutate } = useMutation({
+    mutationFn: () => toggleFavorite(track.id),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['tracks'] })
+      const prev = queryClient.getQueriesData<Track[]>({ queryKey: ['tracks'] })
+      queryClient.setQueriesData<Track[]>({ queryKey: ['tracks'] }, (old) =>
+        old?.map((t) =>
+          t.id === track.id
+            ? { ...t, is_favorited: !t.is_favorited, favorite_count: t.favorite_count + (t.is_favorited ? -1 : 1) }
+            : t,
+        ),
+      )
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) {
+        for (const [key, data] of ctx.prev) queryClient.setQueryData(key, data)
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tracks'] }),
+  })
 
   const artistStr = track.artists?.map((a) => a.name).join(', ') ?? ''
   const originalArtist = track.override?.original_artist ?? null
@@ -89,9 +114,20 @@ export default function TrackRow({
         </div>
 
         {/* Right: actions + duration */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {!selectionActive && (
             <>
+              <button
+                onClick={(e) => { e.stopPropagation(); favMutate() }}
+                className={`p-1 transition-all ${
+                  track.is_favorited
+                    ? 'text-red-400 opacity-100'
+                    : 'opacity-0 group-hover:opacity-100 text-[#555] hover:text-red-400'
+                }`}
+                title={track.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <Heart size={12} fill={track.is_favorited ? 'currentColor' : 'none'} />
+              </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
                 className="opacity-0 group-hover:opacity-100 p-1 text-[#555] hover:text-white transition-all"

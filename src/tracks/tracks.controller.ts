@@ -1,9 +1,9 @@
 import {
-  Controller, Get, Patch, Post, Param, Body,
+  Controller, Get, Patch, Post, Delete, Param, Body, Query, HttpCode,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsOptional, IsInt, IsBoolean, IsArray, ArrayNotEmpty, Min, Max } from 'class-validator';
-import { TracksService } from './tracks.service';
+import { TracksService, SortOption, FilterOption } from './tracks.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 
@@ -40,14 +40,35 @@ export class TracksController {
 
   @Get()
   @ApiOperation({ summary: 'List all tracks' })
-  findAll() {
-    return this.tracks.findAll();
+  findAll(
+    @Query('sort') sort?: string,
+    @Query('filter') filter?: string,
+    @CurrentUser() user?: JwtPayload,
+  ) {
+    const validSorts = ['newest', 'oldest', 'popular', 'plays'] as const;
+    const validFilters = ['all', 'mine', 'favorites'] as const;
+    const sortOpt = (validSorts as readonly string[]).includes(sort ?? '') ? sort as SortOption : 'newest';
+    const filterOpt = (validFilters as readonly string[]).includes(filter ?? '') ? filter as FilterOption : 'all';
+    return this.tracks.findAll(user?.sub ?? '', { sort: sortOpt, filter: filterOpt });
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get track with sources and artists' })
   findOne(@Param('id') id: string) {
     return this.tracks.findOne(id);
+  }
+
+  @Post(':id/play')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Record a track play' })
+  recordPlay(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.tracks.recordPlay(id, user.sub);
+  }
+
+  @Post(':id/favorite')
+  @ApiOperation({ summary: 'Toggle track favorite' })
+  toggleFavorite(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.tracks.toggleFavorite(id, user.sub);
   }
 
   @Patch(':id/metadata')

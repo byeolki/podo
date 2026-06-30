@@ -23,6 +23,9 @@ export interface Track {
   original_artist_id: string | null
   album_version_id: string | null
   has_video?: boolean
+  play_count: number
+  favorite_count: number
+  is_favorited: boolean
   sources?: Source[]
   artists?: Artist[]
   tags?: Tag[]
@@ -53,12 +56,27 @@ export interface Tag {
   name: string
 }
 
-export function getTracks(): Promise<Track[]> {
-  return api.get('/tracks')
+export type SortOption = 'newest' | 'oldest' | 'popular' | 'plays'
+export type FilterOption = 'all' | 'mine' | 'favorites'
+
+export function getTracks(params?: { sort?: SortOption; filter?: FilterOption }): Promise<Track[]> {
+  const qs = new URLSearchParams()
+  if (params?.sort) qs.set('sort', params.sort)
+  if (params?.filter) qs.set('filter', params.filter)
+  const query = qs.toString()
+  return api.get(`/tracks${query ? `?${query}` : ''}`)
 }
 
 export function getTrack(id: string): Promise<Track & { sources: Source[]; artists: Artist[] }> {
   return api.get(`/tracks/${id}`)
+}
+
+export function recordPlay(id: string): Promise<void> {
+  return api.post(`/tracks/${id}/play`, {})
+}
+
+export function toggleFavorite(id: string): Promise<{ favorited: boolean }> {
+  return api.post(`/tracks/${id}/favorite`, {})
 }
 
 export interface TrackMetadataInput {

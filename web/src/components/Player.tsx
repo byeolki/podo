@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
 import { getStreamUrl, getArtworkUrl } from '../api/client'
-import { formatDuration } from '../api/tracks'
+import { formatDuration, recordPlay } from '../api/tracks'
 import ArtworkImage from './ArtworkImage'
 import VideoModal from './VideoModal'
 
@@ -16,13 +16,13 @@ export default function Player() {
     queue, currentIndex, normalize, setNormalize,
   } = usePlayerStore()
   const [videoOpen, setVideoOpen] = useState(false)
+  const playRecordedRef = useRef<string | null>(null)
 
   useEffect(() => {
     setAudioRef(audioRef.current)
     return () => setAudioRef(null)
   }, [setAudioRef])
 
-  // When track changes or normalize toggles, update src and auto-play
   useEffect(() => {
     const audio = audioRef.current
     if (!audio || !track) return
@@ -36,7 +36,6 @@ export default function Player() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track?.id, currentIndex, normalize])
 
-  // Sync play/pause state
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -44,12 +43,21 @@ export default function Player() {
     else audio.pause()
   }, [isPlaying])
 
+  function handleTimeUpdate(e: React.SyntheticEvent<HTMLAudioElement>) {
+    const t = e.currentTarget.currentTime
+    setCurrentTime(t)
+    if (track && t > 30 && playRecordedRef.current !== track.id) {
+      playRecordedRef.current = track.id
+      recordPlay(track.id).catch(() => {})
+    }
+  }
+
   return (
     <>
     <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center px-4 gap-4 z-50">
       <audio
         ref={audioRef}
-        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onTimeUpdate={handleTimeUpdate}
         onDurationChange={(e) => setDuration(e.currentTarget.duration)}
         onEnded={next}
         onError={() => {}}

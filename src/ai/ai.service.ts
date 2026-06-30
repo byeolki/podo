@@ -12,7 +12,7 @@ export interface AiMetaResult {
   original_artist: string | null;
 }
 
-const SYSTEM_PROMPT = `You are a music metadata expert. Given a filename and any known tags, extract structured metadata.
+const SYSTEM_PROMPT = `You are a music metadata expert with deep knowledge of Korean (K-pop, K-indie), Japanese (J-pop, anime), and global music. Given a filename and any known tags, extract structured metadata.
 Respond ONLY with valid JSON matching this schema:
 {
   "title": string | null,
@@ -23,9 +23,9 @@ Respond ONLY with valid JSON matching this schema:
   "is_cover": boolean,
   "original_artist": string | null
 }
-- is_cover = true when the filename or tags suggest this is a cover version (e.g. "cover by X", "X covers Y", "(covered by X)")
-- original_artist = the original song's artist when is_cover is true, otherwise null
-- Return null for fields you cannot determine with reasonable confidence
+- is_cover = true when the filename or tags suggest this is a cover version (e.g. "cover by X", "X covers Y", "(covered by X)", "커버", "cover")
+- original_artist: when is_cover is true, ALWAYS try to identify the original artist using the song title. Search your knowledge of Korean pop, Korean indie, Japanese music, and international hits. Even if the song title is in Korean or Japanese, look up who originally performed it. Only set null if you genuinely have no idea.
+- Return null for other fields you cannot determine with reasonable confidence
 - genres should be an empty array if unknown`;
 
 @Injectable()

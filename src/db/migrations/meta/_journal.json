@@ -23,5 +23,26 @@
       "tag": "0002_metadata_overrides_ext",
       "breakpoints": true
     }
+    ,{
+      "idx": 3,
+      "version": "6",
+      "when": 1751276400000,
+      "tag": "0003_tracks_stats",
+      "breakpoints": true
+    }
+    ,{
+      "idx": 4,
+      "version": "6",
+      "when": 1751362800000,
+      "tag": "0004_artist_aliases",
+      "breakpoints": true
+    }
+    ,{
+      "idx": 5,
+      "version": "6",
+      "when": 1751449200000,
+      "tag": "0005_alternate_titles",
+      "breakpoints": true
+    }
   ]
 }

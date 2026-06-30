@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import {
   getHealth, getUsers, getStorage, clearTranscodeCache, verifyIntegrity, formatBytes,
-  getAliases, addAlias, removeAlias,
+  getAliases, addAlias, removeAlias, lookupAliases, type AliasSuggestion,
 } from '../api/admin'
 import { getRoots, addRoot, removeRoot, triggerScan, getScanJobs, startDownload, getDownloads } from '../api/library'
 import { createInvite } from '../api/auth'
@@ -330,6 +330,8 @@ function AliasesTab() {
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [alias, setAlias] = useState('')
+  const [lookupName, setLookupName] = useState('')
+  const [suggestions, setSuggestions] = useState<AliasSuggestion[]>([])
 
   const { data: aliases = [] } = useQuery({ queryKey: ['aliases'], queryFn: getAliases })
   const addMut = useMutation({
@@ -340,14 +342,65 @@ function AliasesTab() {
     mutationFn: removeAlias,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['aliases'] }),
   })
+  const lookupMut = useMutation({
+    mutationFn: () => lookupAliases(lookupName.trim()),
+    onSuccess: (data) => setSuggestions(data),
+  })
 
   const canAdd = name.trim().length > 0 && alias.trim().length > 0
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-base font-semibold mb-3">Artist Aliases</h3>
+        <h3 className="text-base font-semibold mb-1">Artist Aliases</h3>
         <p className="text-xs text-[#6b6b6b] mb-4">Searching either name will find tracks associated with both.</p>
+
+        <div className="p-3 rounded-lg bg-[#181818] border border-[#222] mb-4 space-y-3">
+          <p className="text-xs text-[#6b6b6b] font-medium">MusicBrainz lookup</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={lookupName}
+              onChange={(e) => setLookupName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && lookupName.trim()) lookupMut.mutate() }}
+              placeholder="IU, AKMU, 자이언티…"
+              className="flex-1 px-3 py-2 rounded-lg bg-[#111] border border-[#333] text-sm focus:outline-none focus:border-[#444]"
+            />
+            <button
+              onClick={() => lookupMut.mutate()}
+              disabled={!lookupName.trim() || lookupMut.isPending}
+              className="px-3 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm transition-colors disabled:opacity-40"
+            >
+              {lookupMut.isPending ? 'Searching…' : 'Search'}
+            </button>
+          </div>
+          {suggestions.length > 0 && (
+            <div className="space-y-2">
+              {suggestions.map((s) =>
+                s.aliases.map((a) => {
+                  const alreadyAdded = aliases.some(
+                    (existing) => (existing.name === s.canonical && existing.alias === a) || (existing.name === a && existing.alias === s.canonical)
+                  )
+                  return (
+                    <div key={`${s.canonical}-${a}`} className="flex items-center gap-2">
+                      <span className="text-xs flex-1 text-[#a1a1a1]">{s.canonical} <ArrowLeftRight size={10} className="inline" /> {a}</span>
+                      <button
+                        onClick={() => addAlias(s.canonical, a).then(() => qc.invalidateQueries({ queryKey: ['aliases'] }))}
+                        disabled={alreadyAdded}
+                        className="text-xs px-2 py-1 rounded bg-accent/20 hover:bg-accent/40 text-accent transition-colors disabled:opacity-30 disabled:cursor-default"
+                      >
+                        {alreadyAdded ? 'Added' : 'Add'}
+                      </button>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )}
+          {lookupMut.isSuccess && suggestions.length === 0 && (
+            <p className="text-xs text-[#555]">No aliases found on MusicBrainz</p>
+          )}
+        </div>
 
         <div className="flex gap-2 mb-4">
           <input

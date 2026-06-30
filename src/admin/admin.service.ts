@@ -6,6 +6,7 @@ import { StreamingService } from '../streaming/streaming.service';
 import { TranscodeCacheService } from '../streaming/transcode-cache.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as https from 'https';
 
 @Injectable()
 export class AdminService {
@@ -153,6 +154,45 @@ export class AdminService {
   async removeAlias(id: string) {
     await this.db.delete(schema.artist_aliases).where(eq(schema.artist_aliases.id, id));
     return { deleted: true };
+  }
+
+  async lookupArtistAliases(name: string): Promise<{ canonical: string; aliases: string[] }[]> {
+    const ua = 'podo/1.0 (self-hosted music server)';
+    try {
+      const searchUrl = `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(name)}&limit=5&fmt=json`;
+      const searchData = await this.mbGet(searchUrl, ua) as { artists?: { id: string; name: string; score?: number }[] };
+      const artists = searchData.artists ?? [];
+      if (!artists.length) return [];
+
+      const results: { canonical: string; aliases: string[] }[] = [];
+
+      for (const artist of artists.slice(0, 3)) {
+        await new Promise((r) => setTimeout(r, 1100));
+        const detailUrl = `https://musicbrainz.org/ws/2/artist/${artist.id}?inc=aliases&fmt=json`;
+        const detail = await this.mbGet(detailUrl, ua) as { name: string; aliases?: { name: string; locale?: string | null; primary?: string | null }[] };
+        const aliases = (detail.aliases ?? [])
+          .map((a) => a.name)
+          .filter((n) => n && n !== detail.name);
+        if (aliases.length > 0) results.push({ canonical: detail.name, aliases: [...new Set(aliases)] });
+      }
+
+      return results;
+    } catch (e) {
+      this.logger.warn(`MusicBrainz lookup failed: ${e}`);
+      return [];
+    }
+  }
+
+  private mbGet(url: string, userAgent: string): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      https.get(url, { headers: { 'User-Agent': userAgent, Accept: 'application/json' } }, (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => {
+          try { resolve(JSON.parse(body)); } catch { reject(new Error('Invalid JSON')); }
+        });
+      }).on('error', reject);
+    });
   }
 
   async listUsers() {

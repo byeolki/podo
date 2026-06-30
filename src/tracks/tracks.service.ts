@@ -234,6 +234,7 @@ export class TracksService {
       video_locator?: string;
       track_number?: number;
       disc_number?: number;
+      alternate_titles?: string;
     },
     userId: string,
   ) {
@@ -248,6 +249,7 @@ export class TracksService {
     if (dto.video_locator !== undefined) set.video_locator = dto.video_locator || null;
     if (dto.track_number !== undefined) set.track_number = dto.track_number ?? null;
     if (dto.disc_number !== undefined) set.disc_number = dto.disc_number ?? null;
+    if (dto.alternate_titles !== undefined) set.alternate_titles = dto.alternate_titles || null;
 
     await this.db
       .insert(schema.track_metadata_overrides)

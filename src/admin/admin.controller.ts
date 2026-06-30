@@ -84,6 +84,12 @@ export class AdminController {
     return this.admin.listAliases();
   }
 
+  @Get('aliases/lookup')
+  @ApiOperation({ summary: 'Lookup artist aliases from MusicBrainz' })
+  lookupAliases(@Query('name') name: string) {
+    return this.admin.lookupArtistAliases(name ?? '');
+  }
+
   @Post('aliases')
   @ApiOperation({ summary: 'Add artist alias pair' })
   addAlias(@Body() dto: AliasDto) {

@@ -67,6 +67,15 @@ export function removeAlias(id: string): Promise<{ deleted: boolean }> {
   return api.delete(`/admin/aliases/${id}`)
 }
 
+export interface AliasSuggestion {
+  canonical: string
+  aliases: string[]
+}
+
+export function lookupAliases(name: string): Promise<AliasSuggestion[]> {
+  return api.get(`/admin/aliases/lookup?name=${encodeURIComponent(name)}`)
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
   const k = 1024

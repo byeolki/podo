@@ -56,7 +56,7 @@ export default function TrackRow({
   const performer = track.artists?.map((a) => a.name).join(', ') ?? ''
   const originalArtist = track.override?.original_artist ?? null
   const isCover = track.is_cover
-  const artistStr = isCover ? (originalArtist ?? performer) : performer
+  const artistStr = isCover ? (originalArtist ?? performer) : (performer || originalArtist || '')
 
   return (
     <>

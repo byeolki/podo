@@ -104,9 +104,9 @@ export default function TrackRow({
             <p className="text-xs text-[#777] truncate leading-tight mt-0.5">
               {artistStr}
               {isCover && performer && (
-                <span className="text-[#555]">
+                <span className="text-[#777]">
                   {artistStr ? ' · ' : ''}
-                  <span className="text-[#a855f7]/70">cover</span>
+                  <span className="text-[#a855f7]">cover</span>
                   {` of ${performer}`}
                 </span>
               )}

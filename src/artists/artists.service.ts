@@ -30,14 +30,17 @@ export class ArtistsService {
       created_at: Date;
       track_count: number;
       is_performer: number;
+      image: string | null;
     }>(sql`
       SELECT
         a.id, a.name, a.is_custom, a.external_ids, a.created_at,
         COUNT(ta.artist_id) as track_count,
-        MAX(CASE WHEN ov.is_cover = 1 AND instr(',' || ov.artist || ',', ',' || a.name || ',') > 0 THEN 1 ELSE 0 END) as is_performer
+        MAX(CASE WHEN ov.is_cover = 1 AND instr(',' || ov.artist || ',', ',' || a.name || ',') > 0 THEN 1 ELSE 0 END) as is_performer,
+        json_extract(mc.data, '$.image') as image
       FROM artists a
       LEFT JOIN track_artists ta ON ta.artist_id = a.id
       LEFT JOIN track_metadata_overrides ov ON ov.track_id = ta.track_id
+      LEFT JOIN mb_cache mc ON mc.key = 'lastfm:artist:' || lower(a.name)
       GROUP BY a.id
       ORDER BY a.name
     `);

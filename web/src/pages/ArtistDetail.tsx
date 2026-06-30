@@ -19,7 +19,6 @@ export default function ArtistDetail() {
   if (!artist) return <div className="p-6 text-[#6b6b6b]">Artist not found</div>
 
   const image = artist.lastfm?.image
-  const bio = artist.lastfm?.bio
   const tags = artist.lastfm?.tags
 
   return (
@@ -45,9 +44,6 @@ export default function ArtistDetail() {
                 <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-[#222] text-[#a1a1a1]">{tag}</span>
               ))}
             </div>
-          )}
-          {bio && (
-            <p className="text-sm text-[#a1a1a1] leading-relaxed line-clamp-3">{bio}</p>
           )}
         </div>
       </div>

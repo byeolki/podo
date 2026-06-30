@@ -15,6 +15,7 @@ export interface Artist {
   created_at: string
   track_count?: number
   is_performer?: number
+  image?: string | null
   tracks?: Track[]
   lastfm?: LastFmInfo | null
 }

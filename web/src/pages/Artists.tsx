@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Users, Search, X, ChevronDown } from 'lucide-react'
+import { Users, Search, X, ChevronDown, UserCircle2 } from 'lucide-react'
 import { getArtists } from '../api/artists'
 
 type ArtistFilter = 'all' | 'performers' | 'originals'
@@ -131,9 +131,13 @@ export default function Artists() {
               to={`/artists/${artist.id}`}
               className="group p-4 rounded-xl bg-[#181818] hover:bg-[#222] transition-colors"
             >
-              <div className="w-full aspect-square rounded-full bg-[#2a2a2a] flex items-center justify-center mb-3">
-                <Users size={32} className="text-[#555]" />
-              </div>
+              {artist.image ? (
+                <img src={artist.image} alt={artist.name} className="w-full aspect-square rounded-full object-cover mb-3 bg-[#2a2a2a]" />
+              ) : (
+                <div className="w-full aspect-square rounded-full bg-[#2a2a2a] flex items-center justify-center mb-3">
+                  <Users size={32} className="text-[#555]" />
+                </div>
+              )}
               <p className="text-sm font-medium truncate text-center">{artist.name}</p>
               <p className="text-xs text-[#6b6b6b] text-center mt-0.5">{artist.track_count ?? 0} tracks</p>
             </Link>

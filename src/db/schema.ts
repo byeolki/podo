@@ -119,7 +119,6 @@ export const track_metadata_overrides = sqliteTable('track_metadata_overrides', 
   video_locator: text('video_locator'),
   track_number: integer('track_number'),
   disc_number: integer('disc_number'),
-  alternate_titles: text('alternate_titles'),
   updated_at: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
   updated_by: text('updated_by').references(() => users.id),
 });

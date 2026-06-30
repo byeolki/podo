@@ -68,9 +68,9 @@ export class SearchService {
     // LIKE search on artist name fields (override + track_artists table)
     if (terms.length > 0) {
       const conditions = terms.map(() =>
-        `(lower(COALESCE(ov.artist,'')) LIKE lower(?) OR lower(COALESCE(ov.original_artist,'')) LIKE lower(?) OR lower(COALESCE(a.name,'')) LIKE lower(?) OR lower(COALESCE(ov.alternate_titles,'')) LIKE lower(?))`,
+        `(lower(COALESCE(ov.artist,'')) LIKE lower(?) OR lower(COALESCE(ov.original_artist,'')) LIKE lower(?) OR lower(COALESCE(a.name,'')) LIKE lower(?))`,
       ).join(' OR ');
-      const params: unknown[] = terms.flatMap((t) => [`%${t}%`, `%${t}%`, `%${t}%`, `%${t}%`]);
+      const params: unknown[] = terms.flatMap((t) => [`%${t}%`, `%${t}%`, `%${t}%`]);
       params.push(limit);
       try {
         const rows = this.sqlite.prepare(

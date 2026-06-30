@@ -2,16 +2,15 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Folder, Plus, Trash2, RefreshCw, Download, Users, Activity,
-  HardDrive, Shield, ArrowLeftRight, X, type LucideIcon,
+  HardDrive, Shield, X, type LucideIcon,
 } from 'lucide-react'
 import {
   getHealth, getUsers, getStorage, clearTranscodeCache, verifyIntegrity, formatBytes,
-  getAliases, addAlias, removeAlias, lookupAliases, type AliasSuggestion,
 } from '../api/admin'
 import { getRoots, addRoot, removeRoot, triggerScan, getScanJobs, startDownload, getDownloads } from '../api/library'
 import { createInvite } from '../api/auth'
 
-type Tab = 'library' | 'downloads' | 'users' | 'health' | 'aliases'
+type Tab = 'library' | 'downloads' | 'users' | 'health'
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -326,131 +325,6 @@ function HealthTab() {
   )
 }
 
-function AliasesTab() {
-  const qc = useQueryClient()
-  const [name, setName] = useState('')
-  const [alias, setAlias] = useState('')
-  const [lookupName, setLookupName] = useState('')
-  const [suggestions, setSuggestions] = useState<AliasSuggestion[]>([])
-
-  const { data: aliases = [] } = useQuery({ queryKey: ['aliases'], queryFn: getAliases })
-  const addMut = useMutation({
-    mutationFn: () => addAlias(name.trim(), alias.trim()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['aliases'] }); setName(''); setAlias('') },
-  })
-  const removeMut = useMutation({
-    mutationFn: removeAlias,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['aliases'] }),
-  })
-  const lookupMut = useMutation({
-    mutationFn: () => lookupAliases(lookupName.trim()),
-    onSuccess: (data) => setSuggestions(data),
-  })
-
-  const canAdd = name.trim().length > 0 && alias.trim().length > 0
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-base font-semibold mb-1">Artist Aliases</h3>
-        <p className="text-xs text-[#6b6b6b] mb-4">Searching either name will find tracks associated with both.</p>
-
-        <div className="p-3 rounded-lg bg-[#181818] border border-[#222] mb-4 space-y-3">
-          <p className="text-xs text-[#6b6b6b] font-medium">MusicBrainz lookup</p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={lookupName}
-              onChange={(e) => setLookupName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && lookupName.trim()) lookupMut.mutate() }}
-              placeholder="IU, AKMU, 자이언티…"
-              className="flex-1 px-3 py-2 rounded-lg bg-[#111] border border-[#333] text-sm focus:outline-none focus:border-[#444]"
-            />
-            <button
-              onClick={() => lookupMut.mutate()}
-              disabled={!lookupName.trim() || lookupMut.isPending}
-              className="px-3 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm transition-colors disabled:opacity-40"
-            >
-              {lookupMut.isPending ? 'Searching…' : 'Search'}
-            </button>
-          </div>
-          {suggestions.length > 0 && (
-            <div className="space-y-2">
-              {suggestions.map((s) =>
-                s.aliases.map((a) => {
-                  const alreadyAdded = aliases.some(
-                    (existing) => (existing.name === s.canonical && existing.alias === a) || (existing.name === a && existing.alias === s.canonical)
-                  )
-                  return (
-                    <div key={`${s.canonical}-${a}`} className="flex items-center gap-2">
-                      <span className="text-xs flex-1 text-[#a1a1a1]">{s.canonical} <ArrowLeftRight size={10} className="inline" /> {a}</span>
-                      <button
-                        onClick={() => addAlias(s.canonical, a).then(() => qc.invalidateQueries({ queryKey: ['aliases'] }))}
-                        disabled={alreadyAdded}
-                        className="text-xs px-2 py-1 rounded bg-accent/20 hover:bg-accent/40 text-accent transition-colors disabled:opacity-30 disabled:cursor-default"
-                      >
-                        {alreadyAdded ? 'Added' : 'Add'}
-                      </button>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          )}
-          {lookupMut.isSuccess && suggestions.length === 0 && (
-            <p className="text-xs text-[#555]">No aliases found on MusicBrainz</p>
-          )}
-        </div>
-
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="AKMU"
-            className="flex-1 px-3 py-2 rounded-lg bg-[#181818] border border-[#222] text-sm focus:outline-none focus:border-[#444]"
-          />
-          <div className="flex items-center text-[#555]"><ArrowLeftRight size={14} /></div>
-          <input
-            type="text"
-            value={alias}
-            onChange={(e) => setAlias(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && canAdd) addMut.mutate() }}
-            placeholder="악동뮤지션"
-            className="flex-1 px-3 py-2 rounded-lg bg-[#181818] border border-[#222] text-sm focus:outline-none focus:border-[#444]"
-          />
-          <button
-            onClick={() => addMut.mutate()}
-            disabled={!canAdd || addMut.isPending}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium transition-colors disabled:opacity-40"
-          >
-            <Plus size={14} /> Add
-          </button>
-        </div>
-
-        <div className="space-y-1.5">
-          {aliases.map((a) => (
-            <div key={a.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#181818] border border-[#222]">
-              <span className="text-sm flex-1">{a.name}</span>
-              <ArrowLeftRight size={13} className="text-[#444] flex-shrink-0" />
-              <span className="text-sm flex-1">{a.alias}</span>
-              <button
-                onClick={() => removeMut.mutate(a.id)}
-                className="text-[#555] hover:text-red-400 transition-colors ml-2"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-          {aliases.length === 0 && (
-            <p className="text-xs text-[#555] text-center py-6">No aliases defined</p>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function Admin() {
   const [tab, setTab] = useState<Tab>('library')
 
@@ -459,7 +333,6 @@ export default function Admin() {
     { id: 'downloads', label: 'Downloads', icon: Download },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'health', label: 'Health', icon: Activity },
-    { id: 'aliases', label: 'Aliases', icon: ArrowLeftRight },
   ]
 
   return (
@@ -485,7 +358,6 @@ export default function Admin() {
       {tab === 'downloads' && <DownloadsTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'health' && <HealthTab />}
-      {tab === 'aliases' && <AliasesTab />}
     </div>
   )
 }

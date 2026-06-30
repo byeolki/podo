@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { IsIn, IsString, MinLength } from 'class-validator';
+import { IsIn } from 'class-validator';
 import { AdminService } from './admin.service';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AdminOnly } from '../common/decorators/roles.decorator';
@@ -9,11 +9,6 @@ import { JwtPayload } from '../common/guards/jwt-auth.guard';
 
 class ReviewMappingDto {
   @IsIn(['approve', 'reject']) action!: 'approve' | 'reject';
-}
-
-class AliasDto {
-  @IsString() @MinLength(1) name!: string;
-  @IsString() @MinLength(1) alias!: string;
 }
 
 @ApiTags('admin')
@@ -76,29 +71,5 @@ export class AdminController {
   @ApiOperation({ summary: 'List all users' })
   listUsers() {
     return this.admin.listUsers();
-  }
-
-  @Get('aliases')
-  @ApiOperation({ summary: 'List artist aliases' })
-  listAliases() {
-    return this.admin.listAliases();
-  }
-
-  @Get('aliases/lookup')
-  @ApiOperation({ summary: 'Lookup artist aliases from MusicBrainz' })
-  lookupAliases(@Query('name') name: string) {
-    return this.admin.lookupArtistAliases(name ?? '');
-  }
-
-  @Post('aliases')
-  @ApiOperation({ summary: 'Add artist alias pair' })
-  addAlias(@Body() dto: AliasDto) {
-    return this.admin.addAlias(dto.name, dto.alias);
-  }
-
-  @Delete('aliases/:id')
-  @ApiOperation({ summary: 'Remove artist alias' })
-  removeAlias(@Param('id') id: string) {
-    return this.admin.removeAlias(id);
   }
 }

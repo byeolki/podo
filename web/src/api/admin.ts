@@ -48,34 +48,6 @@ export function getTrafficStats(period: string): Promise<unknown> {
   return api.get(`/admin/stats/traffic?period=${period}`)
 }
 
-export interface ArtistAlias {
-  id: string
-  name: string
-  alias: string
-  created_at: string
-}
-
-export function getAliases(): Promise<ArtistAlias[]> {
-  return api.get('/admin/aliases')
-}
-
-export function addAlias(name: string, alias: string): Promise<ArtistAlias> {
-  return api.post('/admin/aliases', { name, alias })
-}
-
-export function removeAlias(id: string): Promise<{ deleted: boolean }> {
-  return api.delete(`/admin/aliases/${id}`)
-}
-
-export interface AliasSuggestion {
-  canonical: string
-  aliases: string[]
-}
-
-export function lookupAliases(name: string): Promise<AliasSuggestion[]> {
-  return api.get(`/admin/aliases/lookup?name=${encodeURIComponent(name)}`)
-}
-
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
   const k = 1024

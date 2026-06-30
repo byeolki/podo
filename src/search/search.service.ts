@@ -14,7 +14,7 @@ export class SearchService {
   constructor(@Inject(SQLITE_TOKEN) private readonly sqlite: Database.Database) {}
 
   search(query: string, types: string[] = ['track', 'artist', 'album'], limit = 20): Record<string, SearchHit[]> {
-    const terms = this.expandTerms(query);
+    const terms = [query];
     const results: Record<string, SearchHit[]> = {};
 
     if (types.includes('track')) {
@@ -28,22 +28,6 @@ export class SearchService {
     }
 
     return results;
-  }
-
-  private expandTerms(query: string): string[] {
-    const terms = new Set([query]);
-    try {
-      const rows = this.sqlite.prepare(
-        `SELECT name, alias FROM artist_aliases WHERE lower(name) = lower(?) OR lower(alias) = lower(?)`,
-      ).all(query, query) as { name: string; alias: string }[];
-      for (const row of rows) {
-        terms.add(row.name);
-        terms.add(row.alias);
-      }
-    } catch {
-      // table may not exist during first boot
-    }
-    return [...terms];
   }
 
   private searchTracks(terms: string[], rawQuery: string, limit: number): SearchHit[] {

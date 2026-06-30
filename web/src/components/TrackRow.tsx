@@ -53,9 +53,10 @@ export default function TrackRow({
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['tracks'] }),
   })
 
-  const artistStr = track.artists?.map((a) => a.name).join(', ') ?? ''
+  const performer = track.artists?.map((a) => a.name).join(', ') ?? ''
   const originalArtist = track.override?.original_artist ?? null
   const isCover = track.is_cover
+  const artistStr = isCover ? (originalArtist ?? performer) : performer
 
   return (
     <>
@@ -102,11 +103,11 @@ export default function TrackRow({
           {(showArtist || isCover) && (
             <p className="text-xs text-[#777] truncate leading-tight mt-0.5">
               {artistStr}
-              {isCover && (
+              {isCover && performer && (
                 <span className="text-[#555]">
                   {artistStr ? ' · ' : ''}
                   <span className="text-[#a855f7]/70">cover</span>
-                  {originalArtist ? ` of ${originalArtist}` : ''}
+                  {` of ${performer}`}
                 </span>
               )}
             </p>

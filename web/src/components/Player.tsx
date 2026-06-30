@@ -74,7 +74,9 @@ export default function Player() {
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{track?.title ?? 'Not playing'}</p>
           <p className="text-xs text-[#a1a1a1] truncate">
-            {track?.artists?.map((a) => a.name).join(', ') ?? ''}
+            {track?.is_cover
+              ? (track.override?.original_artist ?? track.artists?.map((a) => a.name).join(', ') ?? '')
+              : (track?.artists?.map((a) => a.name).join(', ') ?? '')}
           </p>
         </div>
       </div>

@@ -319,13 +319,33 @@ export class TracksService {
     return this.db.select().from(schema.lyrics).where(eq(schema.lyrics.track_id, trackId)).get();
   }
 
-  async aiAutofill(trackIds: string[], userId: string): Promise<{ track_id: string; applied: boolean; result: Record<string, unknown> | null }[]> {
-    if (!this.ai?.enabled) return trackIds.map((id) => ({ track_id: id, applied: false, result: null }));
-
-    const tracks = await this.db
-      .select({ id: schema.tracks.id, title: schema.tracks.title })
-      .from(schema.tracks)
+  async deleteTracks(trackIds: string[]) {
+    if (!trackIds.length) return { deleted: 0 };
+    await this.db
+      .update(schema.tracks)
+      .set({ deleted_at: new Date() })
       .where(inArray(schema.tracks.id, trackIds));
+    this.logger.log(`Soft-deleted ${trackIds.length} tracks`);
+    return { deleted: trackIds.length };
+  }
+
+  async aiAutofill(trackIds: string[], userId: string): Promise<{ track_id: string; applied: boolean; skipped: boolean; result: Record<string, unknown> | null }[]> {
+    if (!this.ai?.enabled) return trackIds.map((id) => ({ track_id: id, applied: false, skipped: false, result: null }));
+
+    const [tracks, existingOverrides] = await Promise.all([
+      this.db
+        .select({ id: schema.tracks.id, title: schema.tracks.title })
+        .from(schema.tracks)
+        .where(inArray(schema.tracks.id, trackIds)),
+      this.db
+        .select({ track_id: schema.track_metadata_overrides.track_id, title: schema.track_metadata_overrides.title, artist: schema.track_metadata_overrides.artist })
+        .from(schema.track_metadata_overrides)
+        .where(inArray(schema.track_metadata_overrides.track_id, trackIds)),
+    ]);
+
+    const alreadyFilled = new Set(
+      existingOverrides.filter((o) => o.title && o.artist).map((o) => o.track_id),
+    );
 
     const sources = await this.db
       .select({ track_id: schema.sources.track_id, locator: schema.sources.locator, media_kind: schema.sources.media_kind })
@@ -342,16 +362,21 @@ export class TracksService {
       if (!sourceByTrack.has(s.track_id)) sourceByTrack.set(s.track_id, s.locator);
     }
 
-    const results: { track_id: string; applied: boolean; result: Record<string, unknown> | null }[] = [];
+    const results: { track_id: string; applied: boolean; skipped: boolean; result: Record<string, unknown> | null }[] = [];
 
     for (const track of tracks) {
+      if (alreadyFilled.has(track.id)) {
+        results.push({ track_id: track.id, applied: false, skipped: true, result: null });
+        continue;
+      }
+
       const locator = sourceByTrack.get(track.id);
-      if (!locator) { results.push({ track_id: track.id, applied: false, result: null }); continue; }
+      if (!locator) { results.push({ track_id: track.id, applied: false, skipped: false, result: null }); continue; }
 
       const filename = path.basename(locator);
       const aiResult = await this.ai.extractMetadata(filename, { title: track.title });
 
-      if (!aiResult) { results.push({ track_id: track.id, applied: false, result: null }); continue; }
+      if (!aiResult) { results.push({ track_id: track.id, applied: false, skipped: false, result: null }); continue; }
 
       const set: Record<string, unknown> = { updated_by: userId, updated_at: new Date() };
       if (aiResult.title) set.title = aiResult.title;
@@ -364,7 +389,7 @@ export class TracksService {
         .values({ track_id: track.id, updated_by: userId, updated_at: new Date(), ...set })
         .onConflictDoUpdate({ target: schema.track_metadata_overrides.track_id, set });
 
-      results.push({ track_id: track.id, applied: true, result: aiResult as unknown as Record<string, unknown> });
+      results.push({ track_id: track.id, applied: true, skipped: false, result: aiResult as unknown as Record<string, unknown> });
     }
 
     return results;

@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Post, Delete, Param, Body, Query, HttpCode,
+  Controller, Get, Patch, Post, Param, Body, Query, HttpCode,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsOptional, IsInt, IsBoolean, IsArray, ArrayNotEmpty, Min, Max } from 'class-validator';
@@ -25,6 +25,10 @@ class BulkMetadataDto {
 }
 
 class AiFillDto {
+  @IsArray() @ArrayNotEmpty() @IsString({ each: true }) track_ids!: string[];
+}
+
+class DeleteTracksDto {
   @IsArray() @ArrayNotEmpty() @IsString({ each: true }) track_ids!: string[];
 }
 
@@ -88,6 +92,13 @@ export class TracksController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.tracks.bulkApplyOverride(dto.track_ids, dto, user.sub);
+  }
+
+  @Post('delete')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Soft-delete tracks' })
+  deleteTracks(@Body() dto: DeleteTracksDto) {
+    return this.tracks.deleteTracks(dto.track_ids);
   }
 
   @Post('ai-fill')

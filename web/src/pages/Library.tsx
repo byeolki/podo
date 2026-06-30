@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Shuffle, Sparkles, X, ChevronDown } from 'lucide-react'
-import { getTracks, aiAutofillTracks } from '../api/tracks'
+import { Play, Shuffle, Sparkles, X, ChevronDown, Trash2, CheckSquare, Square } from 'lucide-react'
+import { getTracks, aiAutofillTracks, deleteTracks } from '../api/tracks'
 import type { SortOption, FilterOption } from '../api/tracks'
 import { usePlayerStore } from '../store/player'
 import TrackRow from '../components/TrackRow'
@@ -23,6 +23,8 @@ export default function Library() {
   const [sort, setSort] = useState<SortOption>('newest')
   const [filter, setFilter] = useState<FilterOption>('all')
   const [sortOpen, setSortOpen] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const { data: tracks = [], isLoading } = useQuery({
     queryKey: ['tracks', sort, filter],
@@ -30,14 +32,19 @@ export default function Library() {
   })
 
   const { setQueue, play } = usePlayerStore()
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
 
   const { mutate: runAiFill, isPending: aiFilling } = useMutation({
     mutationFn: (ids: string[]) => aiAutofillTracks(ids),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tracks'] }),
+  })
+
+  const { mutate: runDelete, isPending: deleting } = useMutation({
+    mutationFn: (ids: string[]) => deleteTracks(ids),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tracks'] })
       setSelectedIds(new Set())
+      setSelectionMode(false)
     },
   })
 
@@ -49,7 +56,13 @@ export default function Library() {
     })
   }, [])
 
-  const clearSelection = () => setSelectedIds(new Set())
+  const selectAll = () => setSelectedIds(new Set(tracks.map((t) => t.id)))
+  const deselectAll = () => setSelectedIds(new Set())
+
+  const exitSelection = () => {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }
 
   function playAll() {
     setQueue(tracks, 0)
@@ -62,6 +75,7 @@ export default function Library() {
     play()
   }
 
+  const allSelected = tracks.length > 0 && selectedIds.size === tracks.length
   const hasSelection = selectedIds.size > 0
 
   return (
@@ -72,8 +86,14 @@ export default function Library() {
           <p className="text-sm text-[#a1a1a1] mt-0.5">{tracks.length} tracks</p>
         </div>
 
-        {!hasSelection && tracks.length > 0 && (
+        {!selectionMode && tracks.length > 0 && (
           <div className="flex gap-2">
+            <button
+              onClick={() => setSelectionMode(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm font-medium transition-colors"
+            >
+              <CheckSquare size={14} /> Select
+            </button>
             <button
               onClick={playAll}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium transition-colors"
@@ -89,19 +109,45 @@ export default function Library() {
           </div>
         )}
 
-        {hasSelection && (
+        {selectionMode && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-[#a1a1a1]">{selectedIds.size} selected</span>
             <button
-              onClick={() => runAiFill([...selectedIds])}
-              disabled={aiFilling}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium transition-colors disabled:opacity-50"
+              onClick={allSelected ? deselectAll : selectAll}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm transition-colors"
             >
-              <Sparkles size={14} />
-              {aiFilling ? 'Filling…' : 'AI Fill'}
+              {allSelected ? <Square size={14} /> : <CheckSquare size={14} />}
+              {allSelected ? 'Deselect all' : 'Select all'}
             </button>
+
+            <span className="text-sm text-[#555]">{hasSelection ? `${selectedIds.size} selected` : 'None'}</span>
+
+            {hasSelection && (
+              <>
+                <button
+                  onClick={() => runAiFill([...selectedIds])}
+                  disabled={aiFilling}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  <Sparkles size={14} />
+                  {aiFilling ? 'Filling…' : 'AI Fill'}
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete ${selectedIds.size} track(s) from library?`)) {
+                      runDelete([...selectedIds])
+                    }
+                  }}
+                  disabled={deleting}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  <Trash2 size={14} />
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </button>
+              </>
+            )}
+
             <button
-              onClick={clearSelection}
+              onClick={exitSelection}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm transition-colors"
             >
               <X size={14} /> Cancel
@@ -162,7 +208,7 @@ export default function Library() {
         <div className="text-center py-20 text-[#6b6b6b]">
           <p className="text-lg font-medium">No tracks</p>
           <p className="text-sm mt-1">
-            {filter === 'favorites' ? 'You haven\'t favorited any tracks yet' : filter === 'mine' ? 'No tracks added by you' : 'Add a library root in Admin to get started'}
+            {filter === 'favorites' ? "You haven't favorited any tracks yet" : filter === 'mine' ? 'No tracks added by you' : 'Add a library root in Admin to get started'}
           </p>
         </div>
       ) : (
@@ -176,7 +222,7 @@ export default function Library() {
               showNumber
               selected={selectedIds.has(track.id)}
               onSelect={toggleSelect}
-              selectionActive={hasSelection}
+              selectionActive={selectionMode}
             />
           ))}
         </div>

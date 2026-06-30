@@ -63,8 +63,8 @@ export default function TrackRow({
         className={`group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
           selected ? 'bg-accent/15' : isActive ? 'bg-accent/10' : 'hover:bg-white/5'
         }`}
-        onClick={() => selectionActive && onSelect ? onSelect(track.id) : undefined}
-        onDoubleClick={() => !selectionActive && playTrack(track, queue)}
+        onClick={() => { if (selectionActive) onSelect?.(track.id) }}
+        onDoubleClick={() => { if (!selectionActive) playTrack(track, queue) }}
       >
         {/* Left col: checkbox (selection mode) OR number→play (normal) */}
         <div className="w-8 flex-shrink-0 flex items-center justify-center">

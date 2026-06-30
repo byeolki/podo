@@ -103,6 +103,10 @@ export function aiAutofillTracks(trackIds: string[]): Promise<AiFillResult[]> {
   return api.post('/tracks/ai-fill', { track_ids: trackIds })
 }
 
+export function deleteTracks(trackIds: string[]): Promise<{ deleted: number }> {
+  return api.post('/tracks/delete', { track_ids: trackIds })
+}
+
 export function formatDuration(ms: number | null): string {
   if (!ms) return '--:--'
   const s = Math.floor(ms / 1000)

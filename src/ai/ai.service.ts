@@ -36,7 +36,7 @@ export class AiService {
 
   constructor(private readonly config: ConfigService) {
     const apiKey = config.get<string>('openai_api_key', '');
-    this.model = config.get<string>('openai_model', 'gpt-4o-mini');
+    this.model = config.get<string>('openai_model', 'gpt-5.4-mini');
     this.client = apiKey ? new OpenAI({ apiKey }) : null;
   }
 

@@ -237,6 +237,12 @@ function UsersTab() {
         </div>
       )}
 
+      {inviteMut.error && (
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+          <p className="text-xs text-red-400">{(inviteMut.error as Error).message}</p>
+        </div>
+      )}
+
       <div className="space-y-1.5">
         {users.map((user) => (
           <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg bg-[#181818] border border-[#222]">

@@ -5,8 +5,6 @@ import { isAuthenticated } from './api/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Library from './pages/Library'
-import Artists from './pages/Artists'
-import ArtistDetail from './pages/ArtistDetail'
 import Playlists from './pages/Playlists'
 import PlaylistDetail from './pages/PlaylistDetail'
 import Radio from './pages/Radio'
@@ -40,8 +38,6 @@ export default function App() {
       >
         <Route index element={<Navigate to="/library" replace />} />
         <Route path="library" element={<Library />} />
-        <Route path="artists" element={<Artists />} />
-        <Route path="artists/:name" element={<ArtistDetail />} />
         <Route path="playlists" element={<Playlists />} />
         <Route path="playlists/:id" element={<PlaylistDetail />} />
         <Route path="radio" element={<Radio />} />

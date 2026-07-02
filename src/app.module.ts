@@ -6,7 +6,6 @@ import { DatabaseModule } from './db/database.module';
 import { AuthModule } from './auth/auth.module';
 import { LibraryModule } from './library/library.module';
 import { TracksModule } from './tracks/tracks.module';
-import { ArtistsModule } from './artists/artists.module';
 import { AlbumsModule } from './albums/albums.module';
 import { SearchModule } from './search/search.module';
 import { StreamingModule } from './streaming/streaming.module';
@@ -30,7 +29,6 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     SyncModule,
     LibraryModule,
     TracksModule,
-    ArtistsModule,
     AlbumsModule,
     SearchModule,
     StreamingModule,

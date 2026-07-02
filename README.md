@@ -82,7 +82,6 @@ Key endpoints:
 - `GET  /api/v1/tracks` — browse library
 - `GET  /api/v1/stream/{track_id}` — stream with HTTP Range support
 - `GET  /api/v1/search?q=` — full-text search
-- `GET  /api/v1/artists` / `GET /api/v1/artists/{name}` — artists derived from track metadata
 - `POST /api/v1/upload` — upload audio/video files (any authenticated user)
 - `GET/PATCH/DELETE /api/v1/upload/files[/{source_id}]` — list, rename, delete own uploads
 - `GET/PATCH/DELETE /api/v1/admin/files[/{source_id}]` — admin file browser over all uploads
@@ -117,12 +116,8 @@ are attached to the same track, so a music video plays alongside its audio.
 Metadata has a base layer (ID3 → MusicBrainz → Last.fm) with a user override layer on top.
 User edits always win — automatic sources never overwrite manual input.
 
-### Artist model
-
-There is no artists table. Artists are derived at query time from track text fields
-(`tracks.artist` plus the `artist` / `original_artist` override columns), split on commas.
-Artist pages are addressed by URL-encoded name, and cover tracks distinguish the
-performing artist from the original artist.
+Artist names live directly on the track (`tracks.artist`, with `artist` / `original_artist`
+override columns for covers) — there is no separate artists table or browsing tab.
 
 ## Security
 

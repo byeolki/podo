@@ -70,7 +70,7 @@ export default function Playlists() {
   }, [source, q, sort])
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-semibold">Playlists</h1>
@@ -203,7 +203,7 @@ export default function Playlists() {
                 {isOwner && (
                   <button
                     onClick={() => deleteMut.mutate(pl.id)}
-                    className="opacity-0 group-hover:opacity-100 text-[#6b6b6b] hover:text-red-400 transition-all"
+                    className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 text-[#6b6b6b] hover:text-red-400 transition-all"
                   >
                     <Trash2 size={14} />
                   </button>

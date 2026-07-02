@@ -177,7 +177,7 @@ export default function Upload() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-4 sm:p-6 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Upload</h1>
         <p className="text-sm text-[#a1a1a1] mt-0.5">Add music files to your library</p>

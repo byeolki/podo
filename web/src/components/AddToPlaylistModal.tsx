@@ -52,7 +52,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
-        className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl w-80 shadow-2xl"
+        className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl w-80 max-w-[calc(100vw-2rem)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a]">

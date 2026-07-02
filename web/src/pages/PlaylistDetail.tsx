@@ -29,13 +29,13 @@ export default function PlaylistDetail() {
 
   const playTrack = usePlayerStore((s) => s.playTrack)
 
-  if (isLoading) return <div className="p-6 text-[#6b6b6b]">Loading...</div>
-  if (!playlist) return <div className="p-6 text-[#6b6b6b]">Playlist not found</div>
+  if (isLoading) return <div className="p-4 sm:p-6 text-[#6b6b6b]">Loading...</div>
+  if (!playlist) return <div className="p-4 sm:p-6 text-[#6b6b6b]">Playlist not found</div>
 
   const tracks = playlist.tracks ?? []
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <Link to="/playlists" className="flex items-center gap-2 text-sm text-[#a1a1a1] hover:text-white mb-6 transition-colors">
         <ArrowLeft size={16} /> Back to Playlists
       </Link>

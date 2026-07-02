@@ -16,14 +16,14 @@ export default function ArtistDetail() {
   })
   const playTrack = usePlayerStore((s) => s.playTrack)
 
-  if (isLoading) return <div className="p-6 text-[#6b6b6b]">Loading...</div>
-  if (!artist) return <div className="p-6 text-[#6b6b6b]">Artist not found</div>
+  if (isLoading) return <div className="p-4 sm:p-6 text-[#6b6b6b]">Loading...</div>
+  if (!artist) return <div className="p-4 sm:p-6 text-[#6b6b6b]">Artist not found</div>
 
   const image = artist.lastfm?.image
   const tags = artist.lastfm?.tags
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <Link to="/artists" className="flex items-center gap-2 text-sm text-[#a1a1a1] hover:text-white mb-6 transition-colors">
         <ArrowLeft size={16} /> Back to Artists
       </Link>

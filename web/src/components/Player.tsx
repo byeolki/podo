@@ -54,7 +54,7 @@ export default function Player() {
 
   return (
     <>
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center px-4 gap-4 z-50">
+    <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center px-3 sm:px-4 gap-2 sm:gap-4 z-50">
       <audio
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
@@ -65,11 +65,11 @@ export default function Player() {
       />
 
       {/* Track info */}
-      <div className="flex items-center gap-3 w-52 flex-shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 w-32 sm:w-52 flex-shrink-0">
         <ArtworkImage
           src={getArtworkUrl(track?.album_version_id)}
           alt={track?.title}
-          className="w-12 h-12 rounded object-cover flex-shrink-0 bg-[#222]"
+          className="w-10 h-10 sm:w-12 sm:h-12 rounded object-cover flex-shrink-0 bg-[#222]"
         />
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{track?.title ?? 'Not playing'}</p>
@@ -108,7 +108,7 @@ export default function Player() {
         </div>
 
         <div className="flex items-center gap-2 w-full max-w-md">
-          <span className="text-xs text-[#6b6b6b] w-9 text-right tabular-nums">
+          <span className="hidden sm:inline text-xs text-[#6b6b6b] w-9 text-right tabular-nums">
             {formatDuration(currentTime * 1000)}
           </span>
           <input
@@ -126,14 +126,14 @@ export default function Player() {
               background: `linear-gradient(to right, #a855f7 ${(currentTime / (duration || 1)) * 100}%, #333 0%)`,
             }}
           />
-          <span className="text-xs text-[#6b6b6b] w-9 tabular-nums">
+          <span className="hidden sm:inline text-xs text-[#6b6b6b] w-9 tabular-nums">
             {formatDuration(duration * 1000)}
           </span>
         </div>
       </div>
 
       {/* Right controls */}
-      <div className="flex items-center gap-3 flex-shrink-0 w-44 justify-end">
+      <div className="flex items-center gap-3 flex-shrink-0 sm:w-44 justify-end">
         {track?.has_video && (
           <button
             onClick={() => setVideoOpen(true)}
@@ -145,14 +145,14 @@ export default function Player() {
         )}
         <button
           onClick={() => setNormalize(!normalize)}
-          className={`transition-colors ${normalize ? 'text-accent' : 'text-[#6b6b6b] hover:text-[#a1a1a1]'}`}
+          className={`hidden sm:block transition-colors ${normalize ? 'text-accent' : 'text-[#6b6b6b] hover:text-[#a1a1a1]'}`}
           title={normalize ? 'Normalize: on' : 'Normalize: off'}
         >
           <Activity size={15} />
         </button>
         <button
           onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
-          className="text-[#6b6b6b] hover:text-white transition-colors"
+          className="hidden sm:block text-[#6b6b6b] hover:text-white transition-colors"
         >
           {volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
         </button>
@@ -163,7 +163,7 @@ export default function Player() {
           step={0.01}
           value={volume}
           onChange={(e) => setVolume(Number(e.target.value))}
-          className="w-20"
+          className="hidden sm:block w-20"
           style={{
             background: `linear-gradient(to right, #a855f7 ${volume * 100}%, #333 0%)`,
           }}

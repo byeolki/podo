@@ -485,15 +485,15 @@ export default function Admin() {
   ]
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <h1 className="text-2xl font-semibold mb-6">Admin</h1>
 
-      <div className="flex gap-1 mb-6 bg-[#181818] p-1 rounded-lg w-fit border border-[#222]">
+      <div className="flex gap-1 mb-6 bg-[#181818] p-1 rounded-lg w-fit max-w-full overflow-x-auto border border-[#222]">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors ${
               tab === id ? 'bg-[#2a2a2a] text-white' : 'text-[#a1a1a1] hover:text-white'
             }`}
           >

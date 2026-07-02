@@ -16,13 +16,13 @@ export default function AlbumDetail() {
   })
   const playTrack = usePlayerStore((s) => s.playTrack)
 
-  if (isLoading) return <div className="p-6 text-[#6b6b6b]">Loading...</div>
-  if (!album) return <div className="p-6 text-[#6b6b6b]">Album not found</div>
+  if (isLoading) return <div className="p-4 sm:p-6 text-[#6b6b6b]">Loading...</div>
+  if (!album) return <div className="p-4 sm:p-6 text-[#6b6b6b]">Album not found</div>
 
   const allTracks = album.versions?.flatMap((v) => v.tracks ?? []) ?? []
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <Link to="/albums" className="flex items-center gap-2 text-sm text-[#a1a1a1] hover:text-white mb-6 transition-colors">
         <ArrowLeft size={16} /> Back to Albums
       </Link>

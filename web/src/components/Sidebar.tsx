@@ -15,7 +15,7 @@ const navItems = [
   { to: '/upload', icon: Upload, label: 'Upload' },
 ]
 
-export default function Sidebar() {
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const role = useAuthStore((s) => s.role)
   const clear = useAuthStore((s) => s.clear)
   const navigate = useNavigate()
@@ -27,17 +27,13 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-56 flex-shrink-0 bg-[#111] border-r border-[#222] flex flex-col">
-      <div className="px-5 py-6 flex items-center gap-2.5">
-        <img src="/podo_lg.png" alt="Podo" className="w-7 h-7 object-contain" />
-        <span className="text-lg font-semibold tracking-tight">Podo</span>
-      </div>
-
+    <>
       <nav className="flex-1 px-3 space-y-0.5">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
+            onClick={onNavigate}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive
@@ -54,6 +50,7 @@ export default function Sidebar() {
         {role === 'admin' && (
           <NavLink
             to="/admin"
+            onClick={onNavigate}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive
@@ -77,6 +74,18 @@ export default function Sidebar() {
           Sign out
         </button>
       </div>
+    </>
+  )
+}
+
+export default function Sidebar() {
+  return (
+    <aside className="hidden md:flex w-56 flex-shrink-0 bg-[#111] border-r border-[#222] flex-col">
+      <div className="px-5 py-6 flex items-center gap-2.5">
+        <img src="/podo_lg.png" alt="Podo" className="w-7 h-7 object-contain" />
+        <span className="text-lg font-semibold tracking-tight">Podo</span>
+      </div>
+      <SidebarContent />
     </aside>
   )
 }

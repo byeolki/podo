@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Play, Video, Pencil, Check, Heart } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { usePlayerStore } from '../store/player'
@@ -30,6 +30,8 @@ export default function TrackRow({
   const [videoOpen, setVideoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const isTouch = useMemo(() => window.matchMedia('(hover: none)').matches, [])
+  const showActions = hovered || isTouch
 
   const queryClient = useQueryClient()
   const { mutate: favMutate } = useMutation({
@@ -65,7 +67,10 @@ export default function TrackRow({
         className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
           selected ? 'bg-accent/15' : isActive ? 'bg-accent/10' : hovered ? 'bg-white/5' : ''
         }`}
-        onClick={() => { if (selectionActive) onSelect?.(track.id) }}
+        onClick={() => {
+          if (selectionActive) onSelect?.(track.id)
+          else if (isTouch) playTrack(track, queue)
+        }}
         onDoubleClick={() => { if (!selectionActive) playTrack(track, queue) }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -126,7 +131,7 @@ export default function TrackRow({
                 className={`p-1 transition-colors ${
                   track.is_favorited
                     ? 'text-red-400'
-                    : hovered ? 'text-[#555] hover:text-red-400' : 'opacity-0 pointer-events-none'
+                    : showActions ? 'text-[#555] hover:text-red-400' : 'opacity-0 pointer-events-none'
                 }`}
                 title={track.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
               >
@@ -134,7 +139,7 @@ export default function TrackRow({
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
-                className={`p-1 text-[#555] hover:text-white transition-colors ${hovered ? '' : 'opacity-0 pointer-events-none'}`}
+                className={`p-1 text-[#555] hover:text-white transition-colors ${showActions ? '' : 'opacity-0 pointer-events-none'}`}
                 title="Edit"
               >
                 <Pencil size={12} />
@@ -142,7 +147,7 @@ export default function TrackRow({
               {track.has_video && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }}
-                  className={`p-1 text-[#555] hover:text-accent transition-colors ${hovered ? '' : 'opacity-0 pointer-events-none'}`}
+                  className={`p-1 text-[#555] hover:text-accent transition-colors ${showActions ? '' : 'opacity-0 pointer-events-none'}`}
                   title="Music video"
                 >
                   <Video size={13} />

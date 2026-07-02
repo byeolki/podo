@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Folder, Plus, Trash2, RefreshCw, Download, Users, Activity,
+  Folder, Plus, Trash2, RefreshCw, Users, Activity,
   HardDrive, Shield, X, Pencil, Check, FileAudio, FileVideo, Files, type LucideIcon,
 } from 'lucide-react'
 import {
   getHealth, getUsers, getStorage, clearTranscodeCache, verifyIntegrity, formatBytes,
 } from '../api/admin'
-import { getRoots, addRoot, removeRoot, triggerScan, getScanJobs, startDownload, getDownloads } from '../api/library'
+import { getRoots, addRoot, removeRoot, triggerScan, getScanJobs } from '../api/library'
 import { createInvite } from '../api/auth'
 import { listAllFiles, adminRenameFile, adminDeleteFile, type UploadedFile } from '../api/upload'
 
-type Tab = 'library' | 'downloads' | 'users' | 'health' | 'files'
+type Tab = 'library' | 'users' | 'health' | 'files'
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -140,74 +140,6 @@ function LibraryTab() {
             </div>
           ))}
           {scans.length === 0 && <p className="text-sm text-[#6b6b6b] text-center py-4">No scans yet</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function DownloadsTab() {
-  const qc = useQueryClient()
-  const [url, setUrl] = useState('')
-  const [audioOnly, setAudioOnly] = useState(true)
-
-  const { data: jobs = [] } = useQuery({ queryKey: ['downloads'], queryFn: getDownloads, refetchInterval: 2000 })
-
-  const downloadMut = useMutation({
-    mutationFn: () => startDownload(url, audioOnly),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['downloads'] }); setUrl('') },
-  })
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-base font-semibold mb-3">Download via yt-dlp</h3>
-        <div className="flex gap-2 mb-2">
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://youtube.com/watch?v=..."
-            className="flex-1 bg-[#222] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent font-mono"
-          />
-          <button
-            onClick={() => downloadMut.mutate()}
-            disabled={!url || downloadMut.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium disabled:opacity-50"
-          >
-            <Download size={14} /> Download
-          </button>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-[#a1a1a1] cursor-pointer">
-          <input type="checkbox" checked={audioOnly} onChange={(e) => setAudioOnly(e.target.checked)} className="accent-accent" />
-          Audio only
-        </label>
-      </div>
-
-      <div>
-        <h3 className="text-base font-semibold mb-3">Jobs</h3>
-        <div className="space-y-1.5">
-          {jobs.map((job) => (
-            <div key={job.id} className="p-3 rounded-lg bg-[#181818] border border-[#222]">
-              <div className="flex items-center gap-2 mb-1">
-                <StatusBadge status={job.status} />
-                {job.status === 'running' && (
-                  <span className="text-xs text-[#a1a1a1]">{job.progress.toFixed(0)}%</span>
-                )}
-              </div>
-              <p className="text-xs font-mono text-[#6b6b6b] truncate">{job.url}</p>
-              {job.error && <p className="text-xs text-red-400 mt-0.5">{job.error}</p>}
-              {job.status === 'running' && (
-                <div className="mt-2 h-1 bg-[#333] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent rounded-full transition-all"
-                    style={{ width: `${job.progress}%` }}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
-          {jobs.length === 0 && <p className="text-sm text-[#6b6b6b] text-center py-4">No download jobs</p>}
         </div>
       </div>
     </div>
@@ -478,7 +410,6 @@ export default function Admin() {
 
   const tabs: { id: Tab; label: string; icon: LucideIcon }[] = [
     { id: 'library', label: 'Library', icon: Folder },
-    { id: 'downloads', label: 'Downloads', icon: Download },
     { id: 'files', label: 'Files', icon: Files },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'health', label: 'Health', icon: Activity },
@@ -504,7 +435,6 @@ export default function Admin() {
       </div>
 
       {tab === 'library' && <LibraryTab />}
-      {tab === 'downloads' && <DownloadsTab />}
       {tab === 'files' && <FilesTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'health' && <HealthTab />}

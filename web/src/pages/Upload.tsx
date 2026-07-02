@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload as UploadIcon, X, Check, Pencil, Trash2, FileAudio, FileVideo, Music } from 'lucide-react'
+import { Upload as UploadIcon, X, Check, Pencil, Trash2, FileAudio, FileVideo, Music, Download } from 'lucide-react'
 import {
   uploadFiles as uploadFilesApi,
   listMyFiles,
@@ -9,6 +9,81 @@ import {
   type UploadedFile,
 } from '../api/upload'
 import { formatBytes } from '../api/admin'
+import { startDownload, getDownloads } from '../api/library'
+import { useAuthStore } from '../store/auth'
+
+const DOWNLOAD_STATUS_STYLE: Record<string, string> = {
+  done: 'text-green-400 bg-green-400/10',
+  running: 'text-blue-400 bg-blue-400/10',
+  failed: 'text-red-400 bg-red-400/10',
+  pending: 'text-yellow-400 bg-yellow-400/10',
+}
+
+function DownloadSection() {
+  const qc = useQueryClient()
+  const [url, setUrl] = useState('')
+  const [audioOnly, setAudioOnly] = useState(true)
+
+  const { data: jobs = [] } = useQuery({ queryKey: ['downloads'], queryFn: getDownloads, refetchInterval: 2000 })
+
+  const downloadMut = useMutation({
+    mutationFn: () => startDownload(url, audioOnly),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['downloads'] }); setUrl('') },
+  })
+
+  return (
+    <div className="mb-6">
+      <h3 className="text-sm font-semibold text-[#a1a1a1] uppercase tracking-wider mb-2">Download from URL</h3>
+      <div className="flex gap-2 mb-2">
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://youtube.com/watch?v=..."
+          className="flex-1 bg-[#181818] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent font-mono"
+        />
+        <button
+          onClick={() => downloadMut.mutate()}
+          disabled={!url || downloadMut.isPending}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium disabled:opacity-50"
+        >
+          <Download size={14} /> Download
+        </button>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-[#a1a1a1] cursor-pointer mb-3">
+        <input type="checkbox" checked={audioOnly} onChange={(e) => setAudioOnly(e.target.checked)} className="accent-accent" />
+        Audio only
+      </label>
+
+      {jobs.length > 0 && (
+        <div className="space-y-1.5">
+          {jobs.map((job) => (
+            <div key={job.id} className="p-3 rounded-lg bg-[#181818] border border-[#222]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${DOWNLOAD_STATUS_STYLE[job.status] ?? 'text-[#6b6b6b] bg-[#222]'}`}>
+                  {job.status}
+                </span>
+                {job.status === 'running' && (
+                  <span className="text-xs text-[#a1a1a1]">{job.progress.toFixed(0)}%</span>
+                )}
+              </div>
+              <p className="text-xs font-mono text-[#6b6b6b] truncate">{job.url}</p>
+              {job.error && <p className="text-xs text-red-400 mt-0.5">{job.error}</p>}
+              {job.status === 'running' && (
+                <div className="mt-2 h-1 bg-[#333] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-accent rounded-full transition-all"
+                    style={{ width: `${job.progress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function FileRow({ file, onRename, onDelete }: {
   file: UploadedFile
@@ -103,6 +178,7 @@ interface UploadItem {
 
 export default function Upload() {
   const qc = useQueryClient()
+  const role = useAuthStore((s) => s.role)
   const [items, setItems] = useState<UploadItem[]>([])
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -204,6 +280,8 @@ export default function Upload() {
         <p className="text-sm font-medium">Drop files here or click to browse</p>
         <p className="text-xs text-[#555] mt-1">MP3, M4A, FLAC, AAC, WAV, OGG, OPUS, MP4, MKV — max 500MB each</p>
       </div>
+
+      {role === 'admin' && <DownloadSection />}
 
       {items.length > 0 && (
         <div className="mb-6">

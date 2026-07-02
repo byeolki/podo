@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
-import { getStreamUrl, getArtworkUrl } from '../api/client'
+import { getStreamUrl, getArtworkUrl, ensureFreshToken } from '../api/client'
 import { formatDuration, recordPlay } from '../api/tracks'
 import ArtworkImage from './ArtworkImage'
 import VideoModal from './VideoModal'
+
+const MAX_RECOVERY_ATTEMPTS = 4
+const STALL_TIMEOUT_MS = 12_000
 
 export default function Player() {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -17,22 +20,69 @@ export default function Player() {
   } = usePlayerStore()
   const [videoOpen, setVideoOpen] = useState(false)
   const playRecordedRef = useRef<string | null>(null)
+  const recoveryAttemptsRef = useRef(0)
+  const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadSeqRef = useRef(0)
 
   useEffect(() => {
     setAudioRef(audioRef.current)
     return () => setAudioRef(null)
   }, [setAudioRef])
 
-  useEffect(() => {
+  const loadSource = useCallback(async (seekTo: number, autoplay: boolean) => {
     const audio = audioRef.current
-    if (!audio || !track) return
-    const src = getStreamUrl(track.id, normalize)
-    if (audio.src !== src) {
-      audio.src = src
+    const t = usePlayerStore.getState().queue[usePlayerStore.getState().currentIndex]
+    if (!audio || !t) return
+    const seq = ++loadSeqRef.current
+    await ensureFreshToken()
+    if (seq !== loadSeqRef.current) return
+    audio.src = getStreamUrl(t.id, usePlayerStore.getState().normalize)
+    if (seekTo > 0.5) {
+      const onMeta = () => {
+        audio.removeEventListener('loadedmetadata', onMeta)
+        if (seq !== loadSeqRef.current) return
+        try { audio.currentTime = seekTo } catch {}
+      }
+      audio.addEventListener('loadedmetadata', onMeta)
     }
-    if (isPlaying) {
-      audio.play().catch(() => {})
+    audio.load()
+    if (autoplay) audio.play().catch(() => {})
+  }, [])
+
+  const recover = useCallback(() => {
+    if (recoveryTimerRef.current) return
+    if (recoveryAttemptsRef.current >= MAX_RECOVERY_ATTEMPTS) return
+    const attempt = ++recoveryAttemptsRef.current
+    const delay = Math.min(1000 * 2 ** (attempt - 1), 8000)
+    recoveryTimerRef.current = setTimeout(async () => {
+      recoveryTimerRef.current = null
+      const audio = audioRef.current
+      if (!audio) return
+      const pos = audio.currentTime || usePlayerStore.getState().currentTime
+      const wasPlaying = usePlayerStore.getState().isPlaying
+      await loadSource(pos, wasPlaying)
+    }, delay)
+  }, [loadSource])
+
+  const clearStallTimer = useCallback(() => {
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current)
+      stallTimerRef.current = null
     }
+  }, [])
+
+  const prevTrackIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!track) return
+    recoveryAttemptsRef.current = 0
+    clearStallTimer()
+    const sameTrack = prevTrackIdRef.current === track.id
+    prevTrackIdRef.current = track.id
+    const resume = usePlayerStore.getState().consumeResumeTime()
+      ?? (sameTrack ? usePlayerStore.getState().currentTime : null)
+    loadSource(resume ?? 0, isPlaying)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track?.id, currentIndex, normalize])
 
@@ -43,13 +93,45 @@ export default function Player() {
     else audio.pause()
   }, [isPlaying])
 
+  useEffect(() => {
+    const handleOnline = () => {
+      const audio = audioRef.current
+      if (!audio || !usePlayerStore.getState().isPlaying) return
+      if (audio.error || audio.readyState < 3) {
+        recoveryAttemptsRef.current = 0
+        recover()
+      }
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [recover])
+
+  useEffect(() => () => {
+    clearStallTimer()
+    if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current)
+  }, [clearStallTimer])
+
   function handleTimeUpdate(e: React.SyntheticEvent<HTMLAudioElement>) {
     const t = e.currentTarget.currentTime
+    recoveryAttemptsRef.current = 0
+    clearStallTimer()
     setCurrentTime(t)
     if (track && t > 30 && playRecordedRef.current !== track.id) {
       playRecordedRef.current = track.id
       recordPlay(track.id).catch(() => {})
     }
+  }
+
+  function handleWaiting() {
+    if (!usePlayerStore.getState().isPlaying) return
+    clearStallTimer()
+    stallTimerRef.current = setTimeout(() => {
+      stallTimerRef.current = null
+      const audio = audioRef.current
+      if (audio && usePlayerStore.getState().isPlaying && audio.readyState < 3) {
+        recover()
+      }
+    }, STALL_TIMEOUT_MS)
   }
 
   return (
@@ -60,7 +142,10 @@ export default function Player() {
         onTimeUpdate={handleTimeUpdate}
         onDurationChange={(e) => setDuration(e.currentTarget.duration)}
         onEnded={next}
-        onError={() => {}}
+        onError={recover}
+        onStalled={handleWaiting}
+        onWaiting={handleWaiting}
+        onPlaying={clearStallTimer}
         preload="auto"
       />
 

@@ -14,6 +14,52 @@ export function clearTokens() {
   localStorage.removeItem('refresh_token')
 }
 
+function tokenExpiresSoon(token: string, marginMs = 120_000): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1])) as { exp?: number }
+    if (!payload.exp) return false
+    return payload.exp * 1000 - Date.now() < marginMs
+  } catch {
+    return true
+  }
+}
+
+let refreshPromise: Promise<boolean> | null = null
+
+export function refreshTokens(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise
+  refreshPromise = (async () => {
+    const refreshToken = localStorage.getItem('refresh_token')
+    if (!refreshToken) return false
+    try {
+      const r = await fetch(`${BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      })
+      if (!r.ok) return false
+      const data = await r.json() as { access_token: string; refresh_token: string }
+      setTokens(data.access_token, data.refresh_token)
+      return true
+    } catch {
+      return false
+    } finally {
+      setTimeout(() => { refreshPromise = null }, 0)
+    }
+  })()
+  return refreshPromise
+}
+
+export async function ensureFreshToken(): Promise<string | null> {
+  const token = getToken()
+  if (!token) return null
+  if (tokenExpiresSoon(token)) {
+    await refreshTokens()
+    return getToken()
+  }
+  return token
+}
+
 export function getStreamUrl(trackId: string, normalize?: boolean): string {
   const token = getToken()
   const params = new URLSearchParams()

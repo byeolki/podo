@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
-import { getVideoStreamUrl } from '../api/client'
+import { getVideoStreamUrl, ensureFreshToken } from '../api/client'
 import { usePlayerStore } from '../store/player'
 import type { Track } from '../api/tracks'
 
@@ -12,6 +12,15 @@ interface Props {
 export default function VideoModal({ track, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const audioRef = usePlayerStore((s) => s.audioRef)
+  const [videoSrc, setVideoSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ensureFreshToken().then(() => {
+      if (!cancelled) setVideoSrc(getVideoStreamUrl(track.id))
+    })
+    return () => { cancelled = true }
+  }, [track.id])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -72,13 +81,15 @@ export default function VideoModal({ track, onClose }: Props) {
           </button>
         </div>
 
-        <video
-          ref={videoRef}
-          src={getVideoStreamUrl(track.id)}
-          muted
-          onLoadedMetadata={handleLoadedMetadata}
-          className="w-full rounded-xl bg-black aspect-video"
-        />
+        {videoSrc && (
+          <video
+            ref={videoRef}
+            src={videoSrc}
+            muted
+            onLoadedMetadata={handleLoadedMetadata}
+            className="w-full rounded-xl bg-black aspect-video"
+          />
+        )}
       </div>
     </div>
   )

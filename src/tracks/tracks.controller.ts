@@ -15,6 +15,7 @@ class TrackMetadataDto {
   @IsOptional() @IsString() video_locator?: string;
   @IsOptional() @IsInt() @Min(1) @Max(9999) track_number?: number;
   @IsOptional() @IsInt() @Min(1) @Max(99) disc_number?: number;
+  @IsOptional() @IsString() alternate_titles?: string;
 }
 
 class BulkMetadataDto {

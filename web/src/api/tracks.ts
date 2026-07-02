@@ -8,6 +8,7 @@ export interface TrackOverride {
   video_locator: string | null
   track_number: number | null
   disc_number: number | null
+  alternate_titles: string | null
   updated_at: string
   updated_by: string | null
 }
@@ -87,6 +88,7 @@ export interface TrackMetadataInput {
   video_locator?: string
   track_number?: number
   disc_number?: number
+  alternate_titles?: string
 }
 
 export function updateTrackMetadata(id: string, data: TrackMetadataInput): Promise<Track> {

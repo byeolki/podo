@@ -41,6 +41,7 @@ export default function Library() {
       const parts = [
         tr.override?.artist,
         tr.override?.original_artist,
+        tr.override?.alternate_titles,
         tr.artists?.map((a) => a.name).join(' '),
       ].filter(Boolean).join(' ').toLowerCase()
       return title.includes(t) || parts.includes(t)

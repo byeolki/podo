@@ -9,7 +9,7 @@ interface Props {
   onClose: () => void
 }
 
-function splitArtists(s: string | null | undefined): string[] {
+function splitList(s: string | null | undefined): string[] {
   if (!s) return []
   return s.split(',').map((x) => x.trim()).filter(Boolean)
 }
@@ -66,12 +66,13 @@ function TagInput({ tags, onChange, placeholder }: { tags: string[]; onChange: (
 export default function TrackEditModal({ track, onClose }: Props) {
   const ov = track.override
   const [title, setTitle] = useState(ov?.title ?? track.title)
-  const [origArtists, setOrigArtists] = useState<string[]>(splitArtists(ov?.original_artist))
+  const [origArtists, setOrigArtists] = useState<string[]>(splitList(ov?.original_artist))
   const [coverByArtists, setCoverByArtists] = useState<string[]>(
-    splitArtists(ov?.artist) || splitArtists(track.artists?.map((a) => a.name).join(', '))
+    splitList(ov?.artist) || splitList(track.artists?.map((a) => a.name).join(', '))
   )
   const [isCover, setIsCover] = useState(ov?.is_cover ?? track.is_cover ?? false)
   const [videoLocator, setVideoLocator] = useState(ov?.video_locator ?? '')
+  const [alternateTitles, setAlternateTitles] = useState<string[]>(splitList(ov?.alternate_titles))
 
   const queryClient = useQueryClient()
   const { mutate, isPending, error } = useMutation({
@@ -89,8 +90,8 @@ export default function TrackEditModal({ track, onClose }: Props) {
       if (r) {
         if (r.title) setTitle(r.title as string)
         if (r.is_cover !== undefined) setIsCover(r.is_cover as boolean)
-        if (r.artist) setCoverByArtists(splitArtists(r.artist as string))
-        if (r.original_artist) setOrigArtists(splitArtists(r.original_artist as string))
+        if (r.artist) setCoverByArtists(splitList(r.artist as string))
+        if (r.original_artist) setOrigArtists(splitList(r.original_artist as string))
       }
     },
   })
@@ -103,6 +104,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
       is_cover: isCover,
       original_artist: origArtists.join(', ') || undefined,
       video_locator: videoLocator.trim() || undefined,
+      alternate_titles: alternateTitles.join(', ') || undefined,
     })
   }
 
@@ -165,6 +167,15 @@ export default function TrackEditModal({ track, onClose }: Props) {
           <div className={isCover ? '' : 'hidden'}>
             <label className="block text-xs text-[#6b6b6b] mb-1.5">Cover by</label>
             <TagInput tags={coverByArtists} onChange={setCoverByArtists} placeholder="Add cover artist, press Enter" />
+          </div>
+
+          <div>
+            <label className="block text-xs text-[#6b6b6b] mb-1.5">Alternate names (for search)</label>
+            <TagInput
+              tags={alternateTitles}
+              onChange={setAlternateTitles}
+              placeholder="e.g. 요네즈 켄시, 米津玄師, press Enter"
+            />
           </div>
 
           <div>

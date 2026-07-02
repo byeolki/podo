@@ -6,6 +6,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { AdminOnly } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { AuthThrottleGuard } from '../common/guards/auth-throttle.guard';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 
 @ApiTags('auth')
@@ -14,6 +15,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public()
+  @UseGuards(AuthThrottleGuard)
   @Post('bootstrap')
   @ApiOperation({ summary: 'Create the first admin user (only if no users exist)' })
   bootstrap(@Body() dto: BootstrapDto) {
@@ -21,6 +23,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(AuthThrottleGuard)
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login and receive tokens' })
@@ -29,6 +32,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(AuthThrottleGuard)
   @Post('register')
   @ApiOperation({ summary: 'Register with invite token' })
   register(@Body() dto: RegisterDto) {
@@ -36,6 +40,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(AuthThrottleGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Exchange refresh token for new token pair' })

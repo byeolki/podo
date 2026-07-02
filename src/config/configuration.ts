@@ -18,4 +18,9 @@ export default () => ({
   openai_api_key: process.env.OPENAI_API_KEY ?? '',
   openai_model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
   ytdlp_path: process.env.YTDLP_PATH ?? 'yt-dlp',
+  cors_origin: process.env.CORS_ORIGIN ?? '*',
+  trust_proxy: process.env.TRUST_PROXY !== 'false',
+  rate_limit_max: parseInt(process.env.RATE_LIMIT_MAX ?? '1000', 10),
+  auth_rate_limit_max: parseInt(process.env.AUTH_RATE_LIMIT_MAX ?? '10', 10),
+  swagger_enabled: process.env.SWAGGER_ENABLED === 'true' || process.env.NODE_ENV !== 'production',
 });

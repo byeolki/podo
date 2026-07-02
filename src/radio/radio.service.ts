@@ -3,6 +3,7 @@ import { eq, and, notInArray, isNull, inArray, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
+import { TracksService } from '../tracks/tracks.service';
 
 export interface RadioOptions {
   seedTrackId?: string;
@@ -15,9 +16,19 @@ export interface RadioOptions {
 export class RadioService {
   private readonly logger = new Logger(RadioService.name);
 
-  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
+  constructor(
+    @Inject(DB_TOKEN) private readonly db: Db,
+    private readonly tracksService: TracksService,
+  ) {}
 
-  async getStation(opts: RadioOptions): Promise<typeof schema.tracks.$inferSelect[]> {
+  async getStation(opts: RadioOptions) {
+    const orderedIds = await this.getOrderedTrackIds(opts);
+    const tracks = await this.tracksService.findByIds(orderedIds);
+    const byId = new Map(tracks.map((t) => [t.id, t]));
+    return orderedIds.map((id) => byId.get(id)).filter((t): t is NonNullable<typeof t> => !!t);
+  }
+
+  private async getOrderedTrackIds(opts: RadioOptions): Promise<string[]> {
     const count = Math.min(opts.count ?? 50, 200);
     const excludeIds = opts.excludeIds ?? [];
 
@@ -84,13 +95,13 @@ export class RadioService {
     }
 
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, count).map((s) => s.track);
+    return scored.slice(0, count).map((s) => s.track.id);
   }
 
   async createMix(
     opts: RadioOptions & { name?: string; userId: string },
   ): Promise<typeof schema.playlists.$inferSelect> {
-    const tracks = await this.getStation(opts);
+    const trackIds = await this.getOrderedTrackIds(opts);
     const id = newId();
     const name = opts.name ?? `Mix · ${new Date().toLocaleDateString()}`;
 
@@ -102,13 +113,13 @@ export class RadioService {
       is_public: false,
     });
 
-    if (tracks.length) {
+    if (trackIds.length) {
       await this.db.insert(schema.playlist_tracks).values(
-        tracks.map((t, i) => ({ playlist_id: id, track_id: t.id, position: i })),
+        trackIds.map((trackId, i) => ({ playlist_id: id, track_id: trackId, position: i })),
       ).onConflictDoNothing();
     }
 
-    this.logger.log(`Mix created: "${name}" (${tracks.length} tracks) for user=${opts.userId}`);
+    this.logger.log(`Mix created: "${name}" (${trackIds.length} tracks) for user=${opts.userId}`);
     return (await this.db.select().from(schema.playlists).where(eq(schema.playlists.id, id)).get())!;
   }
 

@@ -12,10 +12,10 @@ const navItems = [
   { to: '/radio', icon: Radio, label: 'Radio' },
   { to: '/history', icon: History, label: 'History' },
   { to: '/upload', icon: Upload, label: 'Upload' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const role = useAuthStore((s) => s.role)
   const clear = useAuthStore((s) => s.clear)
   const navigate = useNavigate()
 
@@ -45,23 +45,6 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             {label}
           </NavLink>
         ))}
-
-        {role === 'admin' && (
-          <NavLink
-            to="/admin"
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-accent/10 text-accent'
-                  : 'text-[#a1a1a1] hover:text-white hover:bg-white/5'
-              }`
-            }
-          >
-            <Settings size={16} />
-            Admin
-          </NavLink>
-        )}
       </nav>
 
       <div className="p-3 border-t border-[#222]">

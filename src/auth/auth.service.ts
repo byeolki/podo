@@ -98,6 +98,46 @@ export class AuthService {
     await this.db.delete(schema.refresh_tokens).where(eq(schema.refresh_tokens.token_hash, tokenHash));
   }
 
+  async getMe(userId: string) {
+    const user = await this.db
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email,
+        role: schema.users.role,
+        created_at: schema.users.created_at,
+      })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .get();
+    if (!user) throw new UnauthorizedException();
+    return user;
+  }
+
+  async updateMe(userId: string, dto: { name?: string; current_password?: string; new_password?: string }) {
+    const user = await this.db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+    if (!user) throw new UnauthorizedException();
+
+    const set: Record<string, unknown> = { updated_at: new Date() };
+
+    if (dto.name !== undefined) {
+      const trimmed = dto.name.trim();
+      if (!trimmed) throw new BadRequestException('Name cannot be empty');
+      set.name = trimmed;
+    }
+
+    if (dto.new_password !== undefined) {
+      if (!dto.current_password) throw new BadRequestException('Current password is required');
+      const valid = await bcrypt.compare(dto.current_password, user.password_hash);
+      if (!valid) throw new UnauthorizedException('Current password is incorrect');
+      set.password_hash = await bcrypt.hash(dto.new_password, 12);
+    }
+
+    await this.db.update(schema.users).set(set).where(eq(schema.users.id, userId));
+    this.logger.log(`Account updated: ${user.email} (id=${userId})`);
+    return this.getMe(userId);
+  }
+
   async createInvite(adminUserId: string): Promise<string> {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);

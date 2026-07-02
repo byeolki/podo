@@ -35,6 +35,28 @@ export function createInvite(): Promise<{ invite_token: string }> {
   return api.post('/auth/invite')
 }
 
+export interface Me {
+  id: string
+  name: string
+  email: string
+  role: string
+  created_at: string
+}
+
+export function getMe(): Promise<Me> {
+  return api.get('/auth/me')
+}
+
+export interface UpdateMeInput {
+  name?: string
+  current_password?: string
+  new_password?: string
+}
+
+export function updateMe(data: UpdateMeInput): Promise<Me> {
+  return api.patch('/auth/me', data)
+}
+
 export function isAuthenticated(): boolean {
   return !!localStorage.getItem('access_token')
 }

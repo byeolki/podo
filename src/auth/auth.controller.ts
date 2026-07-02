@@ -1,7 +1,7 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RefreshDto, BootstrapDto } from './auth.dto';
+import { LoginDto, RegisterDto, RefreshDto, BootstrapDto, UpdateMeDto } from './auth.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { AdminOnly } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -63,5 +63,19 @@ export class AuthController {
   @ApiOperation({ summary: 'Generate an invite token (admin only)' })
   invite(@CurrentUser() user: JwtPayload) {
     return this.auth.createInvite(user.sub).then((token) => ({ invite_token: token }));
+  }
+
+  @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user account info' })
+  getMe(@CurrentUser() user: JwtPayload) {
+    return this.auth.getMe(user.sub);
+  }
+
+  @Patch('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update own name and/or password' })
+  updateMe(@Body() dto: UpdateMeDto, @CurrentUser() user: JwtPayload) {
+    return this.auth.updateMe(user.sub, dto);
   }
 }

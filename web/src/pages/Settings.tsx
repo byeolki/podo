@@ -1,17 +1,152 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Folder, Plus, Trash2, RefreshCw, Users, Activity,
+  Folder, Plus, Trash2, RefreshCw, Users, Activity, UserCircle,
   HardDrive, Shield, X, Pencil, Check, FileAudio, FileVideo, Files, type LucideIcon,
 } from 'lucide-react'
 import {
   getHealth, getUsers, getStorage, clearTranscodeCache, verifyIntegrity, formatBytes,
 } from '../api/admin'
 import { getRoots, addRoot, removeRoot, triggerScan, getScanJobs } from '../api/library'
-import { createInvite } from '../api/auth'
+import { createInvite, getMe, updateMe } from '../api/auth'
 import { listAllFiles, adminRenameFile, adminDeleteFile, type UploadedFile } from '../api/upload'
+import { useAuthStore } from '../store/auth'
 
-type Tab = 'library' | 'users' | 'health' | 'files'
+type Tab = 'account' | 'library' | 'users' | 'health' | 'files'
+
+function AccountTab() {
+  const qc = useQueryClient()
+  const { data: me, isLoading } = useQuery({ queryKey: ['me'], queryFn: getMe })
+
+  const [name, setName] = useState('')
+  useEffect(() => { if (me) setName(me.name) }, [me])
+
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+
+  const nameMut = useMutation({
+    mutationFn: () => updateMe({ name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
+  })
+
+  const passwordMut = useMutation({
+    mutationFn: () => updateMe({ current_password: currentPassword, new_password: newPassword }),
+    onSuccess: () => {
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setPasswordError(null)
+    },
+  })
+
+  function handlePasswordSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match')
+      return
+    }
+    setPasswordError(null)
+    passwordMut.mutate()
+  }
+
+  if (isLoading) {
+    return <div className="h-40 bg-[#181818] rounded-xl animate-pulse" />
+  }
+
+  return (
+    <div className="space-y-6 max-w-md">
+      <div>
+        <h3 className="text-base font-semibold mb-3">Profile</h3>
+        <form
+          onSubmit={(e) => { e.preventDefault(); nameMut.mutate() }}
+          className="space-y-3"
+        >
+          <div>
+            <label className="block text-xs text-[#6b6b6b] mb-1.5">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-[#222] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-[#6b6b6b] mb-1.5">Email</label>
+            <input
+              type="email"
+              value={me?.email ?? ''}
+              disabled
+              className="w-full bg-[#181818] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#6b6b6b] cursor-not-allowed"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!name.trim() || name === me?.name || nameMut.isPending}
+            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium disabled:opacity-50 transition-colors"
+          >
+            {nameMut.isPending ? 'Saving…' : 'Save name'}
+          </button>
+          {nameMut.error && <p className="text-xs text-red-400">{(nameMut.error as Error).message}</p>}
+        </form>
+      </div>
+
+      <div>
+        <h3 className="text-base font-semibold mb-3">Change Password</h3>
+        <form onSubmit={handlePasswordSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs text-[#6b6b6b] mb-1.5">Current password</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full bg-[#222] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-[#6b6b6b] mb-1.5">New password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full bg-[#222] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-[#6b6b6b] mb-1.5">Confirm new password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full bg-[#222] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!currentPassword || !newPassword || !confirmPassword || passwordMut.isPending}
+            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium disabled:opacity-50 transition-colors"
+          >
+            {passwordMut.isPending ? 'Saving…' : 'Change password'}
+          </button>
+          {passwordError && <p className="text-xs text-red-400">{passwordError}</p>}
+          {passwordMut.error && <p className="text-xs text-red-400">{(passwordMut.error as Error).message}</p>}
+          {passwordMut.isSuccess && <p className="text-xs text-green-400">Password updated</p>}
+        </form>
+      </div>
+
+      {me && (
+        <p className="text-xs text-[#555]">
+          {me.role === 'admin' ? 'Admin' : 'Member'} since {new Date(me.created_at).toLocaleDateString()}
+        </p>
+      )}
+    </div>
+  )
+}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -405,10 +540,22 @@ function FilesTab() {
   )
 }
 
-export default function Admin() {
-  const [tab, setTab] = useState<Tab>('library')
+export default function Settings() {
+  const role = useAuthStore((s) => s.role)
+  const isAdmin = role === 'admin'
+  const [tab, setTab] = useState<Tab>('account')
+
+  if (!isAdmin) {
+    return (
+      <div className="p-4 sm:p-6">
+        <h1 className="text-2xl font-semibold mb-6">Settings</h1>
+        <AccountTab />
+      </div>
+    )
+  }
 
   const tabs: { id: Tab; label: string; icon: LucideIcon }[] = [
+    { id: 'account', label: 'Account', icon: UserCircle },
     { id: 'library', label: 'Library', icon: Folder },
     { id: 'files', label: 'Files', icon: Files },
     { id: 'users', label: 'Users', icon: Users },
@@ -417,7 +564,7 @@ export default function Admin() {
 
   return (
     <div className="p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold mb-6">Admin</h1>
+      <h1 className="text-2xl font-semibold mb-6">Settings</h1>
 
       <div className="flex gap-1 mb-6 bg-[#181818] p-1 rounded-lg w-fit max-w-full overflow-x-auto border border-[#222]">
         {tabs.map(({ id, label, icon: Icon }) => (
@@ -434,6 +581,7 @@ export default function Admin() {
         ))}
       </div>
 
+      {tab === 'account' && <AccountTab />}
       {tab === 'library' && <LibraryTab />}
       {tab === 'files' && <FilesTab />}
       {tab === 'users' && <UsersTab />}

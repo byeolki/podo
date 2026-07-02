@@ -8,7 +8,7 @@ import Library from './pages/Library'
 import Playlists from './pages/Playlists'
 import PlaylistDetail from './pages/PlaylistDetail'
 import Radio from './pages/Radio'
-import Admin from './pages/Admin'
+import Settings from './pages/Settings'
 import History from './pages/History'
 import Upload from './pages/Upload'
 
@@ -43,7 +43,8 @@ export default function App() {
         <Route path="radio" element={<Radio />} />
         <Route path="history" element={<History />} />
         <Route path="upload" element={<Upload />} />
-        <Route path="admin" element={<Admin />} />
+        <Route path="settings" element={<Settings />} />
+        <Route path="admin" element={<Navigate to="/settings" replace />} />
       </Route>
     </Routes>
   )

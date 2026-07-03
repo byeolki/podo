@@ -57,6 +57,13 @@
       "when": 1783007848391,
       "tag": "0007_drop_artist_aliases",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1783099537761,
+      "tag": "0008_drop_stale_original_artist_id",
+      "breakpoints": true
     }
   ]
 }

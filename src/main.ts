@@ -14,6 +14,17 @@ import * as fs from 'fs';
 
 const logger = new Logger('Bootstrap');
 
+process.on('unhandledRejection', (reason) => {
+  logger.error(
+    `Unhandled promise rejection: ${reason instanceof Error ? reason.message : String(reason)}`,
+    reason instanceof Error ? reason.stack : undefined,
+  );
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error(`Uncaught exception: ${err.message}`, err.stack);
+});
+
 async function bootstrap() {
   const trustProxy = process.env.TRUST_PROXY !== 'false';
   const adapter = new FastifyAdapter({ logger: false, trustProxy });

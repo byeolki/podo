@@ -59,7 +59,11 @@ export class DownloadService {
     };
     this.jobs.set(jobId, job);
 
-    setImmediate(() => this.run(job, audioOnly));
+    setImmediate(() => {
+      this.run(job, audioOnly).catch((e: Error) => {
+        this.logger.error(`Unhandled error running download job ${job.id}: ${e.message}`, e.stack);
+      });
+    });
     return job;
   }
 
@@ -76,37 +80,40 @@ export class DownloadService {
     let outputPath = '';
     let stderr = '';
 
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn(this.ytdlpPath, args, { stdio: 'pipe' });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const proc = spawn(this.ytdlpPath, args, { stdio: 'pipe' });
 
-      proc.stdout.on('data', (chunk: Buffer) => {
-        const line = chunk.toString().trim();
-        if (line && fs.existsSync(line)) outputPath = line;
+        proc.stdout.on('data', (chunk: Buffer) => {
+          const line = chunk.toString().trim();
+          if (line && fs.existsSync(line)) outputPath = line;
+        });
+
+        proc.stderr.on('data', (chunk: Buffer) => {
+          const line = chunk.toString();
+          stderr += line;
+          const match = line.match(/(\d+\.\d+)%/);
+          if (match) {
+            job.progress = parseFloat(match[1]);
+            this.events.emit('download.progress', { job_id: job.id, progress: job.progress });
+          }
+        });
+
+        proc.on('close', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(stderr.slice(-500)));
+        });
+
+        proc.on('error', (e) => reject(new Error(`yt-dlp not found: ${e.message}. Install with: pip install yt-dlp`)));
       });
-
-      proc.stderr.on('data', (chunk: Buffer) => {
-        const line = chunk.toString();
-        stderr += line;
-        const match = line.match(/(\d+\.\d+)%/);
-        if (match) {
-          job.progress = parseFloat(match[1]);
-          this.events.emit('download.progress', { job_id: job.id, progress: job.progress });
-        }
-      });
-
-      proc.on('close', (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(stderr.slice(-500)));
-      });
-
-      proc.on('error', (e) => reject(new Error(`yt-dlp not found: ${e.message}. Install with: pip install yt-dlp`)));
-    }).catch((e: Error) => {
+    } catch (e: unknown) {
+      const err = e as Error;
       job.status = 'failed';
-      job.error = e.message;
-      this.logger.error(`Download failed for ${job.url}: ${e.message}`);
-      this.events.emit('download.failed', { job_id: job.id, error: e.message });
-      throw e;
-    });
+      job.error = err.message;
+      this.logger.error(`Download failed for ${job.url}: ${err.message}`);
+      this.events.emit('download.failed', { job_id: job.id, error: err.message });
+      return;
+    }
 
     if (outputPath) {
       await this.scanner.scanFile(outputPath, 'ytdlp');

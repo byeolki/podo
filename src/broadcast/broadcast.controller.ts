@@ -68,10 +68,12 @@ export class BroadcastController {
   @ApiOperation({ summary: 'Continuous looping stream of a playlist (no auth, token in URL)' })
   @ApiQuery({ name: 'format', required: false, enum: ['mp3', 'aac', 'opus'] })
   @ApiQuery({ name: 'bitrate', required: false, type: Number })
+  @ApiQuery({ name: 'shuffle', required: false, type: Boolean })
   async stream(
     @Param('token') tokenParam: string,
     @Query('format') formatQuery: string | undefined,
     @Query('bitrate') bitrateQuery: string | undefined,
+    @Query('shuffle') shuffleQuery: string | undefined,
     @Res() reply: FastifyReply,
   ) {
     const dotIdx = tokenParam.lastIndexOf('.');
@@ -87,6 +89,7 @@ export class BroadcastController {
     }
 
     const bitrate = bitrateQuery ? parseInt(bitrateQuery, 10) : 192;
-    await this.broadcast.stream(token, format ?? 'mp3', bitrate, reply);
+    const shuffle = shuffleQuery === '1' || shuffleQuery === 'true';
+    await this.broadcast.stream(token, format ?? 'mp3', bitrate, shuffle, reply);
   }
 }

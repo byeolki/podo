@@ -33,6 +33,7 @@ export function adminRevokeRadioToken(id: string): Promise<void> {
   return api.delete(`/admin/radio-tokens/${id}`)
 }
 
-export function getRadioStreamUrl(token: string, format: 'mp3' | 'aac' | 'opus' = 'mp3'): string {
-  return `${window.location.origin}/api/v1/broadcast/${token}.${format}`
+export function getRadioStreamUrl(token: string, format: 'mp3' | 'aac' | 'opus' = 'mp3', shuffle = false): string {
+  const base = `${window.location.origin}/api/v1/broadcast/${token}.${format}`
+  return shuffle ? `${base}?shuffle=1` : base
 }

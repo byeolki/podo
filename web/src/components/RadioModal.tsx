@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Radio, Plus, Trash2, Copy, Check } from 'lucide-react'
+import { X, Radio, Plus, Trash2, Copy, Check, Shuffle } from 'lucide-react'
 import { createRadioToken, getRadioTokens, revokeRadioToken, getRadioStreamUrl, type RadioToken } from '../api/broadcast'
 
 interface Props {
@@ -16,8 +16,9 @@ function daysLeft(expiresAt: string): number {
 
 function TokenRow({ token, onRevoke }: { token: RadioToken; onRevoke: () => void }) {
   const [format, setFormat] = useState<'mp3' | 'aac' | 'opus'>('mp3')
+  const [shuffle, setShuffle] = useState(false)
   const [copied, setCopied] = useState(false)
-  const url = getRadioStreamUrl(token.token, format)
+  const url = getRadioStreamUrl(token.token, format, shuffle)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(url).then(() => {
@@ -43,18 +44,29 @@ function TokenRow({ token, onRevoke }: { token: RadioToken; onRevoke: () => void
         </button>
       </div>
       <div className="flex items-center justify-between">
-        <div className="flex gap-1">
-          {FORMATS.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFormat(f)}
-              className={`px-2 py-0.5 rounded text-[10px] uppercase font-medium transition-colors ${
-                format === f ? 'bg-accent/20 text-accent' : 'bg-[#222] text-[#6b6b6b] hover:text-white'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {FORMATS.map((f) => (
+              <button
+                key={f}
+                onClick={() => setFormat(f)}
+                className={`px-2 py-0.5 rounded text-[10px] uppercase font-medium transition-colors ${
+                  format === f ? 'bg-accent/20 text-accent' : 'bg-[#222] text-[#6b6b6b] hover:text-white'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShuffle((v) => !v)}
+            title="Shuffle playback"
+            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+              shuffle ? 'bg-accent/20 text-accent' : 'bg-[#222] text-[#6b6b6b] hover:text-white'
+            }`}
+          >
+            <Shuffle size={10} /> Shuffle
+          </button>
         </div>
         <span className="text-[10px] text-[#555]">
           {daysLeft(token.expires_at)}일 후 만료

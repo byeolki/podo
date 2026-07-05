@@ -82,7 +82,7 @@ export class BroadcastService {
     this.logger.log(`Radio token revoked: ${id}`);
   }
 
-  async stream(tokenValue: string, format: string, bitrate: number, reply: FastifyReply): Promise<void> {
+  async stream(tokenValue: string, format: string, bitrate: number, shuffle: boolean, reply: FastifyReply): Promise<void> {
     const radioToken = await this.validateToken(tokenValue);
     const safeFormat = ALLOWED_FORMATS.has(format) ? format : 'mp3';
     const safeBitrate = bitrate > 0 && bitrate <= 320 ? bitrate : DEFAULT_BITRATE;
@@ -135,9 +135,13 @@ export class BroadcastService {
 
     void reply.send(encoder.stdout);
 
+    let playOrder = shuffle ? this.shuffleArray(tracks) : tracks;
     let i = 0;
     while (!stopped) {
-      const track = tracks[i % tracks.length];
+      if (shuffle && i > 0 && i % playOrder.length === 0) {
+        playOrder = this.shuffleArray(tracks);
+      }
+      const track = playOrder[i % playOrder.length];
       i++;
       try {
         await this.pipeTrackPcm(track.id, encoder.stdin, (p) => { currentDecoder = p; });
@@ -146,6 +150,15 @@ export class BroadcastService {
         await new Promise((r) => setTimeout(r, 200));
       }
     }
+  }
+
+  private shuffleArray<T>(arr: T[]): T[] {
+    const result = [...arr];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
   }
 
   private killActiveSessions(tokenId: string): void {

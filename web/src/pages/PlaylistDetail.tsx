@@ -1,16 +1,20 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Play, Shuffle, Globe, Lock, Pencil } from 'lucide-react'
+import { ArrowLeft, Play, Shuffle, Globe, Lock, Pencil, Radio } from 'lucide-react'
 import { useState } from 'react'
 import { getPlaylist, updatePlaylist } from '../api/playlists'
 import { usePlayerStore } from '../store/player'
+import { useAuthStore } from '../store/auth'
 import TrackRow from '../components/TrackRow'
+import RadioModal from '../components/RadioModal'
 
 export default function PlaylistDetail() {
   const { id } = useParams<{ id: string }>()
   const qc = useQueryClient()
+  const userId = useAuthStore((s) => s.userId)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
+  const [radioOpen, setRadioOpen] = useState(false)
 
   const { data: playlist, isLoading } = useQuery({
     queryKey: ['playlist', id],
@@ -94,6 +98,14 @@ export default function PlaylistDetail() {
             >
               <Shuffle size={14} /> Shuffle
             </button>
+            {playlist.owner_user_id === userId && (
+              <button
+                onClick={() => setRadioOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm font-medium transition-colors"
+              >
+                <Radio size={14} /> Radio URL
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -106,6 +118,8 @@ export default function PlaylistDetail() {
           <p className="text-center py-12 text-[#6b6b6b]">This playlist is empty</p>
         )}
       </div>
+
+      {radioOpen && <RadioModal playlistId={id!} onClose={() => setRadioOpen(false)} />}
     </div>
   )
 }

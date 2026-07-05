@@ -17,6 +17,7 @@ import { UploadModule } from './upload/upload.module';
 import { AdminModule } from './admin/admin.module';
 import { DownloadModule } from './download/download.module';
 import { RadioModule } from './radio/radio.module';
+import { BroadcastModule } from './broadcast/broadcast.module';
 import { HealthController } from './health/health.controller';
 import { FrontendController } from './frontend.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -39,6 +40,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     AdminModule,
     DownloadModule,
     RadioModule,
+    BroadcastModule,
   ],
   controllers: [HealthController, FrontendController],
   providers: [

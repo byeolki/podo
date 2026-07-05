@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Folder, Plus, Trash2, RefreshCw, Users, Activity, UserCircle,
-  HardDrive, Shield, X, Pencil, Check, FileAudio, FileVideo, Files, type LucideIcon,
+  HardDrive, Shield, X, Pencil, Check, FileAudio, FileVideo, Files, Radio, type LucideIcon,
 } from 'lucide-react'
 import {
   getHealth, getUsers, getStorage, clearTranscodeCache, verifyIntegrity, formatBytes,
@@ -10,9 +10,10 @@ import {
 import { getRoots, addRoot, removeRoot, triggerScan, getScanJobs } from '../api/library'
 import { createInvite, getMe, updateMe } from '../api/auth'
 import { listAllFiles, adminRenameFile, adminDeleteFile, type UploadedFile } from '../api/upload'
+import { getAllRadioTokens, adminRevokeRadioToken, getRadioStreamUrl, type RadioToken } from '../api/broadcast'
 import { useAuthStore } from '../store/auth'
 
-type Tab = 'account' | 'library' | 'users' | 'health' | 'files'
+type Tab = 'account' | 'library' | 'users' | 'health' | 'files' | 'radio'
 
 function AccountTab() {
   const qc = useQueryClient()
@@ -540,6 +541,84 @@ function FilesTab() {
   )
 }
 
+function radioStatus(t: RadioToken): { label: string; className: string } {
+  if (t.revoked_at) return { label: 'Closed', className: 'text-red-400 bg-red-400/10' }
+  if (new Date(t.expires_at).getTime() < Date.now()) return { label: 'Expired', className: 'text-[#6b6b6b] bg-[#222]' }
+  return { label: 'Active', className: 'text-green-400 bg-green-400/10' }
+}
+
+function RadioTab() {
+  const qc = useQueryClient()
+  const { data: tokens = [], isLoading } = useQuery({ queryKey: ['admin-radio-tokens'], queryFn: getAllRadioTokens })
+
+  const revokeMut = useMutation({
+    mutationFn: (id: string) => adminRevokeRadioToken(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-radio-tokens'] }),
+  })
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-semibold">Radio URLs</h3>
+          <p className="text-xs text-[#555] mt-0.5">{tokens.length} total</p>
+        </div>
+        <button
+          onClick={() => qc.invalidateQueries({ queryKey: ['admin-radio-tokens'] })}
+          className="p-1.5 text-[#555] hover:text-white transition-colors"
+          title="Refresh"
+        >
+          <RefreshCw size={14} />
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-1.5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-14 rounded-lg bg-[#181818] animate-pulse" />
+          ))}
+        </div>
+      ) : tokens.length === 0 ? (
+        <div className="text-center py-12 text-[#555]">
+          <Radio size={28} className="mx-auto mb-2 opacity-40" />
+          <p className="text-sm">No radio URLs created yet</p>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {tokens.map((t) => {
+            const status = radioStatus(t)
+            return (
+              <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg bg-[#181818] border border-[#222]">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="text-sm font-medium truncate">{t.playlist_name ?? '(deleted playlist)'}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${status.className}`}>
+                      {status.label}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#555] truncate font-mono">{getRadioStreamUrl(t.token)}</p>
+                  <p className="text-xs text-[#555]">
+                    by {t.created_by_name ?? 'unknown'} · expires {new Date(t.expires_at).toLocaleDateString()}
+                  </p>
+                </div>
+                {!t.revoked_at && (
+                  <button
+                    onClick={() => revokeMut.mutate(t.id)}
+                    className="p-1.5 text-[#555] hover:text-red-400 transition-colors flex-shrink-0"
+                    title="Close this radio stream"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Settings() {
   const role = useAuthStore((s) => s.role)
   const isAdmin = role === 'admin'
@@ -558,6 +637,7 @@ export default function Settings() {
     { id: 'account', label: 'Account', icon: UserCircle },
     { id: 'library', label: 'Library', icon: Folder },
     { id: 'files', label: 'Files', icon: Files },
+    { id: 'radio', label: 'Radio', icon: Radio },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'health', label: 'Health', icon: Activity },
   ]
@@ -584,6 +664,7 @@ export default function Settings() {
       {tab === 'account' && <AccountTab />}
       {tab === 'library' && <LibraryTab />}
       {tab === 'files' && <FilesTab />}
+      {tab === 'radio' && <RadioTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'health' && <HealthTab />}
     </div>

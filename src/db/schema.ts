@@ -254,6 +254,21 @@ export const playlist_tracks = sqliteTable('playlist_tracks', {
   primaryKey({ columns: [t.playlist_id, t.position] }),
 ]);
 
+// ─── Playlist radio tokens ──────────────────────────────────────────────────────
+
+export const playlist_radio_tokens = sqliteTable('playlist_radio_tokens', {
+  id: text('id').primaryKey(),
+  playlist_id: text('playlist_id').notNull().references(() => playlists.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  created_by: text('created_by').references(() => users.id),
+  created_at: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
+  expires_at: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  revoked_at: integer('revoked_at', { mode: 'timestamp_ms' }),
+  last_played_at: integer('last_played_at', { mode: 'timestamp_ms' }),
+}, (t) => [
+  index('idx_playlist_radio_tokens_playlist').on(t.playlist_id),
+]);
+
 // ─── Favorites ────────────────────────────────────────────────────────────────
 
 export const favorites = sqliteTable('favorites', {

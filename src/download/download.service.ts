@@ -14,8 +14,9 @@ export interface DownloadJob {
   url: string;
   status: DownloadStatus;
   progress: number;
+  completed_items: number;
+  total_items?: number;
   error?: string;
-  track_id?: string;
   created_at: Date;
 }
 
@@ -55,6 +56,7 @@ export class DownloadService {
       url,
       status: 'pending',
       progress: 0,
+      completed_items: 0,
       created_at: new Date(),
     };
     this.jobs.set(jobId, job);
@@ -71,22 +73,36 @@ export class DownloadService {
     job.status = 'running';
     this.events.emit('download.started', { job_id: job.id, url: job.url });
 
+    job.total_items = await this.probeEntryCount(job.url);
+
     const outputTemplate = path.join(this.uploadDir, `ytdlp_%(title)s.%(ext)s`);
 
     const args = audioOnly
       ? ['-x', '--audio-format', 'best', '--audio-quality', '0', '-o', outputTemplate, '--print', 'after_move:filepath', job.url]
       : ['-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '-o', outputTemplate, '--print', 'after_move:filepath', job.url];
 
-    let outputPath = '';
+    let completedCount = 0;
+    let stdoutBuffer = '';
     let stderr = '';
+
+    const captureLine = (raw: string) => {
+      const line = raw.trim();
+      if (!line || !fs.existsSync(line)) return;
+      completedCount++;
+      job.completed_items = completedCount;
+      this.events.emit('download.progress', { job_id: job.id, completed_items: job.completed_items, total_items: job.total_items });
+      void this.scanner.scanFile(line, 'ytdlp');
+    };
 
     try {
       await new Promise<void>((resolve, reject) => {
         const proc = spawn(this.ytdlpPath, args, { stdio: 'pipe' });
 
         proc.stdout.on('data', (chunk: Buffer) => {
-          const line = chunk.toString().trim();
-          if (line && fs.existsSync(line)) outputPath = line;
+          stdoutBuffer += chunk.toString();
+          const lines = stdoutBuffer.split('\n');
+          stdoutBuffer = lines.pop() ?? '';
+          for (const line of lines) captureLine(line);
         });
 
         proc.stderr.on('data', (chunk: Buffer) => {
@@ -95,11 +111,12 @@ export class DownloadService {
           const match = line.match(/(\d+\.\d+)%/);
           if (match) {
             job.progress = parseFloat(match[1]);
-            this.events.emit('download.progress', { job_id: job.id, progress: job.progress });
+            this.events.emit('download.progress', { job_id: job.id, progress: job.progress, completed_items: job.completed_items, total_items: job.total_items });
           }
         });
 
         proc.on('close', (code) => {
+          captureLine(stdoutBuffer);
           if (code === 0) resolve();
           else reject(new Error(stderr.slice(-500)));
         });
@@ -115,13 +132,37 @@ export class DownloadService {
       return;
     }
 
-    if (outputPath) {
-      await this.scanner.scanFile(outputPath, 'ytdlp');
-    }
-
     job.status = 'done';
     job.progress = 100;
-    this.events.emit('download.completed', { job_id: job.id, path: outputPath });
-    this.logger.log(`Download done: ${outputPath}`);
+    this.events.emit('download.completed', { job_id: job.id, count: completedCount });
+    this.logger.log(`Download done: ${completedCount} file(s) for ${job.url}`);
+  }
+
+  private probeEntryCount(url: string): Promise<number | undefined> {
+    return new Promise((resolve) => {
+      let output = '';
+      let resolved = false;
+      const proc = spawn(this.ytdlpPath, ['--flat-playlist', '--print', '%(n_entries)s', url]);
+
+      const finish = (value: number | undefined) => {
+        if (resolved) return;
+        resolved = true;
+        proc.kill('SIGKILL');
+        resolve(value);
+      };
+
+      proc.stdout.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+        const firstLine = output.split('\n')[0]?.trim();
+        if (firstLine) {
+          const n = parseInt(firstLine, 10);
+          finish(Number.isFinite(n) && n > 1 ? n : undefined);
+        }
+      });
+      proc.on('close', () => finish(undefined));
+      proc.on('error', () => finish(undefined));
+
+      setTimeout(() => finish(undefined), 8000);
+    });
   }
 }

@@ -64,7 +64,12 @@ function DownloadSection() {
                   {job.status}
                 </span>
                 {job.status === 'running' && (
-                  <span className="text-xs text-[#a1a1a1]">{job.progress.toFixed(0)}%</span>
+                  <span className="text-xs text-[#a1a1a1]">
+                    {job.total_items ? `${job.completed_items}/${job.total_items} · ` : ''}{job.progress.toFixed(0)}%
+                  </span>
+                )}
+                {job.status === 'done' && job.total_items && (
+                  <span className="text-xs text-[#a1a1a1]">{job.completed_items} tracks</span>
                 )}
               </div>
               <p className="text-xs font-mono text-[#6b6b6b] truncate">{job.url}</p>

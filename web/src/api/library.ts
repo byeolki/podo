@@ -47,6 +47,8 @@ export interface DownloadJob {
   url: string
   status: 'pending' | 'running' | 'done' | 'failed'
   progress: number
+  completed_items: number
+  total_items?: number
   error?: string
   created_at: string
 }

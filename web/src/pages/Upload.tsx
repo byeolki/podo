@@ -92,7 +92,7 @@ function AddMusicSection() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="URL을 붙여넣거나 곡 제목/아티스트로 검색..."
+          placeholder="Paste a URL or search by title/artist..."
           className="flex-1 bg-[#181818] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
         />
         <button
@@ -101,7 +101,7 @@ function AddMusicSection() {
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium disabled:opacity-50"
         >
           {isUrl ? <Download size={14} /> : <Search size={14} />}
-          {isSearching ? '검색 중…' : isUrl ? 'Download' : '검색'}
+          {isSearching ? 'Searching…' : isUrl ? 'Download' : 'Search'}
         </button>
       </form>
       <label className="flex items-center gap-2 text-sm text-[#a1a1a1] cursor-pointer mb-3">
@@ -111,7 +111,7 @@ function AddMusicSection() {
 
       {searchResult && searchResult.local.length > 0 && (
         <div className="mb-3">
-          <p className="text-xs text-[#555] mb-1.5">이미 라이브러리에 있음</p>
+          <p className="text-xs text-[#555] mb-1.5">Already in library</p>
           <div className="space-y-1">
             {searchResult.local.map((hit) => (
               <div key={hit.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#181818] border border-[#222] text-sm">
@@ -149,7 +149,7 @@ function AddMusicSection() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-xs font-medium disabled:opacity-50 flex-shrink-0"
                 >
                   {added ? <Check size={12} /> : <Download size={12} />}
-                  {added ? '추가됨' : '다운로드'}
+                  {added ? 'Added' : 'Download'}
                 </button>
               </div>
             )
@@ -158,7 +158,7 @@ function AddMusicSection() {
       )}
 
       {lastQuery && searchResult && !hasResults && (
-        <p className="text-xs text-[#555] text-center py-4">검색 결과가 없습니다</p>
+        <p className="text-xs text-[#555] text-center py-4">No results found</p>
       )}
 
       {jobs.length > 0 && (
@@ -367,7 +367,7 @@ export default function Upload() {
     <div className="p-4 sm:p-6 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Upload</h1>
-        <p className="text-sm text-[#a1a1a1] mt-0.5">Add music files to your library</p>
+        <p className="text-sm text-[#a1a1a1] mt-0.5">Add music and video files to your library</p>
       </div>
 
       <div

@@ -172,7 +172,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
             <TagInput
               tags={alternateTitles}
               onChange={setAlternateTitles}
-              placeholder="e.g. 요네즈 켄시, 米津玄師, press Enter"
+              placeholder="e.g. Kenshi Yonezu, Yonezu Kenji, press Enter"
             />
           </div>
 

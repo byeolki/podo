@@ -69,7 +69,7 @@ function TokenRow({ token, onRevoke }: { token: RadioToken; onRevoke: () => void
           </button>
         </div>
         <span className="text-[10px] text-[#555]">
-          {daysLeft(token.expires_at)}일 후 만료
+          Expires in {daysLeft(token.expires_at)}d
         </span>
       </div>
     </div>
@@ -113,13 +113,13 @@ export default function RadioModal({ playlistId, onClose }: Props) {
 
         <div className="p-4 overflow-y-auto space-y-2">
           <p className="text-xs text-[#6b6b6b] mb-1">
-            이 플레이리스트를 무한 반복 재생하는 스트림 주소입니다. VLC 등 외부 플레이어에 붙여넣어 사용하세요.
+            A stream URL that loops this playlist forever. Paste it into VLC or another external player.
           </p>
 
           {isLoading ? (
             <div className="h-16 bg-[#181818] rounded-lg animate-pulse" />
           ) : activeTokens.length === 0 ? (
-            <p className="text-xs text-[#555] text-center py-4">아직 생성된 라디오 URL이 없습니다</p>
+            <p className="text-xs text-[#555] text-center py-4">No radio URLs created yet</p>
           ) : (
             activeTokens.map((t) => (
               <TokenRow key={t.id} token={t} onRevoke={() => revokeMut.mutate(t.id)} />
@@ -133,7 +133,7 @@ export default function RadioModal({ playlistId, onClose }: Props) {
             disabled={createMut.isPending}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium disabled:opacity-50 transition-colors"
           >
-            <Plus size={14} /> {createMut.isPending ? '생성 중…' : '새 라디오 URL 생성'}
+            <Plus size={14} /> {createMut.isPending ? 'Creating…' : 'Generate new radio URL'}
           </button>
         </div>
       </div>

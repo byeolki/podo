@@ -60,3 +60,28 @@ export function startDownload(url: string, audio_only = true): Promise<DownloadJ
 export function getDownloads(): Promise<DownloadJob[]> {
   return api.get('/download')
 }
+
+export interface LocalSearchHit {
+  id: string
+  name: string
+  artist?: string
+  type: 'track'
+}
+
+export interface YoutubeSearchResult {
+  id: string
+  title: string
+  duration: number | null
+  channel: string | null
+  thumbnail: string | null
+  url: string
+}
+
+export interface UnifiedSearchResult {
+  local: LocalSearchHit[]
+  youtube: YoutubeSearchResult[]
+}
+
+export function searchDownload(q: string, limit = 10): Promise<UnifiedSearchResult> {
+  return api.get(`/download/search?q=${encodeURIComponent(q)}&limit=${limit}`)
+}

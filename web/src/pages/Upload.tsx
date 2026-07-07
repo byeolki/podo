@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload as UploadIcon, X, Check, Pencil, Trash2, FileAudio, FileVideo, Music, Download } from 'lucide-react'
+import { Upload as UploadIcon, X, Check, Pencil, Trash2, FileAudio, FileVideo, Music, Download, Search } from 'lucide-react'
 import {
   uploadFiles as uploadFilesApi,
   listMyFiles,
@@ -9,7 +9,7 @@ import {
   type UploadedFile,
 } from '../api/upload'
 import { formatBytes } from '../api/admin'
-import { startDownload, getDownloads } from '../api/library'
+import { startDownload, getDownloads, searchDownload } from '../api/library'
 import { useAuthStore } from '../store/auth'
 
 const DOWNLOAD_STATUS_STYLE: Record<string, string> = {
@@ -17,6 +17,122 @@ const DOWNLOAD_STATUS_STYLE: Record<string, string> = {
   running: 'text-blue-400 bg-blue-400/10',
   failed: 'text-red-400 bg-red-400/10',
   pending: 'text-yellow-400 bg-yellow-400/10',
+}
+
+function formatYtDuration(seconds: number | null): string {
+  if (!seconds) return ''
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function SearchSection() {
+  const qc = useQueryClient()
+  const [query, setQuery] = useState('')
+  const [submittedQuery, setSubmittedQuery] = useState('')
+  const [audioOnly, setAudioOnly] = useState(true)
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
+
+  const { data, isFetching } = useQuery({
+    queryKey: ['download-search', submittedQuery],
+    queryFn: () => searchDownload(submittedQuery),
+    enabled: !!submittedQuery,
+  })
+
+  const downloadMut = useMutation({
+    mutationFn: (url: string) => startDownload(url, audioOnly),
+    onSuccess: (_result, url) => {
+      qc.invalidateQueries({ queryKey: ['downloads'] })
+      const hit = data?.youtube.find((r) => r.url === url)
+      if (hit) setAddedIds((prev) => new Set(prev).add(hit.id))
+    },
+  })
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = query.trim()
+    if (trimmed) setSubmittedQuery(trimmed)
+  }
+
+  const hasResults = !!data && (data.local.length > 0 || data.youtube.length > 0)
+
+  return (
+    <div className="mb-6">
+      <h3 className="text-sm font-semibold text-[#a1a1a1] uppercase tracking-wider mb-2">Search &amp; Add</h3>
+      <form onSubmit={handleSearch} className="flex gap-2 mb-2">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="곡 제목이나 아티스트로 검색..."
+          className="flex-1 bg-[#181818] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+        />
+        <button
+          type="submit"
+          disabled={!query.trim() || isFetching}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm font-medium disabled:opacity-50"
+        >
+          <Search size={14} /> {isFetching ? '검색 중…' : '검색'}
+        </button>
+      </form>
+      <label className="flex items-center gap-2 text-sm text-[#a1a1a1] cursor-pointer mb-3">
+        <input type="checkbox" checked={audioOnly} onChange={(e) => setAudioOnly(e.target.checked)} className="accent-accent" />
+        Audio only
+      </label>
+
+      {data && data.local.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs text-[#555] mb-1.5">이미 라이브러리에 있음</p>
+          <div className="space-y-1">
+            {data.local.map((hit) => (
+              <div key={hit.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#181818] border border-[#222] text-sm">
+                <Music size={13} className="text-[#555] flex-shrink-0" />
+                <span className="truncate">{hit.name}{hit.artist ? ` · ${hit.artist}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data && data.youtube.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs text-[#555] mb-1.5">YouTube</p>
+          {data.youtube.map((r) => {
+            const added = addedIds.has(r.id)
+            return (
+              <div key={r.id} className="flex items-center gap-3 p-2 rounded-lg bg-[#181818] border border-[#222]">
+                {r.thumbnail ? (
+                  <img src={r.thumbnail} alt="" className="w-16 h-10 rounded object-cover flex-shrink-0 bg-[#222]" />
+                ) : (
+                  <div className="w-16 h-10 rounded bg-[#222] flex items-center justify-center flex-shrink-0">
+                    <FileVideo size={14} className="text-[#555]" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">{r.title}</p>
+                  <p className="text-xs text-[#555] truncate">
+                    {r.channel}{r.duration ? ` · ${formatYtDuration(r.duration)}` : ''}
+                  </p>
+                </div>
+                <button
+                  onClick={() => downloadMut.mutate(r.url)}
+                  disabled={added || downloadMut.isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-xs font-medium disabled:opacity-50 flex-shrink-0"
+                >
+                  {added ? <Check size={12} /> : <Download size={12} />}
+                  {added ? '추가됨' : '다운로드'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {submittedQuery && data && !hasResults && (
+        <p className="text-xs text-[#555] text-center py-4">검색 결과가 없습니다</p>
+      )}
+    </div>
+  )
 }
 
 function DownloadSection() {
@@ -286,6 +402,7 @@ export default function Upload() {
         <p className="text-xs text-[#555] mt-1">MP3, M4A, FLAC, AAC, WAV, OGG, OPUS, MP4, MKV — max 500MB each</p>
       </div>
 
+      {role === 'admin' && <SearchSection />}
       {role === 'admin' && <DownloadSection />}
 
       {items.length > 0 && (

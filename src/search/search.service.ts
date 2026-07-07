@@ -33,6 +33,12 @@ export class SearchService {
     return results;
   }
 
+  searchTracksSimple(query: string, limit = 10): SearchHit[] {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    return this.searchTracks([trimmed], limit);
+  }
+
   private async expandWithMusicBrainz(query: string): Promise<string[]> {
     const terms = new Set([query]);
     const cacheKey = `alias:${query.toLowerCase()}`;

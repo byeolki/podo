@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Upload as UploadIcon, X, Check, Pencil, Trash2, FileAudio, FileVideo, Music, Download, Search } from 'lucide-react'
 import {
@@ -9,8 +9,10 @@ import {
   type UploadedFile,
 } from '../api/upload'
 import { formatBytes } from '../api/admin'
-import { startDownload, getDownloads, searchDownload } from '../api/library'
+import { startDownload, getDownloads, searchDownload, type UnifiedSearchResult } from '../api/library'
 import { useAuthStore } from '../store/auth'
+
+const URL_PATTERN = /^https?:\/\//i
 
 const DOWNLOAD_STATUS_STYLE: Record<string, string> = {
   done: 'text-green-400 bg-green-400/10',
@@ -26,53 +28,80 @@ function formatYtDuration(seconds: number | null): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-function SearchSection() {
+function AddMusicSection() {
   const qc = useQueryClient()
-  const [query, setQuery] = useState('')
-  const [submittedQuery, setSubmittedQuery] = useState('')
+  const [input, setInput] = useState('')
   const [audioOnly, setAudioOnly] = useState(true)
+  const [searchResult, setSearchResult] = useState<UnifiedSearchResult | null>(null)
+  const [lastQuery, setLastQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
 
-  const { data, isFetching } = useQuery({
-    queryKey: ['download-search', submittedQuery],
-    queryFn: () => searchDownload(submittedQuery),
-    enabled: !!submittedQuery,
-  })
+  const { data: jobs = [] } = useQuery({ queryKey: ['downloads'], queryFn: getDownloads, refetchInterval: 2000 })
+
+  const completedRef = useRef(0)
+  useEffect(() => {
+    const totalCompleted = jobs.reduce((sum, j) => sum + j.completed_items, 0)
+    if (totalCompleted > completedRef.current) {
+      qc.invalidateQueries({ queryKey: ['my-files'] })
+    }
+    completedRef.current = totalCompleted
+  }, [jobs, qc])
 
   const downloadMut = useMutation({
     mutationFn: (url: string) => startDownload(url, audioOnly),
-    onSuccess: (_result, url) => {
-      qc.invalidateQueries({ queryKey: ['downloads'] })
-      const hit = data?.youtube.find((r) => r.url === url)
-      if (hit) setAddedIds((prev) => new Set(prev).add(hit.id))
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['downloads'] }),
   })
 
-  const handleSearch = (e: React.FormEvent) => {
+  const isUrl = URL_PATTERN.test(input.trim())
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const trimmed = query.trim()
-    if (trimmed) setSubmittedQuery(trimmed)
+    const trimmed = input.trim()
+    if (!trimmed) return
+
+    if (URL_PATTERN.test(trimmed)) {
+      downloadMut.mutate(trimmed)
+      setInput('')
+      setSearchResult(null)
+      setLastQuery('')
+      return
+    }
+
+    setIsSearching(true)
+    setLastQuery(trimmed)
+    try {
+      setSearchResult(await searchDownload(trimmed))
+    } finally {
+      setIsSearching(false)
+    }
   }
 
-  const hasResults = !!data && (data.local.length > 0 || data.youtube.length > 0)
+  const handleDownloadResult = (url: string, id: string) => {
+    downloadMut.mutate(url)
+    setAddedIds((prev) => new Set(prev).add(id))
+  }
+
+  const hasResults = !!searchResult && (searchResult.local.length > 0 || searchResult.youtube.length > 0)
 
   return (
     <div className="mb-6">
-      <h3 className="text-sm font-semibold text-[#a1a1a1] uppercase tracking-wider mb-2">Search &amp; Add</h3>
-      <form onSubmit={handleSearch} className="flex gap-2 mb-2">
+      <h3 className="text-sm font-semibold text-[#a1a1a1] uppercase tracking-wider mb-2">Add from YouTube</h3>
+      <form onSubmit={handleSubmit} className="flex gap-2 mb-2">
         <input
           type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="곡 제목이나 아티스트로 검색..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="URL을 붙여넣거나 곡 제목/아티스트로 검색..."
           className="flex-1 bg-[#181818] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
         />
         <button
           type="submit"
-          disabled={!query.trim() || isFetching}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm font-medium disabled:opacity-50"
+          disabled={!input.trim() || isSearching || downloadMut.isPending}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium disabled:opacity-50"
         >
-          <Search size={14} /> {isFetching ? '검색 중…' : '검색'}
+          {isUrl ? <Download size={14} /> : <Search size={14} />}
+          {isSearching ? '검색 중…' : isUrl ? 'Download' : '검색'}
         </button>
       </form>
       <label className="flex items-center gap-2 text-sm text-[#a1a1a1] cursor-pointer mb-3">
@@ -80,11 +109,11 @@ function SearchSection() {
         Audio only
       </label>
 
-      {data && data.local.length > 0 && (
+      {searchResult && searchResult.local.length > 0 && (
         <div className="mb-3">
           <p className="text-xs text-[#555] mb-1.5">이미 라이브러리에 있음</p>
           <div className="space-y-1">
-            {data.local.map((hit) => (
+            {searchResult.local.map((hit) => (
               <div key={hit.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#181818] border border-[#222] text-sm">
                 <Music size={13} className="text-[#555] flex-shrink-0" />
                 <span className="truncate">{hit.name}{hit.artist ? ` · ${hit.artist}` : ''}</span>
@@ -94,10 +123,10 @@ function SearchSection() {
         </div>
       )}
 
-      {data && data.youtube.length > 0 && (
-        <div className="space-y-1.5">
+      {searchResult && searchResult.youtube.length > 0 && (
+        <div className="space-y-1.5 mb-3">
           <p className="text-xs text-[#555] mb-1.5">YouTube</p>
-          {data.youtube.map((r) => {
+          {searchResult.youtube.map((r) => {
             const added = addedIds.has(r.id)
             return (
               <div key={r.id} className="flex items-center gap-3 p-2 rounded-lg bg-[#181818] border border-[#222]">
@@ -115,7 +144,7 @@ function SearchSection() {
                   </p>
                 </div>
                 <button
-                  onClick={() => downloadMut.mutate(r.url)}
+                  onClick={() => handleDownloadResult(r.url, r.id)}
                   disabled={added || downloadMut.isPending}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-xs font-medium disabled:opacity-50 flex-shrink-0"
                 >
@@ -128,48 +157,9 @@ function SearchSection() {
         </div>
       )}
 
-      {submittedQuery && data && !hasResults && (
+      {lastQuery && searchResult && !hasResults && (
         <p className="text-xs text-[#555] text-center py-4">검색 결과가 없습니다</p>
       )}
-    </div>
-  )
-}
-
-function DownloadSection() {
-  const qc = useQueryClient()
-  const [url, setUrl] = useState('')
-  const [audioOnly, setAudioOnly] = useState(true)
-
-  const { data: jobs = [] } = useQuery({ queryKey: ['downloads'], queryFn: getDownloads, refetchInterval: 2000 })
-
-  const downloadMut = useMutation({
-    mutationFn: () => startDownload(url, audioOnly),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['downloads'] }); setUrl('') },
-  })
-
-  return (
-    <div className="mb-6">
-      <h3 className="text-sm font-semibold text-[#a1a1a1] uppercase tracking-wider mb-2">Download from URL</h3>
-      <div className="flex gap-2 mb-2">
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://youtube.com/watch?v=..."
-          className="flex-1 bg-[#181818] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent font-mono"
-        />
-        <button
-          onClick={() => downloadMut.mutate()}
-          disabled={!url || downloadMut.isPending}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium disabled:opacity-50"
-        >
-          <Download size={14} /> Download
-        </button>
-      </div>
-      <label className="flex items-center gap-2 text-sm text-[#a1a1a1] cursor-pointer mb-3">
-        <input type="checkbox" checked={audioOnly} onChange={(e) => setAudioOnly(e.target.checked)} className="accent-accent" />
-        Audio only
-      </label>
 
       {jobs.length > 0 && (
         <div className="space-y-1.5">
@@ -402,8 +392,7 @@ export default function Upload() {
         <p className="text-xs text-[#555] mt-1">MP3, M4A, FLAC, AAC, WAV, OGG, OPUS, MP4, MKV — max 500MB each</p>
       </div>
 
-      {role === 'admin' && <SearchSection />}
-      {role === 'admin' && <DownloadSection />}
+      {role === 'admin' && <AddMusicSection />}
 
       {items.length > 0 && (
         <div className="mb-6">

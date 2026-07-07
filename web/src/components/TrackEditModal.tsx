@@ -71,7 +71,6 @@ export default function TrackEditModal({ track, onClose }: Props) {
     splitList(ov?.artist) || splitList(track.artists?.map((a) => a.name).join(', '))
   )
   const [isCover, setIsCover] = useState(ov?.is_cover ?? track.is_cover ?? false)
-  const [videoLocator, setVideoLocator] = useState(ov?.video_locator ?? '')
   const [alternateTitles, setAlternateTitles] = useState<string[]>(splitList(ov?.alternate_titles))
 
   const queryClient = useQueryClient()
@@ -103,7 +102,6 @@ export default function TrackEditModal({ track, onClose }: Props) {
       artist: coverByArtists.join(', ') || undefined,
       is_cover: isCover,
       original_artist: origArtists.join(', ') || undefined,
-      video_locator: videoLocator.trim() || undefined,
       alternate_titles: alternateTitles.join(', ') || undefined,
     })
   }
@@ -175,17 +173,6 @@ export default function TrackEditModal({ track, onClose }: Props) {
               tags={alternateTitles}
               onChange={setAlternateTitles}
               placeholder="e.g. 요네즈 켄시, 米津玄師, press Enter"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-[#6b6b6b] mb-1.5">Music video path</label>
-            <input
-              type="text"
-              value={videoLocator}
-              onChange={(e) => setVideoLocator(e.target.value)}
-              placeholder="/path/to/video.mp4"
-              className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent placeholder:text-[#444]"
             />
           </div>
 

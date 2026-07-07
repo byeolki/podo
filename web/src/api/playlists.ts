@@ -7,6 +7,7 @@ export interface Playlist {
   description: string | null
   is_public: boolean
   owner_user_id: string
+  artwork_path: string | null
   created_at: string
   updated_at: string
   tracks?: (Track & { position: number })[]
@@ -38,4 +39,30 @@ export function addTracksToPlaylist(id: string, trackIds: string[]): Promise<voi
 
 export function deletePlaylist(id: string): Promise<void> {
   return api.delete(`/playlists/${id}`)
+}
+
+export function uploadPlaylistCover(id: string, file: File): Promise<{ artwork_path: string }> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData()
+    form.append('file', file)
+
+    const token = localStorage.getItem('access_token')
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `/api/v1/playlists/${id}/cover`)
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText))
+      } else {
+        reject(new Error(xhr.responseText || `HTTP ${xhr.status}`))
+      }
+    }
+    xhr.onerror = () => reject(new Error('Network error'))
+    xhr.send(form)
+  })
+}
+
+export function removePlaylistCover(id: string): Promise<void> {
+  return api.delete(`/playlists/${id}/cover`)
 }

@@ -238,6 +238,7 @@ export const playlists = sqliteTable('playlists', {
   name: text('name').notNull(),
   description: text('description'),
   is_public: integer('is_public', { mode: 'boolean' }).notNull().default(false),
+  artwork_path: text('artwork_path'),
   updated_at: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
   created_at: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
   deleted_at: integer('deleted_at', { mode: 'timestamp_ms' }),

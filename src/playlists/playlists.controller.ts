@@ -1,6 +1,8 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, HttpCode, HttpStatus, ParseArrayPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Req, HttpCode, HttpStatus, ParseArrayPipe, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { IsString, IsOptional, IsBoolean, IsArray, IsUUID, MinLength, MaxLength } from 'class-validator';
+import { FastifyRequest } from 'fastify';
+import { Readable } from 'stream';
 import { PlaylistsService } from './playlists.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
@@ -68,5 +70,26 @@ export class PlaylistsController {
   @ApiOperation({ summary: 'Delete playlist' })
   remove(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.playlists.remove(id, user.sub);
+  }
+
+  @Post(':id/cover')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a cover image for a playlist' })
+  async setCover(@Param('id') id: string, @Req() req: FastifyRequest, @CurrentUser() user: JwtPayload) {
+    if (!req.isMultipart()) throw new BadRequestException('Expected multipart/form-data');
+
+    for await (const part of req.parts()) {
+      if (part.type === 'file') {
+        return this.playlists.setCover(id, part.filename, part.file as unknown as Readable, user.sub);
+      }
+    }
+    throw new BadRequestException('No file provided');
+  }
+
+  @Delete(':id/cover')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a playlist cover image' })
+  removeCover(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.playlists.removeCover(id, user.sub);
   }
 }

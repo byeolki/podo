@@ -1,12 +1,28 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { eq, and, asc, isNull, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
+import * as fs from 'fs';
+import * as path from 'path';
+import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
+
+const ALLOWED_COVER_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const MAX_COVER_SIZE = 10 * 1024 * 1024;
 
 @Injectable()
 export class PlaylistsService {
-  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
+  private readonly artworkDir: string;
+
+  constructor(
+    @Inject(DB_TOKEN) private readonly db: Db,
+    private readonly config: ConfigService,
+  ) {
+    this.artworkDir = config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
+    fs.mkdirSync(this.artworkDir, { recursive: true });
+  }
 
   findAll(userId: string) {
     return this.db
@@ -96,6 +112,41 @@ export class PlaylistsService {
   async remove(id: string, userId: string) {
     await this.requireOwner(id, userId);
     await this.db.update(schema.playlists).set({ deleted_at: new Date() }).where(eq(schema.playlists.id, id));
+  }
+
+  async setCover(id: string, filename: string, fileStream: Readable, userId: string) {
+    const playlist = await this.requireOwner(id, userId);
+
+    const ext = path.extname(filename).toLowerCase();
+    if (!ALLOWED_COVER_EXTS.has(ext)) throw new BadRequestException(`Unsupported image type: ${ext}`);
+
+    const destPath = path.join(this.artworkDir, `playlist_${id}_${Date.now()}${ext}`);
+    await pipeline(fileStream, fs.createWriteStream(destPath));
+
+    const stat = fs.statSync(destPath);
+    if (stat.size > MAX_COVER_SIZE) {
+      fs.unlinkSync(destPath);
+      throw new BadRequestException('Image too large (max 10MB)');
+    }
+
+    this.deleteArtworkFile(playlist.artwork_path);
+    await this.db.update(schema.playlists).set({ artwork_path: destPath, updated_at: new Date() }).where(eq(schema.playlists.id, id));
+    return { artwork_path: destPath };
+  }
+
+  async removeCover(id: string, userId: string) {
+    const playlist = await this.requireOwner(id, userId);
+    this.deleteArtworkFile(playlist.artwork_path);
+    await this.db.update(schema.playlists).set({ artwork_path: null, updated_at: new Date() }).where(eq(schema.playlists.id, id));
+  }
+
+  private deleteArtworkFile(artworkPath: string | null): void {
+    if (!artworkPath) return;
+    try {
+      fs.unlinkSync(artworkPath);
+    } catch (e: unknown) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    }
   }
 
   private async requireOwner(id: string, userId: string) {

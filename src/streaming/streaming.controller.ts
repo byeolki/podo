@@ -72,7 +72,17 @@ export class StreamingController {
       .where(eq(schema.album_versions.id, id))
       .get();
 
-    const artworkPath = version?.artwork_path;
+    let artworkPath = version?.artwork_path;
+
+    if (!artworkPath) {
+      const playlist = await this.db
+        .select({ artwork_path: schema.playlists.artwork_path })
+        .from(schema.playlists)
+        .where(eq(schema.playlists.id, id))
+        .get();
+      artworkPath = playlist?.artwork_path;
+    }
+
     if (!artworkPath || !fs.existsSync(artworkPath)) {
       return reply.status(404).send({ code: 'NOT_FOUND', message: 'Artwork not found' });
     }

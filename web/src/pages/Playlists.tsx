@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ListMusic, Plus, Trash2, Globe, Lock, Search, X, ChevronDown } from 'lucide-react'
 import { getPlaylists, getPublicPlaylists, createPlaylist, deletePlaylist } from '../api/playlists'
+import { getArtworkUrl } from '../api/client'
+import ArtworkImage from '../components/ArtworkImage'
 import { useAuthStore } from '../store/auth'
 
 type PlaylistFilter = 'mine' | 'all'
@@ -189,9 +191,17 @@ export default function Playlists() {
             const isOwner = pl.owner_user_id === userId
             return (
               <div key={pl.id} className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group">
-                <div className="w-10 h-10 rounded-lg bg-[#222] flex items-center justify-center flex-shrink-0">
-                  <ListMusic size={16} className="text-[#555]" />
-                </div>
+                {pl.artwork_path ? (
+                  <ArtworkImage
+                    src={getArtworkUrl(pl.id)}
+                    alt={pl.name}
+                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-[#222]"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-[#222] flex items-center justify-center flex-shrink-0">
+                    <ListMusic size={16} className="text-[#555]" />
+                  </div>
+                )}
                 <Link to={`/playlists/${pl.id}`} className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate hover:text-accent transition-colors">{pl.name}</p>
                   <p className="text-xs text-[#6b6b6b] flex items-center gap-1">

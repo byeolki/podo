@@ -11,6 +11,7 @@ interface PlayerState {
   audioRef: HTMLAudioElement | null
   normalize: boolean
   resumeTime: number | null
+  repeatMode: 'off' | 'all' | 'one'
 
   setQueue: (tracks: Track[], startIndex?: number) => void
   play: () => void
@@ -25,6 +26,7 @@ interface PlayerState {
   playTrack: (track: Track, queue?: Track[]) => void
   setNormalize: (v: boolean) => void
   consumeResumeTime: () => number | null
+  cycleRepeatMode: () => void
 }
 
 const QUEUE_KEY = 'podo_player_queue'
@@ -84,6 +86,18 @@ function loadNormalize(): boolean {
   try { return localStorage.getItem('podo_normalize') === 'true' } catch { return false }
 }
 
+const REPEAT_KEY = 'podo_repeat_mode'
+const REPEAT_ORDER: Array<'off' | 'all' | 'one'> = ['off', 'all', 'one']
+
+function loadRepeatMode(): 'off' | 'all' | 'one' {
+  try {
+    const v = localStorage.getItem(REPEAT_KEY)
+    return v === 'all' || v === 'one' ? v : 'off'
+  } catch {
+    return 'off'
+  }
+}
+
 const restored = loadPersisted()
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -96,6 +110,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   audioRef: null,
   normalize: loadNormalize(),
   resumeTime: restored && restored.currentTime > 3 ? restored.currentTime : null,
+  repeatMode: loadRepeatMode(),
 
   setQueue: (tracks, startIndex = 0) => {
     set({ queue: tracks, currentIndex: startIndex, resumeTime: null })
@@ -119,10 +134,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   next: () => {
-    const { queue, currentIndex } = get()
+    const { queue, currentIndex, repeatMode } = get()
     if (currentIndex < queue.length - 1) {
       set({ currentIndex: currentIndex + 1, currentTime: 0, resumeTime: null })
       persistQueue(queue, currentIndex + 1)
+      persistTime(0, true)
+    } else if (repeatMode === 'all' && queue.length > 0) {
+      set({ currentIndex: 0, currentTime: 0, resumeTime: null })
+      persistQueue(queue, 0)
       persistTime(0, true)
     }
   },
@@ -175,6 +194,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const t = get().resumeTime
     set({ resumeTime: null })
     return t
+  },
+
+  cycleRepeatMode: () => {
+    const current = get().repeatMode
+    const next = REPEAT_ORDER[(REPEAT_ORDER.indexOf(current) + 1) % REPEAT_ORDER.length]
+    set({ repeatMode: next })
+    try { localStorage.setItem(REPEAT_KEY, next) } catch {}
   },
 }))
 

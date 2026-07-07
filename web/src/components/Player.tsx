@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity, Repeat, Repeat1 } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
 import { getStreamUrl, getArtworkUrl, ensureFreshToken } from '../api/client'
 import { formatDuration, recordPlay } from '../api/tracks'
@@ -17,6 +17,7 @@ export default function Player() {
     toggle, next, prev, setVolume,
     setCurrentTime, setDuration, setAudioRef,
     queue, currentIndex, normalize, setNormalize,
+    repeatMode, cycleRepeatMode,
   } = usePlayerStore()
   const [videoOpen, setVideoOpen] = useState(false)
   const playRecordedRef = useRef<string | null>(null)
@@ -156,6 +157,29 @@ export default function Player() {
     if (!usePlayerStore.getState().isPlaying) usePlayerStore.getState().play()
   }
 
+  // Reaching end-of-media always fires a native 'pause' just before 'ended'
+  // (per the HTML spec), which our pause-sync above turns into isPlaying:
+  // false. When we're actually continuing (next track, or looping), restore
+  // isPlaying before advancing so the track-change effect autoplays.
+  function handleTrackEnd() {
+    const store = usePlayerStore.getState()
+    const { repeatMode: mode, queue: q, currentIndex: idx } = store
+
+    if (mode === 'one') {
+      const audio = audioRef.current
+      if (audio) {
+        audio.currentTime = 0
+        audio.play().catch(() => {})
+      }
+      store.play()
+      return
+    }
+
+    const willContinue = idx < q.length - 1 || (mode === 'all' && q.length > 0)
+    if (willContinue) store.play()
+    next()
+  }
+
   return (
     <>
     <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center px-3 sm:px-4 gap-2 sm:gap-4 z-50">
@@ -163,7 +187,7 @@ export default function Player() {
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
         onDurationChange={(e) => setDuration(e.currentTarget.duration)}
-        onEnded={next}
+        onEnded={handleTrackEnd}
         onError={recover}
         onStalled={handleWaiting}
         onWaiting={handleWaiting}
@@ -209,10 +233,17 @@ export default function Player() {
           </button>
           <button
             onClick={next}
-            disabled={!track || currentIndex >= queue.length - 1}
+            disabled={!track || (currentIndex >= queue.length - 1 && repeatMode !== 'all')}
             className="text-[#a1a1a1] hover:text-white disabled:opacity-30 transition-colors"
           >
             <SkipForward size={18} />
+          </button>
+          <button
+            onClick={cycleRepeatMode}
+            title={repeatMode === 'off' ? 'Repeat: off' : repeatMode === 'all' ? 'Repeat: all' : 'Repeat: one'}
+            className={`transition-colors ${repeatMode !== 'off' ? 'text-accent' : 'text-[#6b6b6b] hover:text-[#a1a1a1]'}`}
+          >
+            {repeatMode === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}
           </button>
         </div>
 

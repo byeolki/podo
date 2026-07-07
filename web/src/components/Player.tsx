@@ -24,6 +24,8 @@ export default function Player() {
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadSeqRef = useRef(0)
+  const suppressPauseSyncRef = useRef(false)
+  const suppressPauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setAudioRef(audioRef.current)
@@ -46,6 +48,12 @@ export default function Player() {
       }
       audio.addEventListener('loadedmetadata', onMeta)
     }
+    // audio.load() synchronously pauses a playing element and queues a native
+    // 'pause' event as part of resetting it — ignore that artifact so it
+    // doesn't get mistaken for a real (e.g. Bluetooth output disconnect) pause.
+    suppressPauseSyncRef.current = true
+    if (suppressPauseTimerRef.current) clearTimeout(suppressPauseTimerRef.current)
+    suppressPauseTimerRef.current = setTimeout(() => { suppressPauseSyncRef.current = false }, 600)
     audio.load()
     if (autoplay) audio.play().catch(() => {})
   }, [])
@@ -109,6 +117,7 @@ export default function Player() {
   useEffect(() => () => {
     clearStallTimer()
     if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current)
+    if (suppressPauseTimerRef.current) clearTimeout(suppressPauseTimerRef.current)
   }, [clearStallTimer])
 
   function handleTimeUpdate(e: React.SyntheticEvent<HTMLAudioElement>) {
@@ -134,6 +143,19 @@ export default function Player() {
     }, STALL_TIMEOUT_MS)
   }
 
+  // Keep the store in sync when playback stops/starts for reasons outside our
+  // own toggle() calls — e.g. the OS pausing HTML5 audio when a Bluetooth
+  // output (AirPods, etc.) disconnects. Without this the dashboard keeps
+  // showing "playing" even though audio has actually stopped.
+  function handleNativePause() {
+    if (suppressPauseSyncRef.current) return
+    if (usePlayerStore.getState().isPlaying) usePlayerStore.getState().pause()
+  }
+
+  function handleNativePlay() {
+    if (!usePlayerStore.getState().isPlaying) usePlayerStore.getState().play()
+  }
+
   return (
     <>
     <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#111] border-t border-[#222] flex items-center px-3 sm:px-4 gap-2 sm:gap-4 z-50">
@@ -146,6 +168,8 @@ export default function Player() {
         onStalled={handleWaiting}
         onWaiting={handleWaiting}
         onPlaying={clearStallTimer}
+        onPause={handleNativePause}
+        onPlay={handleNativePlay}
         preload="auto"
       />
 

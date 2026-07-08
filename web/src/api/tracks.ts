@@ -23,6 +23,7 @@ export interface Track {
   is_cover: boolean
   original_artist_id: string | null
   album_version_id: string | null
+  thumbnail_path: string | null
   has_video?: boolean
   play_count: number
   favorite_count: number

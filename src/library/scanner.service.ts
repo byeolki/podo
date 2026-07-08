@@ -1,4 +1,5 @@
 import { Injectable, Logger, Inject, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { eq, and, inArray } from "drizzle-orm";
 import { Db, DB_TOKEN } from "../db/database.module";
 import * as schema from "../db/schema";
@@ -10,6 +11,7 @@ import { newId } from "../common/id";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import { spawn } from "child_process";
 import PQueue from "p-queue";
 
 const AUDIO_EXTS = new Set([".mp3", ".m4a", ".flac", ".aac", ".wav", ".ogg", ".opus"]);
@@ -27,14 +29,19 @@ export class ScannerService {
     private readonly logger = new Logger(ScannerService.name);
     private readonly scanQueue = new PQueue({ concurrency: 4 });
     private activeScanJobId: string | null = null;
+    private readonly artworkDir: string;
 
     constructor(
         @Inject(DB_TOKEN) private readonly db: Db,
         private readonly ffprobe: FfprobeService,
         private readonly metadata: MetadataService,
         private readonly events: EventsService,
+        private readonly config: ConfigService,
         @Optional() private readonly ai: AiService | null,
-    ) {}
+    ) {
+        this.artworkDir = config.get<string>("artwork_dir", path.join(process.cwd(), "data", "artwork"));
+        fs.mkdirSync(this.artworkDir, { recursive: true });
+    }
 
     async scanRoot(libraryRootId: string, rootPath: string): Promise<string> {
         const jobId = newId();
@@ -268,6 +275,7 @@ export class ScannerService {
                     })
                     .onConflictDoNothing();
                 this.events.emit("track.upserted", { track_id: siblingTrackId });
+                await this.maybeSetThumbnail(siblingTrackId, filePath, kind, origin);
                 return "added";
             }
         }
@@ -309,6 +317,7 @@ export class ScannerService {
                 .where(eq(schema.sources.id, existing.id));
 
             this.events.emit("track.upserted", { track_id: trackId });
+            await this.maybeSetThumbnail(trackId, filePath, kind, origin);
             return "updated";
         }
 
@@ -368,7 +377,73 @@ export class ScannerService {
         }
 
         this.events.emit("track.upserted", { track_id: trackId });
+        await this.maybeSetThumbnail(trackId, filePath, kind, origin);
         return "added";
+    }
+
+    // Skip if the track already has one — yt-dlp's own thumbnail (downloaded
+    // alongside the media as a same-basename sidecar) always wins over a
+    // ffmpeg-extracted video frame, and neither should be regenerated on
+    // every rescan.
+    private async maybeSetThumbnail(
+        trackId: string,
+        mediaFilePath: string,
+        kind: "audio" | "video",
+        origin: "local" | "ytdlp",
+    ): Promise<void> {
+        const track = await this.db
+            .select({ thumbnail_path: schema.tracks.thumbnail_path })
+            .from(schema.tracks)
+            .where(eq(schema.tracks.id, trackId))
+            .get();
+        if (track?.thumbnail_path) return;
+
+        const dest = path.join(this.artworkDir, `track_${trackId}_thumb.jpg`);
+
+        if (origin === "ytdlp") {
+            const sidecar = path.join(
+                path.dirname(mediaFilePath),
+                path.basename(mediaFilePath, path.extname(mediaFilePath)) + ".jpg",
+            );
+            if (fs.existsSync(sidecar)) {
+                try {
+                    fs.copyFileSync(sidecar, dest);
+                    fs.unlinkSync(sidecar);
+                    await this.db
+                        .update(schema.tracks)
+                        .set({ thumbnail_path: dest })
+                        .where(eq(schema.tracks.id, trackId));
+                } catch (e) {
+                    this.logger.warn(`Failed to store yt-dlp thumbnail for track ${trackId}`, e instanceof Error ? e.stack : String(e));
+                }
+                return;
+            }
+        }
+
+        if (kind === "video") {
+            try {
+                await this.extractFirstFrame(mediaFilePath, dest);
+                await this.db
+                    .update(schema.tracks)
+                    .set({ thumbnail_path: dest })
+                    .where(eq(schema.tracks.id, trackId));
+            } catch (e) {
+                this.logger.warn(`Failed to extract thumbnail frame for ${mediaFilePath}`, e instanceof Error ? e.stack : String(e));
+            }
+        }
+    }
+
+    private extractFirstFrame(videoPath: string, dest: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const proc = spawn("ffmpeg", ["-y", "-i", videoPath, "-frames:v", "1", "-update", "1", "-q:v", "3", dest]);
+            let stderr = "";
+            proc.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+            proc.on("close", (code) => {
+                if (code === 0 && fs.existsSync(dest)) resolve();
+                else reject(new Error(stderr.slice(-300)));
+            });
+            proc.on("error", reject);
+        });
     }
 
     private async findSiblingTrackId(filePath: string): Promise<string | null> {

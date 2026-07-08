@@ -78,6 +78,13 @@
       "when": 1783384075173,
       "tag": "0010_playlist_cover",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1783475081633,
+      "tag": "0011_track_thumbnail",
+      "breakpoints": true
     }
   ]
 }

@@ -78,8 +78,8 @@ export class DownloadService {
     const outputTemplate = path.join(this.uploadDir, `ytdlp_%(title)s.%(ext)s`);
 
     const args = audioOnly
-      ? ['-x', '--audio-format', 'best', '--audio-quality', '0', '-o', outputTemplate, '--print', 'after_move:filepath', job.url]
-      : ['-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '-o', outputTemplate, '--print', 'after_move:filepath', job.url];
+      ? ['-x', '--audio-format', 'best', '--audio-quality', '0', '--write-thumbnail', '--convert-thumbnails', 'jpg', '-o', outputTemplate, '--print', 'after_move:filepath', job.url]
+      : ['-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '--write-thumbnail', '--convert-thumbnails', 'jpg', '-o', outputTemplate, '--print', 'after_move:filepath', job.url];
 
     let completedCount = 0;
     let stdoutBuffer = '';

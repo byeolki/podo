@@ -116,6 +116,7 @@ export const sources = sqliteTable('sources', {
   time_offset: integer('time_offset').notNull().default(0),
   priority: integer('priority').notNull().default(0),
   locator: text('locator').notNull(),
+  source_url: text('source_url'),
   file_hash: text('file_hash'),
   file_size: integer('file_size'),
   replaygain_track: real('replaygain_track'),

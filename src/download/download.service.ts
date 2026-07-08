@@ -82,9 +82,13 @@ export class DownloadService {
     // actual timed lyrics; auto-generated captions are unreliable ASR output
     // and deliberately excluded. --sub-langs all is safe here since manual
     // tracks are a small, bounded set (unlike the huge auto-translate list).
+    // Tab-separated so we can record which URL each downloaded file came
+    // from (webpage_url is the canonical per-item URL, e.g. the individual
+    // video URL even when job.url pointed at a whole playlist).
+    const printTemplate = 'after_move:%(filepath)s\t%(webpage_url)s';
     const args = audioOnly
-      ? ['-x', '--audio-format', 'best', '--audio-quality', '0', '--write-thumbnail', '--convert-thumbnails', 'jpg', '--write-subs', '--sub-langs', 'all', '--sub-format', 'vtt', '-o', outputTemplate, '--print', 'after_move:filepath', job.url]
-      : ['-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '--write-thumbnail', '--convert-thumbnails', 'jpg', '--write-subs', '--sub-langs', 'all', '--sub-format', 'vtt', '-o', outputTemplate, '--print', 'after_move:filepath', job.url];
+      ? ['-x', '--audio-format', 'best', '--audio-quality', '0', '--write-thumbnail', '--convert-thumbnails', 'jpg', '--write-subs', '--sub-langs', 'all', '--sub-format', 'vtt', '-o', outputTemplate, '--print', printTemplate, job.url]
+      : ['-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '--write-thumbnail', '--convert-thumbnails', 'jpg', '--write-subs', '--sub-langs', 'all', '--sub-format', 'vtt', '-o', outputTemplate, '--print', printTemplate, job.url];
 
     let completedCount = 0;
     let stdoutBuffer = '';
@@ -92,11 +96,13 @@ export class DownloadService {
 
     const captureLine = (raw: string) => {
       const line = raw.trim();
-      if (!line || !fs.existsSync(line)) return;
+      if (!line) return;
+      const [filePath, sourceUrl] = line.split('\t');
+      if (!filePath || !fs.existsSync(filePath)) return;
       completedCount++;
       job.completed_items = completedCount;
       this.events.emit('download.progress', { job_id: job.id, completed_items: job.completed_items, total_items: job.total_items });
-      void this.scanner.scanFile(line, 'ytdlp');
+      void this.scanner.scanFile(filePath, 'ytdlp', sourceUrl || undefined);
     };
 
     try {

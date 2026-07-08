@@ -58,13 +58,13 @@ export class ScannerService {
         return jobId;
     }
 
-    async scanFile(filePath: string, origin: "local" | "ytdlp" = "local"): Promise<void> {
+    async scanFile(filePath: string, origin: "local" | "ytdlp" = "local", sourceUrl?: string): Promise<void> {
         const ext = path.extname(filePath).toLowerCase();
         const kind = mediaKind(ext);
         if (!kind) return;
 
         try {
-            await this.scanQueue.add(() => this.upsertSource(filePath, kind, origin));
+            await this.scanQueue.add(() => this.upsertSource(filePath, kind, origin, sourceUrl));
         } catch (e) {
             this.logger.error(
                 `Failed to scan ${filePath}`,
@@ -188,6 +188,7 @@ export class ScannerService {
         filePath: string,
         kind: "audio" | "video",
         origin: "local" | "ytdlp" = "local",
+        sourceUrl?: string,
     ): Promise<"added" | "updated" | "skipped"> {
         let stat: fs.Stats;
         try {
@@ -272,6 +273,7 @@ export class ScannerService {
                         locator: filePath,
                         file_hash: fileHash,
                         file_size: stat.size,
+                        source_url: sourceUrl,
                     })
                     .onConflictDoNothing();
                 this.events.emit("track.upserted", { track_id: siblingTrackId });
@@ -314,6 +316,7 @@ export class ScannerService {
                     available: true,
                     deleted_at: null,
                     updated_at: new Date(),
+                    source_url: sourceUrl ?? undefined,
                 })
                 .where(eq(schema.sources.id, existing.id));
 
@@ -362,6 +365,7 @@ export class ScannerService {
             locator: filePath,
             file_hash: fileHash,
             file_size: stat.size,
+            source_url: sourceUrl,
         });
 
         if (aiOverride) {

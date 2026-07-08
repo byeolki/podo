@@ -9,6 +9,7 @@ export interface UploadedFile {
   file_size: number | null
   added_at: string | null
   added_by_name: string | null
+  source_url: string | null
 }
 
 export interface UploadResult {

@@ -22,6 +22,7 @@ export interface FileEntry {
   file_size: number | null;
   added_at: Date | null;
   added_by_name: string | null;
+  source_url: string | null;
 }
 
 @Injectable()
@@ -81,6 +82,7 @@ export class UploadService {
         added_at: schema.tracks.added_at,
         added_by: schema.tracks.added_by,
         added_by_name: schema.users.name,
+        source_url: schema.sources.source_url,
       })
       .from(schema.sources)
       .innerJoin(schema.tracks, eq(schema.sources.track_id, schema.tracks.id))
@@ -103,6 +105,7 @@ export class UploadService {
       file_size: r.file_size,
       added_at: r.added_at,
       added_by_name: r.added_by_name ?? null,
+      source_url: r.source_url,
     }));
   }
 

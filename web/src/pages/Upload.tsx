@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload as UploadIcon, X, Check, Pencil, Trash2, FileAudio, FileVideo, Music, Download, Search } from 'lucide-react'
+import { Upload as UploadIcon, X, Check, Pencil, Trash2, FileAudio, FileVideo, Music, Download, Search, ExternalLink } from 'lucide-react'
 import {
   uploadFiles as uploadFilesApi,
   listMyFiles,
@@ -258,6 +258,17 @@ function FileRow({ file, onRename, onDelete }: {
         )}
         {!editing && (
           <div className="flex items-center gap-1">
+            {file.source_url && (
+              <a
+                href={file.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1 text-[#555] hover:text-white transition-colors"
+                title={`Downloaded from: ${file.source_url}`}
+              >
+                <ExternalLink size={13} />
+              </a>
+            )}
             <button
               onClick={() => setEditing(true)}
               className="p-1 text-[#555] hover:text-white transition-colors"

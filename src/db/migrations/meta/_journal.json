@@ -85,6 +85,13 @@
       "when": 1783475081633,
       "tag": "0011_track_thumbnail",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1783476972734,
+      "tag": "0012_lyrics_multilang",
+      "breakpoints": true
     }
   ]
 }

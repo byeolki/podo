@@ -105,14 +105,11 @@ export class StreamingController {
 
   @Public()
   @Get('lyrics/:track_id')
-  @ApiOperation({ summary: 'Get track lyrics' })
+  @ApiOperation({ summary: 'Get track lyrics (all available languages)' })
   async lyrics(@Param('track_id') trackId: string) {
-    const lyric = await this.db
+    return this.db
       .select()
       .from(schema.lyrics)
-      .where(eq(schema.lyrics.track_id, trackId))
-      .get();
-    if (!lyric) return null;
-    return lyric;
+      .where(eq(schema.lyrics.track_id, trackId));
   }
 }

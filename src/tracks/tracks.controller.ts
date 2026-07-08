@@ -112,7 +112,7 @@ export class TracksController {
   }
 
   @Get(':id/lyrics')
-  @ApiOperation({ summary: 'Get track lyrics' })
+  @ApiOperation({ summary: 'Get track lyrics (all available languages)' })
   getLyrics(@Param('id') id: string) {
     return this.tracks.getLyrics(id);
   }

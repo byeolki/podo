@@ -77,9 +77,14 @@ export class DownloadService {
 
     const outputTemplate = path.join(this.uploadDir, `ytdlp_%(title)s.%(ext)s`);
 
+    // --write-subs (never --write-auto-subs) only grabs manually-uploaded
+    // subtitle tracks, which for official music uploads are frequently the
+    // actual timed lyrics; auto-generated captions are unreliable ASR output
+    // and deliberately excluded. --sub-langs all is safe here since manual
+    // tracks are a small, bounded set (unlike the huge auto-translate list).
     const args = audioOnly
-      ? ['-x', '--audio-format', 'best', '--audio-quality', '0', '--write-thumbnail', '--convert-thumbnails', 'jpg', '-o', outputTemplate, '--print', 'after_move:filepath', job.url]
-      : ['-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '--write-thumbnail', '--convert-thumbnails', 'jpg', '-o', outputTemplate, '--print', 'after_move:filepath', job.url];
+      ? ['-x', '--audio-format', 'best', '--audio-quality', '0', '--write-thumbnail', '--convert-thumbnails', 'jpg', '--write-subs', '--sub-langs', 'all', '--sub-format', 'vtt', '-o', outputTemplate, '--print', 'after_move:filepath', job.url]
+      : ['-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '--write-thumbnail', '--convert-thumbnails', 'jpg', '--write-subs', '--sub-langs', 'all', '--sub-format', 'vtt', '-o', outputTemplate, '--print', 'after_move:filepath', job.url];
 
     let completedCount = 0;
     let stdoutBuffer = '';

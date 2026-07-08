@@ -133,12 +133,15 @@ export const sources = sqliteTable('sources', {
 // ─── Lyrics ───────────────────────────────────────────────────────────────────
 
 export const lyrics = sqliteTable('lyrics', {
-  track_id: text('track_id').primaryKey().references(() => tracks.id, { onDelete: 'cascade' }),
+  track_id: text('track_id').notNull().references(() => tracks.id, { onDelete: 'cascade' }),
+  language: text('language').notNull().default('und'),
   type: text('type', { enum: ['plain', 'synced'] }).notNull(),
   content: text('content').notNull(),
   source: text('source', { enum: ['local', 'user'] }).notNull(),
   updated_at: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
-});
+}, (t) => [
+  primaryKey({ columns: [t.track_id, t.language] }),
+]);
 
 // ─── Tags / Genres ────────────────────────────────────────────────────────────
 

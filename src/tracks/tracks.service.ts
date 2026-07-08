@@ -343,7 +343,7 @@ export class TracksService {
   }
 
   async getLyrics(trackId: string) {
-    return this.db.select().from(schema.lyrics).where(eq(schema.lyrics.track_id, trackId)).get();
+    return this.db.select().from(schema.lyrics).where(eq(schema.lyrics.track_id, trackId));
   }
 
   async deleteTracks(trackIds: string[]) {

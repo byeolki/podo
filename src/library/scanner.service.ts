@@ -276,6 +276,7 @@ export class ScannerService {
                     .onConflictDoNothing();
                 this.events.emit("track.upserted", { track_id: siblingTrackId });
                 await this.maybeSetThumbnail(siblingTrackId, filePath, kind, origin);
+                await this.maybeSetLyrics(siblingTrackId, filePath, origin);
                 return "added";
             }
         }
@@ -318,6 +319,7 @@ export class ScannerService {
 
             this.events.emit("track.upserted", { track_id: trackId });
             await this.maybeSetThumbnail(trackId, filePath, kind, origin);
+            await this.maybeSetLyrics(trackId, filePath, origin);
             return "updated";
         }
 
@@ -378,6 +380,7 @@ export class ScannerService {
 
         this.events.emit("track.upserted", { track_id: trackId });
         await this.maybeSetThumbnail(trackId, filePath, kind, origin);
+        await this.maybeSetLyrics(trackId, filePath, origin);
         return "added";
     }
 
@@ -444,6 +447,99 @@ export class ScannerService {
             });
             proc.on("error", reject);
         });
+    }
+
+    // yt-dlp downloads only manually-uploaded subtitle tracks (--write-subs,
+    // never --write-auto-subs): auto-generated captions are ASR transcripts
+    // and too unreliable to present as lyrics. Manual ones are frequently the
+    // actual timed lyrics for official audio/lyric-video uploads. Every
+    // available language is kept — this is a shared multi-user deployment,
+    // not tied to any one language.
+    private async maybeSetLyrics(trackId: string, mediaFilePath: string, origin: "local" | "ytdlp"): Promise<void> {
+        if (origin !== "ytdlp") return;
+
+        const dir = path.dirname(mediaFilePath);
+        const stem = path.basename(mediaFilePath, path.extname(mediaFilePath));
+        const vttPrefix = `${stem}.`;
+
+        let entries: string[];
+        try {
+            entries = fs.readdirSync(dir);
+        } catch {
+            return;
+        }
+
+        const vttFiles = entries.filter((f) => f.startsWith(vttPrefix) && f.endsWith(".vtt"));
+
+        for (const file of vttFiles) {
+            const fullPath = path.join(dir, file);
+            const language = file.slice(vttPrefix.length, -".vtt".length) || "und";
+
+            try {
+                const raw = fs.readFileSync(fullPath, "utf-8");
+                const content = this.parseVttToLrc(raw);
+                if (content) {
+                    const existing = await this.db
+                        .select({ source: schema.lyrics.source })
+                        .from(schema.lyrics)
+                        .where(and(eq(schema.lyrics.track_id, trackId), eq(schema.lyrics.language, language)))
+                        .get();
+
+                    if (!existing || existing.source !== "user") {
+                        await this.db
+                            .insert(schema.lyrics)
+                            .values({ track_id: trackId, language, type: "synced", content, source: "local", updated_at: new Date() })
+                            .onConflictDoUpdate({
+                                target: [schema.lyrics.track_id, schema.lyrics.language],
+                                set: { content, type: "synced", source: "local", updated_at: new Date() },
+                            });
+                    }
+                }
+            } catch (e) {
+                this.logger.warn(`Failed to parse subtitle ${fullPath}`, e instanceof Error ? e.stack : String(e));
+            } finally {
+                try { fs.unlinkSync(fullPath); } catch {}
+            }
+        }
+    }
+
+    private parseVttToLrc(vttContent: string): string {
+        const timeRe = /(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->/;
+        const cues: { seconds: number; text: string }[] = [];
+
+        const blocks = vttContent.replace(/\r\n/g, "\n").split(/\n\n+/);
+        for (const block of blocks) {
+            const blockLines = block.split("\n").filter((l) => l.trim().length > 0);
+            if (!blockLines.length) continue;
+            if (/^(WEBVTT|NOTE|STYLE|Kind:|Language:)/.test(blockLines[0])) continue;
+
+            const timeLineIdx = blockLines.findIndex((l) => timeRe.test(l));
+            if (timeLineIdx === -1) continue;
+
+            const match = blockLines[timeLineIdx].match(timeRe);
+            if (!match) continue;
+            const seconds =
+                parseInt(match[1], 10) * 3600 +
+                parseInt(match[2], 10) * 60 +
+                parseInt(match[3], 10) +
+                parseInt(match[4], 10) / 1000;
+
+            const text = blockLines
+                .slice(timeLineIdx + 1)
+                .join(" ")
+                .replace(/<[^>]*>/g, "")
+                .trim();
+
+            if (text) cues.push({ seconds, text });
+        }
+
+        return cues
+            .map(({ seconds, text }) => {
+                const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+                const ss = (seconds % 60).toFixed(2).padStart(5, "0");
+                return `[${mm}:${ss}]${text}`;
+            })
+            .join("\n");
     }
 
     private async findSiblingTrackId(filePath: string): Promise<string | null> {

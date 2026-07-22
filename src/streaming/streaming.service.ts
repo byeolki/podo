@@ -113,11 +113,21 @@ export class StreamingService {
       void this.endStreamSession(sessionId);
     });
 
-    const needsTranscode = this.needsTranscode(source, req.format, req.bitrate) || !!req.normalize;
+    // A manual per-track volume override always applies, regardless of which client
+    // is streaming or whether it asked for `normalize` — it's a property of the track,
+    // not of the request.
+    const override = await this.db
+      .select({ volume_db: schema.track_metadata_overrides.volume_db })
+      .from(schema.track_metadata_overrides)
+      .where(eq(schema.track_metadata_overrides.track_id, req.trackId))
+      .get();
+    const manualVolumeDb = override?.volume_db ?? null;
+
+    const needsTranscode = this.needsTranscode(source, req.format, req.bitrate) || !!req.normalize || !!manualVolumeDb;
     if (!needsTranscode) {
       await this.servePassthrough(filePath, fileStat.size, source, httpReq, reply);
     } else {
-      await this.serveTranscoded(source, req, httpReq, reply, sessionId);
+      await this.serveTranscoded(source, req, httpReq, reply, sessionId, manualVolumeDb);
     }
   }
 
@@ -155,6 +165,7 @@ export class StreamingService {
     httpReq: FastifyRequest,
     reply: FastifyReply,
     sessionId: string,
+    manualVolumeDb: number | null = null,
   ): Promise<void> {
     const targetFormat = req.format ?? 'aac';
     const targetBitrate = req.bitrate ?? 256;
@@ -169,7 +180,7 @@ export class StreamingService {
       }
     }
 
-    const cacheKey = this.cache.getCacheKey(source.id, targetFormat, targetBitrate, startMs, req.normalize);
+    const cacheKey = this.cache.getCacheKey(source.id, targetFormat, targetBitrate, startMs, req.normalize, manualVolumeDb);
 
     if (this.cache.has(cacheKey)) {
       const cachePath = this.cache.getCachePath(cacheKey);
@@ -186,7 +197,7 @@ export class StreamingService {
     }
 
     const startSecs = startMs / 1000;
-    const ffmpegArgs = this.buildFfmpegArgs(source.locator, targetFormat, targetBitrate, startSecs, req.normalize, source.replaygain_track);
+    const ffmpegArgs = this.buildFfmpegArgs(source.locator, targetFormat, targetBitrate, startSecs, req.normalize, source.replaygain_track, manualVolumeDb);
 
     reply.header('Content-Type', this.mimeType(targetFormat));
     reply.header('Accept-Ranges', 'none');
@@ -249,20 +260,34 @@ export class StreamingService {
     return reply.send(passthrough);
   }
 
-  private buildFfmpegArgs(inputPath: string, format: string, bitrate: number, startSecs: number, normalize?: boolean, replaygainDb?: number | null): string[] {
+  private buildFfmpegArgs(
+    inputPath: string,
+    format: string,
+    bitrate: number,
+    startSecs: number,
+    normalize?: boolean,
+    replaygainDb?: number | null,
+    manualVolumeDb?: number | null,
+  ): string[] {
     const args: string[] = ['-v', 'error'];
 
     if (startSecs > 0) args.push('-ss', startSecs.toFixed(3));
     args.push('-i', inputPath);
     args.push('-vn');
 
+    // Auto-leveling (normalize) and the manual per-track override are independent and
+    // compose: normalize brings the track to a consistent baseline, the manual dB
+    // adjustment is the user's own correction on top of (or instead of) that baseline.
+    const audioFilters: string[] = [];
     if (normalize) {
-      if (replaygainDb != null) {
-        args.push('-af', `volume=${replaygainDb >= 0 ? '+' : ''}${replaygainDb.toFixed(2)}dB`);
-      } else {
-        args.push('-af', 'loudnorm=I=-16:TP=-1.5:LRA=11');
-      }
+      audioFilters.push(replaygainDb != null
+        ? `volume=${replaygainDb >= 0 ? '+' : ''}${replaygainDb.toFixed(2)}dB`
+        : 'loudnorm=I=-16:TP=-1.5:LRA=11');
     }
+    if (manualVolumeDb) {
+      audioFilters.push(`volume=${manualVolumeDb >= 0 ? '+' : ''}${manualVolumeDb.toFixed(2)}dB`);
+    }
+    if (audioFilters.length) args.push('-af', audioFilters.join(','));
 
     args.push('-b:a', `${bitrate}k`);
 

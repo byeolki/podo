@@ -1,5 +1,5 @@
 import { useState, useRef, KeyboardEvent } from 'react'
-import { X, Sparkles, Camera } from 'lucide-react'
+import { X, Sparkles, Camera, Volume2, RotateCcw } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { updateTrackMetadata, aiAutofillTracks, uploadTrackThumbnail, removeTrackThumbnail } from '../api/tracks'
 import type { Track, TrackMetadataInput } from '../api/tracks'
@@ -74,6 +74,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
   )
   const [isCover, setIsCover] = useState(ov?.is_cover ?? track.is_cover ?? false)
   const [alternateTitles, setAlternateTitles] = useState<string[]>(splitList(ov?.alternate_titles))
+  const [volumeDb, setVolumeDb] = useState(ov?.volume_db ?? 0)
   const [hasThumbnail, setHasThumbnail] = useState(!!track.thumbnail_path)
   const [thumbnailBust, setThumbnailBust] = useState(0)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
@@ -126,6 +127,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
       is_cover: isCover,
       original_artist: origArtists.join(', ') || undefined,
       alternate_titles: alternateTitles.join(', ') || undefined,
+      volume_db: volumeDb,
     })
   }
 
@@ -243,6 +245,41 @@ export default function TrackEditModal({ track, onClose }: Props) {
               onChange={setAlternateTitles}
               placeholder="e.g. Kenshi Yonezu, Yonezu Kenji, press Enter"
             />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="flex items-center gap-1.5 text-xs text-ink-tertiary">
+                <Volume2 size={12} /> Volume adjustment
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-ink-secondary tabular-nums">
+                  {volumeDb > 0 ? '+' : ''}{volumeDb.toFixed(1)} dB
+                </span>
+                {volumeDb !== 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setVolumeDb(0)}
+                    className="text-ink-faint hover:text-white transition-colors"
+                    title="Reset to 0 dB"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <input
+              type="range"
+              min={-20}
+              max={20}
+              step={0.5}
+              value={volumeDb}
+              onChange={(e) => setVolumeDb(Number(e.target.value))}
+              className="w-full"
+            />
+            <p className="text-xs text-ink-faint mt-1">
+              Compensates for this specific file's own loudness — independent of the player's Normalize toggle.
+            </p>
           </div>
 
           <div className="text-xs text-ink-tertiary pt-1 border-t border-border flex justify-between">

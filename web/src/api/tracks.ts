@@ -9,6 +9,7 @@ export interface TrackOverride {
   track_number: number | null
   disc_number: number | null
   alternate_titles: string | null
+  volume_db: number | null
   updated_at: string
   updated_by: string | null
 }
@@ -90,6 +91,7 @@ export interface TrackMetadataInput {
   track_number?: number
   disc_number?: number
   alternate_titles?: string
+  volume_db?: number
 }
 
 export function updateTrackMetadata(id: string, data: TrackMetadataInput): Promise<Track> {

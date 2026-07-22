@@ -96,6 +96,11 @@ export const track_metadata_overrides = sqliteTable('track_metadata_overrides', 
   track_number: integer('track_number'),
   disc_number: integer('disc_number'),
   alternate_titles: text('alternate_titles'),
+  /// Manual per-track gain adjustment in dB (e.g. -6 quiets an overly loud file, +6
+  /// boosts a quiet one), independent of the `normalize` auto-leveling toggle — files
+  /// from different sources (rips, yt-dlp downloads, uploads) can have wildly
+  /// different inherent loudness, and auto-normalization doesn't cover every case.
+  volume_db: real('volume_db'),
   updated_at: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
   updated_by: text('updated_by').references(() => users.id),
 });

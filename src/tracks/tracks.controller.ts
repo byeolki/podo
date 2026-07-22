@@ -2,7 +2,7 @@ import {
   Controller, Get, Patch, Post, Delete, Param, Body, Query, Req, HttpCode, HttpStatus, BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsBoolean, IsArray, ArrayNotEmpty, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsBoolean, IsArray, ArrayNotEmpty, IsNumber, Min, Max } from 'class-validator';
 import { FastifyRequest } from 'fastify';
 import { Readable } from 'stream';
 import { TracksService, SortOption, FilterOption } from './tracks.service';
@@ -18,6 +18,7 @@ class TrackMetadataDto {
   @IsOptional() @IsInt() @Min(1) @Max(9999) track_number?: number;
   @IsOptional() @IsInt() @Min(1) @Max(99) disc_number?: number;
   @IsOptional() @IsString() alternate_titles?: string;
+  @IsOptional() @IsNumber() @Min(-20) @Max(20) volume_db?: number;
 }
 
 class BulkMetadataDto {

@@ -295,6 +295,7 @@ export class TracksService {
       track_number?: number;
       disc_number?: number;
       alternate_titles?: string;
+      volume_db?: number;
     },
     userId: string,
   ) {
@@ -310,6 +311,7 @@ export class TracksService {
     if (dto.track_number !== undefined) set.track_number = dto.track_number ?? null;
     if (dto.disc_number !== undefined) set.disc_number = dto.disc_number ?? null;
     if (dto.alternate_titles !== undefined) set.alternate_titles = dto.alternate_titles || null;
+    if (dto.volume_db !== undefined) set.volume_db = dto.volume_db ?? null;
 
     await this.db
       .insert(schema.track_metadata_overrides)

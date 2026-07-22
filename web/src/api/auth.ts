@@ -56,18 +56,3 @@ export interface UpdateMeInput {
 export function updateMe(data: UpdateMeInput): Promise<Me> {
   return api.patch('/auth/me', data)
 }
-
-export function isAuthenticated(): boolean {
-  return !!localStorage.getItem('access_token')
-}
-
-export function getRole(): string | null {
-  const token = localStorage.getItem('access_token')
-  if (!token) return null
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload.role
-  } catch {
-    return null
-  }
-}

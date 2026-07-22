@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { login, bootstrap, isAuthenticated } from '../api/auth'
+import { login, bootstrap } from '../api/auth'
 import { useAuthStore } from '../store/auth'
 
 export default function Login() {
   const navigate = useNavigate()
   const setFromToken = useAuthStore((s) => s.setFromToken)
+  const isAuthed = useAuthStore((s) => s.userId !== null)
   const [mode, setMode] = useState<'login' | 'bootstrap'>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -14,8 +15,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (isAuthenticated()) navigate('/library', { replace: true })
-  }, [navigate])
+    if (isAuthed) navigate('/library', { replace: true })
+  }, [isAuthed, navigate])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -44,50 +45,50 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f]">
+    <div className="min-h-screen flex items-center justify-center bg-canvas">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <img src="/podo_lg.png" alt="Podo" className="w-20 h-20 object-contain mb-4 mx-auto" />
           <h1 className="text-2xl font-semibold">Podo</h1>
-          <p className="text-sm text-[#a1a1a1] mt-1">
+          <p className="text-sm text-ink-secondary mt-1">
             {mode === 'bootstrap' ? 'Create your admin account' : 'Sign in to your library'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-[#181818] rounded-2xl p-6 border border-[#222] space-y-4">
+        <form onSubmit={handleSubmit} className="bg-surface-2 rounded-2xl p-6 border border-border space-y-4">
           {mode === 'bootstrap' && (
             <div>
-              <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5">Name</label>
+              <label className="block text-xs font-medium text-ink-secondary mb-1.5">Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full bg-[#222] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors"
+                className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors"
                 placeholder="Your name"
               />
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5">Email</label>
+            <label className="block text-xs font-medium text-ink-secondary mb-1.5">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-[#222] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors"
+              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors"
               placeholder="you@example.com"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5">Password</label>
+            <label className="block text-xs font-medium text-ink-secondary mb-1.5">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              className="w-full bg-[#222] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors"
+              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors"
               placeholder="Min. 8 characters"
             />
           </div>
@@ -99,13 +100,13 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover font-medium text-sm transition-colors disabled:opacity-50"
+            className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-black font-medium text-sm transition-colors disabled:opacity-50"
           >
             {loading ? 'Please wait...' : mode === 'bootstrap' ? 'Create account' : 'Sign in'}
           </button>
         </form>
 
-        <p className="text-center text-xs text-[#6b6b6b] mt-4">
+        <p className="text-center text-xs text-ink-tertiary mt-4">
           {mode === 'login' ? (
             <>
               First time?{' '}

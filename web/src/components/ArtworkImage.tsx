@@ -12,8 +12,8 @@ export default function ArtworkImage({ src, alt, className = '' }: Props) {
 
   if (!src || failed) {
     return (
-      <div className={`${className} flex items-center justify-center bg-[#222]`}>
-        <Music size={20} className="text-[#555]" />
+      <div className={`${className} flex items-center justify-center bg-surface-2`}>
+        <Music size={20} className="text-ink-faint" />
       </div>
     )
   }

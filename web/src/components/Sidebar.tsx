@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Music, ListMusic, Radio,
+  Music, ListMusic, Radio, Search, Disc3,
   History, Settings, LogOut, Upload,
 } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
@@ -8,6 +8,8 @@ import { logout } from '../api/auth'
 
 const navItems = [
   { to: '/library', icon: Music, label: 'Library' },
+  { to: '/search', icon: Search, label: 'Search' },
+  { to: '/albums', icon: Disc3, label: 'Albums' },
   { to: '/playlists', icon: ListMusic, label: 'Playlists' },
   { to: '/radio', icon: Radio, label: 'Radio' },
   { to: '/history', icon: History, label: 'History' },
@@ -37,7 +39,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive
                   ? 'bg-accent/10 text-accent'
-                  : 'text-[#a1a1a1] hover:text-white hover:bg-white/5'
+                  : 'text-ink-secondary hover:text-white hover:bg-white/5'
               }`
             }
           >
@@ -47,10 +49,10 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="p-3 border-t border-[#222]">
+      <div className="p-3 border-t border-border">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm text-[#a1a1a1] hover:text-white hover:bg-white/5 transition-colors"
+          className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm text-ink-secondary hover:text-white hover:bg-white/5 transition-colors"
         >
           <LogOut size={16} />
           Sign out
@@ -62,7 +64,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export default function Sidebar() {
   return (
-    <aside className="hidden md:flex w-56 flex-shrink-0 bg-[#111] border-r border-[#222] flex-col">
+    <aside className="hidden md:flex w-56 flex-shrink-0 bg-surface-1 border-r border-border flex-col">
       <div className="px-5 py-6 flex items-center gap-2.5">
         <img src="/podo_lg.png" alt="Podo" className="w-7 h-7 object-contain" />
         <span className="text-lg font-semibold tracking-tight">Podo</span>

@@ -26,7 +26,9 @@ export default function TrackRow({
 }: Props) {
   const playTrack = usePlayerStore((s) => s.playTrack)
   const currentTrack = usePlayerStore((s) => s.queue[s.currentIndex])
+  const isPlaying = usePlayerStore((s) => s.isPlaying)
   const isActive = currentTrack?.id === track.id
+  const isActivelyPlaying = isActive && isPlaying
   const [videoOpen, setVideoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -81,7 +83,7 @@ export default function TrackRow({
             <button
               onClick={(e) => { e.stopPropagation(); onSelect?.(track.id) }}
               className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
-                selected ? 'bg-accent border-accent text-white' : 'border-[#555]'
+                selected ? 'bg-accent border-accent text-white' : 'border-ink-faint'
               }`}
             >
               {selected && <Check size={11} strokeWidth={3} />}
@@ -89,16 +91,24 @@ export default function TrackRow({
           ) : (
             <>
               {showNumber && (
-                <span className={`text-sm tabular-nums ${isActive || hovered ? 'hidden' : 'text-[#555]'}`}>
+                <span className={`text-sm tabular-nums ${isActive || hovered ? 'hidden' : 'text-ink-faint'}`}>
                   {index != null ? index + 1 : ''}
                 </span>
               )}
-              <button
-                onClick={(e) => { e.stopPropagation(); playTrack(track, queue) }}
-                className={`${showNumber ? (hovered || isActive ? 'flex' : 'hidden') : 'flex'} items-center justify-center text-white hover:text-accent ${isActive ? 'text-accent' : ''}`}
-              >
-                <Play size={14} fill="currentColor" />
-              </button>
+              {isActivelyPlaying && !hovered ? (
+                <span className="flex items-end gap-0.5 h-3.5" aria-label="Now playing">
+                  <span className="eq-bar" style={{ animationDelay: '0ms' }} />
+                  <span className="eq-bar" style={{ animationDelay: '180ms' }} />
+                  <span className="eq-bar" style={{ animationDelay: '360ms' }} />
+                </span>
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); playTrack(track, queue) }}
+                  className={`${showNumber ? (hovered || isActive ? 'flex' : 'hidden') : 'flex'} items-center justify-center text-white hover:text-accent ${isActive ? 'text-accent' : ''}`}
+                >
+                  <Play size={14} fill="currentColor" />
+                </button>
+              )}
             </>
           )}
         </div>
@@ -109,12 +119,12 @@ export default function TrackRow({
             {track.title}
           </p>
           {(showArtist || isCover) && (
-            <p className="text-xs text-[#777] truncate leading-tight mt-0.5">
+            <p className="text-xs text-ink-tertiary truncate leading-tight mt-0.5">
               {artistStr}
               {isCover && performer && (
-                <span className="text-[#777]">
+                <span className="text-ink-tertiary">
                   {artistStr ? ' · ' : ''}
-                  <span className="text-[#a855f7]">cover</span>
+                  <span className="text-accent">cover</span>
                   {` of ${performer}`}
                 </span>
               )}
@@ -131,7 +141,7 @@ export default function TrackRow({
                 className={`p-1 transition-colors ${
                   track.is_favorited
                     ? 'text-red-400'
-                    : showActions ? 'text-[#555] hover:text-red-400' : 'opacity-0 pointer-events-none'
+                    : showActions ? 'text-ink-faint hover:text-red-400' : 'opacity-0 pointer-events-none'
                 }`}
                 title={track.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
               >
@@ -139,7 +149,7 @@ export default function TrackRow({
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
-                className={`p-1 text-[#555] hover:text-white transition-colors ${showActions ? '' : 'opacity-0 pointer-events-none'}`}
+                className={`p-1 text-ink-faint hover:text-white transition-colors ${showActions ? '' : 'opacity-0 pointer-events-none'}`}
                 title="Edit"
               >
                 <Pencil size={12} />
@@ -147,7 +157,7 @@ export default function TrackRow({
               {track.has_video && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }}
-                  className={`p-1 text-[#555] hover:text-accent transition-colors ${showActions ? '' : 'opacity-0 pointer-events-none'}`}
+                  className={`p-1 text-ink-faint hover:text-accent transition-colors ${showActions ? '' : 'opacity-0 pointer-events-none'}`}
                   title="Music video"
                 >
                   <Video size={13} />
@@ -155,7 +165,7 @@ export default function TrackRow({
               )}
             </>
           )}
-          <span className="text-xs text-[#555] tabular-nums w-10 text-right">
+          <span className="text-xs text-ink-faint tabular-nums w-10 text-right">
             {formatDuration(track.duration)}
           </span>
         </div>

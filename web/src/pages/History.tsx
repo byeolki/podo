@@ -31,19 +31,19 @@ export default function History() {
 
       {stats && (
         <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="p-4 rounded-xl bg-[#181818] border border-[#222]">
-            <p className="text-xs text-[#6b6b6b] uppercase tracking-wider mb-1">Total Listen Time</p>
+          <div className="p-4 rounded-xl bg-surface-2 border border-border">
+            <p className="text-xs text-ink-tertiary uppercase tracking-wider mb-1">Total Listen Time</p>
             <p className="text-2xl font-semibold">{formatDuration(stats.total_listen_duration * 1000)}</p>
           </div>
-          <div className="p-4 rounded-xl bg-[#181818] border border-[#222]">
-            <p className="text-xs text-[#6b6b6b] uppercase tracking-wider mb-1">Plays</p>
+          <div className="p-4 rounded-xl bg-surface-2 border border-border">
+            <p className="text-xs text-ink-tertiary uppercase tracking-wider mb-1">Plays</p>
             <p className="text-2xl font-semibold">{history.length}</p>
           </div>
         </div>
       )}
 
       {history.length === 0 ? (
-        <div className="text-center py-20 text-[#6b6b6b]">
+        <div className="text-center py-20 text-ink-tertiary">
           <HistoryIcon size={40} className="mx-auto mb-3" />
           <p className="text-lg font-medium">No history yet</p>
           <p className="text-sm mt-1">Start listening to see your history here</p>
@@ -52,12 +52,12 @@ export default function History() {
         <div className="space-y-1">
           {history.map((entry) => (
             <div key={entry.id} className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/5">
-              <Clock size={14} className="text-[#555] flex-shrink-0" />
+              <Clock size={14} className="text-ink-faint flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#a1a1a1] truncate">{entry.track_id}</p>
-                <p className="text-xs text-[#6b6b6b]">{formatDuration(entry.played_duration * 1000)} listened</p>
+                <p className="text-sm font-medium text-ink-secondary truncate">{entry.track_id}</p>
+                <p className="text-xs text-ink-tertiary">{formatDuration(entry.played_duration * 1000)} listened</p>
               </div>
-              <span className="text-xs text-[#6b6b6b] flex-shrink-0">{formatRelativeTime(entry.played_at)}</span>
+              <span className="text-xs text-ink-tertiary flex-shrink-0">{formatRelativeTime(entry.played_at)}</span>
             </div>
           ))}
         </div>

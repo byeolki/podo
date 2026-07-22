@@ -1,7 +1,5 @@
-import { useEffect } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/auth'
-import { isAuthenticated } from './api/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Library from './pages/Library'
@@ -11,20 +9,17 @@ import Radio from './pages/Radio'
 import Settings from './pages/Settings'
 import History from './pages/History'
 import Upload from './pages/Upload'
+import Search from './pages/Search'
+import Albums from './pages/Albums'
+import AlbumDetail from './pages/AlbumDetail'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  if (!isAuthenticated()) return <Navigate to="/login" replace />
+  const isAuthed = useAuthStore((s) => s.userId !== null)
+  if (!isAuthed) return <Navigate to="/login" replace />
   return <>{children}</>
 }
 
 export default function App() {
-  const setFromToken = useAuthStore((s) => s.setFromToken)
-
-  useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    if (token) setFromToken(token)
-  }, [setFromToken])
-
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
@@ -38,6 +33,9 @@ export default function App() {
       >
         <Route index element={<Navigate to="/library" replace />} />
         <Route path="library" element={<Library />} />
+        <Route path="search" element={<Search />} />
+        <Route path="albums" element={<Albums />} />
+        <Route path="albums/:id" element={<AlbumDetail />} />
         <Route path="playlists" element={<Playlists />} />
         <Route path="playlists/:id" element={<PlaylistDetail />} />
         <Route path="radio" element={<Radio />} />

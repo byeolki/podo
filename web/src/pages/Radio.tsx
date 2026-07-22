@@ -36,14 +36,14 @@ export default function Radio() {
     <div className="p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Radio</h1>
-        <p className="text-sm text-[#a1a1a1] mt-0.5">Auto-generated station based on your library</p>
+        <p className="text-sm text-ink-secondary mt-0.5">Auto-generated station based on your library</p>
       </div>
 
       <div className="flex gap-3 mb-8 flex-wrap">
         <button
           onClick={() => stationMut.mutate()}
           disabled={stationMut.isPending}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium disabled:opacity-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50 transition-colors"
         >
           <RadioIcon size={14} /> Generate Station
         </button>
@@ -52,7 +52,7 @@ export default function Radio() {
           <>
             <button
               onClick={playStation}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm font-medium transition-colors"
             >
               <Play size={14} fill="currentColor" /> Play
             </button>
@@ -62,12 +62,12 @@ export default function Radio() {
                 value={mixName}
                 onChange={(e) => setMixName(e.target.value)}
                 placeholder="Mix name (optional)"
-                className="bg-[#181818] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent w-48"
+                className="bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent w-48"
               />
               <button
                 onClick={() => mixMut.mutate()}
                 disabled={mixMut.isPending}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm font-medium disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm font-medium disabled:opacity-50 transition-colors"
               >
                 <ListMusic size={14} /> Save as Playlist
               </button>
@@ -79,14 +79,14 @@ export default function Radio() {
       {stationMut.isPending && (
         <div className="space-y-1">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-12 rounded-lg bg-[#181818] animate-pulse" />
+            <div key={i} className="h-12 rounded-lg bg-surface-2 animate-pulse" />
           ))}
         </div>
       )}
 
       {tracks.length > 0 && (
         <div>
-          <p className="text-sm text-[#a1a1a1] mb-3">{tracks.length} tracks</p>
+          <p className="text-sm text-ink-secondary mb-3">{tracks.length} tracks</p>
           <div className="space-y-0.5">
             {tracks.map((track, i) => (
               <TrackRow key={track.id} track={track} index={i} queue={tracks} showNumber showArtist />
@@ -96,7 +96,7 @@ export default function Radio() {
       )}
 
       {!stationMut.isPending && tracks.length === 0 && (
-        <div className="text-center py-20 text-[#6b6b6b]">
+        <div className="text-center py-20 text-ink-tertiary">
           <RadioIcon size={40} className="mx-auto mb-3" />
           <p className="text-lg font-medium">No station yet</p>
           <p className="text-sm mt-1">Click "Generate Station" to start</p>

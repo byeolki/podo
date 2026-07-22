@@ -36,23 +36,23 @@ export default function Search() {
       <h1 className="text-2xl font-semibold mb-6">Search</h1>
 
       <div className="relative mb-6">
-        <SearchIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
+        <SearchIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-tertiary" />
         <input
           autoFocus
           type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search tracks, artists, albums..."
-          className="w-full max-w-lg bg-[#181818] border border-[#333] rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none focus:border-accent transition-colors"
+          className="w-full max-w-lg bg-surface-2 border border-border-strong rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none focus:border-accent transition-colors"
         />
       </div>
 
       {debouncedQ.length < 2 ? (
-        <p className="text-[#6b6b6b] text-sm">Type at least 2 characters to search</p>
+        <p className="text-ink-tertiary text-sm">Type at least 2 characters to search</p>
       ) : isLoading ? (
-        <p className="text-[#6b6b6b] text-sm">Searching...</p>
+        <p className="text-ink-tertiary text-sm">Searching...</p>
       ) : !hasResults ? (
-        <p className="text-[#6b6b6b] text-sm">No results for "{debouncedQ}"</p>
+        <p className="text-ink-tertiary text-sm">No results for "{debouncedQ}"</p>
       ) : (
         <div className="space-y-8">
           {resultTracks.length > 0 && (
@@ -78,7 +78,7 @@ export default function Search() {
                     to={`/artists/${hit.id}`}
                     className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/5"
                   >
-                    <Users size={14} className="text-[#555] flex-shrink-0" />
+                    <Users size={14} className="text-ink-faint flex-shrink-0" />
                     <span className="text-sm">{hit.name}</span>
                   </Link>
                 ))}
@@ -98,7 +98,7 @@ export default function Search() {
                     to={`/albums/${hit.id}`}
                     className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/5"
                   >
-                    <Disc3 size={14} className="text-[#555] flex-shrink-0" />
+                    <Disc3 size={14} className="text-ink-faint flex-shrink-0" />
                     <span className="text-sm">{hit.name}</span>
                   </Link>
                 ))}

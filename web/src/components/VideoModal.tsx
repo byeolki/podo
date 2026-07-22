@@ -70,12 +70,12 @@ export default function VideoModal({ track, onClose }: Props) {
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">{track.title}</p>
             {track.artists && track.artists.length > 0 && (
-              <p className="text-xs text-[#a1a1a1] truncate">{track.artists.map((a) => a.name).join(', ')}</p>
+              <p className="text-xs text-ink-secondary truncate">{track.artists.map((a) => a.name).join(', ')}</p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="ml-4 flex-shrink-0 text-[#a1a1a1] hover:text-white transition-colors"
+            className="ml-4 flex-shrink-0 text-ink-secondary hover:text-white transition-colors"
           >
             <X size={20} />
           </button>

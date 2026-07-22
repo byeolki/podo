@@ -52,19 +52,19 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
-        className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl w-80 max-w-[calc(100vw-2rem)] shadow-2xl"
+        className="bg-surface-2 border border-border rounded-xl w-80 max-w-[calc(100vw-2rem)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <span className="text-sm font-semibold">Add {trackIds.length} track{trackIds.length !== 1 ? 's' : ''} to playlist</span>
-          <button onClick={onClose} className="text-[#555] hover:text-white transition-colors">
+          <button onClick={onClose} className="text-ink-faint hover:text-white transition-colors">
             <X size={15} />
           </button>
         </div>
 
         <div className="max-h-56 overflow-y-auto">
           {playlists.length === 0 ? (
-            <p className="px-4 py-6 text-center text-xs text-[#555]">No playlists yet</p>
+            <p className="px-4 py-6 text-center text-xs text-ink-faint">No playlists yet</p>
           ) : (
             playlists.map((pl) => (
               <button
@@ -73,7 +73,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
                 disabled={adding || !!doneId}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors text-left disabled:opacity-60"
               >
-                <ListMusic size={14} className="text-[#555] flex-shrink-0" />
+                <ListMusic size={14} className="text-ink-faint flex-shrink-0" />
                 <span className="text-sm truncate flex-1">{pl.name}</span>
                 {doneId === pl.id && <Check size={14} className="text-green-400 flex-shrink-0" />}
               </button>
@@ -81,7 +81,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
           )}
         </div>
 
-        <div className="border-t border-[#2a2a2a] px-4 py-3">
+        <div className="border-t border-border px-4 py-3">
           {creating ? (
             <form onSubmit={handleCreate} className="flex gap-2">
               <input
@@ -89,19 +89,19 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Playlist name"
-                className="flex-1 bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+                className="flex-1 bg-surface-1 border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={!newName.trim() || creatingAndAdding}
-                className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {creatingAndAdding ? '…' : 'Create'}
               </button>
               <button
                 type="button"
                 onClick={() => setCreating(false)}
-                className="px-2 py-1.5 rounded-lg text-[#555] hover:text-white transition-colors"
+                className="px-2 py-1.5 rounded-lg text-ink-faint hover:text-white transition-colors"
               >
                 <X size={13} />
               </button>
@@ -109,7 +109,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
           ) : (
             <button
               onClick={() => setCreating(true)}
-              className="flex items-center gap-2 text-sm text-[#a1a1a1] hover:text-white transition-colors"
+              className="flex items-center gap-2 text-sm text-ink-secondary hover:text-white transition-colors"
             >
               <Plus size={14} /> New playlist
             </button>

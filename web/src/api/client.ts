@@ -90,23 +90,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { ...init, headers })
 
   if (res.status === 401) {
-    // try refresh
-    const refreshToken = localStorage.getItem('refresh_token')
-    if (refreshToken) {
-      const r = await fetch(`${BASE}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      })
-      if (r.ok) {
-        const data = await r.json() as { access_token: string; refresh_token: string }
-        setTokens(data.access_token, data.refresh_token)
-        headers['Authorization'] = `Bearer ${data.access_token}`
-        const retried = await fetch(`${BASE}${path}`, { ...init, headers })
-        if (!retried.ok) throw new Error(await retried.text())
-        if (retried.status === 204) return undefined as T
-        return retried.json() as Promise<T>
-      }
+    const refreshed = await refreshTokens()
+    if (refreshed) {
+      headers['Authorization'] = `Bearer ${getToken()}`
+      const retried = await fetch(`${BASE}${path}`, { ...init, headers })
+      if (!retried.ok) throw new Error(await retried.text())
+      if (retried.status === 204) return undefined as T
+      return retried.json() as Promise<T>
     }
     clearTokens()
     window.location.href = '/login'

@@ -9,6 +9,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -39,7 +40,34 @@ async function bootstrap() {
     throw new Error('JWT_SECRET must be set in production');
   }
 
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  // Serve the web frontend build (SPA). `wildcard: false` registers one exact
+  // route per file found in `staticDir` instead of a catch-all, so any request
+  // that doesn't match a real asset (API routes, client-side SPA routes) falls
+  // through to Nest's default not-found handling, where GlobalExceptionFilter
+  // rewrites it to the SPA's index.html for non-API GET requests. Fastify only
+  // allows one `setNotFoundHandler` per instance and Nest already claims that
+  // slot, so the fallback is implemented in the exception filter instead.
+  const staticDir = path.resolve(config.get<string>('static_dir', path.join(process.cwd(), 'web', 'dist')));
+  const indexPath = path.join(staticDir, 'index.html');
+  const spaIndexHtml = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf-8') : null;
+
+  if (fs.existsSync(staticDir)) {
+    await app.register(fastifyStatic, { root: staticDir, wildcard: false });
+
+    // @fastify/static computes its own default Cache-Control header inside the
+    // route handler itself, so a `setHeaders` callback gets clobbered right
+    // after it runs. An onSend hook runs later in the lifecycle and can safely
+    // override it for hashed, long-cacheable build assets.
+    app.getHttpAdapter().getInstance().addHook('onSend', (req, reply, payload, done) => {
+      const url = req.url.split('?')[0];
+      if (url.endsWith('.js') || url.endsWith('.css')) {
+        reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+      done(null, payload);
+    });
+  }
+
+  app.useGlobalFilters(new GlobalExceptionFilter(spaIndexHtml));
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.useGlobalPipes(
     new ValidationPipe({

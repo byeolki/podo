@@ -19,7 +19,6 @@ import { DownloadModule } from './download/download.module';
 import { RadioModule } from './radio/radio.module';
 import { BroadcastModule } from './broadcast/broadcast.module';
 import { HealthController } from './health/health.controller';
-import { FrontendController } from './frontend.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
@@ -42,7 +41,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     RadioModule,
     BroadcastModule,
   ],
-  controllers: [HealthController, FrontendController],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,

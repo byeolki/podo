@@ -11,7 +11,7 @@ export default () => ({
   upload_dir: process.env.UPLOAD_DIR ?? path.join(process.cwd(), 'data', 'uploads'),
   artwork_dir: process.env.ARTWORK_DIR ?? path.join(process.cwd(), 'data', 'artwork'),
   transcode_cache_dir: process.env.TRANSCODE_CACHE_DIR ?? path.join(process.cwd(), 'data', 'transcode-cache'),
-  static_dir: process.env.STATIC_DIR ?? path.join(process.cwd(), 'public'),
+  static_dir: process.env.STATIC_DIR ?? path.join(process.cwd(), 'web', 'dist'),
   musicbrainz_user_agent: process.env.MUSICBRAINZ_USER_AGENT ?? 'podo/0.1.0',
   metrics_enabled: process.env.METRICS_ENABLED === 'true',
   migrations_path: process.env.MIGRATIONS_PATH ?? path.join(__dirname, '..', 'db', 'migrations'),

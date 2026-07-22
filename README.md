@@ -57,7 +57,7 @@ npm run start:dev
 | `UPLOAD_DIR`             | `./data/uploads`          | Uploaded files storage                                                    |
 | `ARTWORK_DIR`            | `./data/artwork`          | Artwork image storage                                                     |
 | `TRANSCODE_CACHE_DIR`    | `./data/transcode-cache`  | Transcoding segment cache                                                 |
-| `STATIC_DIR`             | `./public`                | Web client static files                                                   |
+| `STATIC_DIR`             | `./web/dist`              | Web client static files (Docker image sets this to `/app/public`)        |
 | `CORS_ORIGIN`            | `*`                       | Allowed CORS origin(s)                                                    |
 | `TRUST_PROXY`            | `true`                    | Trust `X-Forwarded-*` headers (set `false` if not behind a reverse proxy) |
 | `RATE_LIMIT_MAX`         | `1000`                    | Global requests per minute per IP                                         |

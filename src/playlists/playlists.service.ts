@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
+import { TracksService } from '../tracks/tracks.service';
 
 const ALLOWED_COVER_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const MAX_COVER_SIZE = 10 * 1024 * 1024;
@@ -19,6 +20,7 @@ export class PlaylistsService {
   constructor(
     @Inject(DB_TOKEN) private readonly db: Db,
     private readonly config: ConfigService,
+    private readonly tracks: TracksService,
   ) {
     this.artworkDir = config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
     fs.mkdirSync(this.artworkDir, { recursive: true });
@@ -47,14 +49,26 @@ export class PlaylistsService {
     if (!playlist) throw new NotFoundException('Playlist not found');
     if (playlist.owner_user_id !== userId && !playlist.is_public) throw new ForbiddenException();
 
-    const tracks = await this.db
-      .select({ track: schema.tracks, position: schema.playlist_tracks.position })
+    const rows = await this.db
+      .select({ track_id: schema.playlist_tracks.track_id, position: schema.playlist_tracks.position })
       .from(schema.playlist_tracks)
-      .innerJoin(schema.tracks, eq(schema.playlist_tracks.track_id, schema.tracks.id))
       .where(eq(schema.playlist_tracks.playlist_id, id))
       .orderBy(asc(schema.playlist_tracks.position));
 
-    return { ...playlist, tracks: tracks.map((t) => ({ ...t.track, position: t.position })) };
+    // findByIds resolves title/artist/is_cover overrides the same way the library list
+    // does — a plain `tracks` select (the old query here) skipped that entirely, so an
+    // edited track's title/artist silently reverted to the raw scanned filename inside
+    // any playlist.
+    const enriched = await this.tracks.findByIds(rows.map((r) => r.track_id), userId);
+    const byId = new Map(enriched.map((t) => [t.id, t]));
+    const tracks = rows
+      .map((r) => {
+        const track = byId.get(r.track_id);
+        return track ? { ...track, position: r.position } : null;
+      })
+      .filter((t): t is NonNullable<typeof t> => !!t);
+
+    return { ...playlist, tracks };
   }
 
   async create(dto: { name: string; description?: string; is_public?: boolean }, userId: string) {

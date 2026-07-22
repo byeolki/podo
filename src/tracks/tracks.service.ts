@@ -1,13 +1,20 @@
-import { Injectable, NotFoundException, Inject, Logger, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { eq, and, isNull, desc, asc, inArray, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
+import * as fs from 'fs';
 import * as path from 'path';
+import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
 import { AiService } from '../ai/ai.service';
 
 export type SortOption = 'newest' | 'oldest' | 'popular' | 'plays';
 export type FilterOption = 'all' | 'mine' | 'favorites';
+
+const ALLOWED_THUMBNAIL_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const MAX_THUMBNAIL_SIZE = 10 * 1024 * 1024;
 
 function resolveArtists(ovArtist: string | null, trackArtist: string | null): { name: string }[] {
   const raw = ovArtist ?? trackArtist;
@@ -18,11 +25,16 @@ function resolveArtists(ovArtist: string | null, trackArtist: string | null): { 
 @Injectable()
 export class TracksService {
   private readonly logger = new Logger(TracksService.name);
+  private readonly artworkDir: string;
 
   constructor(
     @Inject(DB_TOKEN) private readonly db: Db,
     @Optional() private readonly ai: AiService | null,
-  ) {}
+    private readonly config: ConfigService,
+  ) {
+    this.artworkDir = config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
+    fs.mkdirSync(this.artworkDir, { recursive: true });
+  }
 
   async findAll(userId: string, opts: { sort?: SortOption; filter?: FilterOption; role?: string } = {}) {
     const { sort = 'newest', filter = 'all', role } = opts;
@@ -119,7 +131,14 @@ export class TracksService {
     return results;
   }
 
-  async findByIds(ids: string[]) {
+  /**
+   * Shared enrichment (override-resolved title/artist/is_cover, has_video, favorite
+   * state) for any endpoint that already has a specific list of track ids to show —
+   * favorites, playlist detail, radio. Selecting straight from `tracks` instead (as
+   * favorites/playlists used to) skips the override join entirely, so edited tracks
+   * silently revert to their raw scanned/imported title outside the library list.
+   */
+  async findByIds(ids: string[], userId?: string) {
     if (!ids.length) return [];
     const rawTracks = await this.db
       .select()
@@ -129,7 +148,7 @@ export class TracksService {
     if (!rawTracks.length) return [];
 
     const trackIds = rawTracks.map((t) => t.id);
-    const [videoSources, overrides] = await Promise.all([
+    const [videoSources, overrides, allFavs, userFavs] = await Promise.all([
       this.db
         .selectDistinct({ track_id: schema.sources.track_id })
         .from(schema.sources)
@@ -138,10 +157,26 @@ export class TracksService {
         .select()
         .from(schema.track_metadata_overrides)
         .where(inArray(schema.track_metadata_overrides.track_id, trackIds)),
+      this.db
+        .select({ track_id: schema.favorites.track_id })
+        .from(schema.favorites)
+        .where(inArray(schema.favorites.track_id, trackIds)),
+      userId
+        ? this.db
+            .select({ track_id: schema.favorites.track_id })
+            .from(schema.favorites)
+            .where(and(inArray(schema.favorites.track_id, trackIds), eq(schema.favorites.user_id, userId)))
+        : Promise.resolve([] as { track_id: string }[]),
     ]);
 
     const videoTrackIds = new Set(videoSources.map((s) => s.track_id));
     const overrideByTrack = new Map(overrides.map((o) => [o.track_id, o]));
+
+    const favCountByTrack = new Map<string, number>();
+    for (const f of allFavs) {
+      favCountByTrack.set(f.track_id, (favCountByTrack.get(f.track_id) ?? 0) + 1);
+    }
+    const userFavSet = new Set(userFavs.map((f) => f.track_id));
 
     return rawTracks.map((t) => {
       const ov = overrideByTrack.get(t.id);
@@ -155,8 +190,8 @@ export class TracksService {
         has_video: videoTrackIds.has(t.id) || !!ov?.video_locator,
         override: ov ?? null,
         play_count: t.play_count,
-        favorite_count: 0,
-        is_favorited: false,
+        favorite_count: favCountByTrack.get(t.id) ?? 0,
+        is_favorited: userFavSet.has(t.id),
       };
     });
   }
@@ -326,6 +361,51 @@ export class TracksService {
 
     this.logger.log(`Bulk metadata override: ${validIds.length} tracks by user=${userId}`);
     return { updated: validIds.length };
+  }
+
+  /**
+   * Sets a manually-uploaded thumbnail for a track, taking precedence over
+   * both the yt-dlp sidecar and ffmpeg first-frame thumbnails the scanner
+   * would otherwise generate (scanner.service.ts's maybeSetThumbnail skips
+   * any track that already has thumbnail_path set, so this naturally sticks).
+   */
+  async setThumbnail(trackId: string, filename: string, fileStream: Readable) {
+    const track = await this.db.select().from(schema.tracks).where(eq(schema.tracks.id, trackId)).get();
+    if (!track) throw new NotFoundException('Track not found');
+
+    const ext = path.extname(filename).toLowerCase();
+    if (!ALLOWED_THUMBNAIL_EXTS.has(ext)) throw new BadRequestException(`Unsupported image type: ${ext}`);
+
+    const destPath = path.join(this.artworkDir, `track_${trackId}_thumb_${Date.now()}${ext}`);
+    await pipeline(fileStream, fs.createWriteStream(destPath));
+
+    const stat = fs.statSync(destPath);
+    if (stat.size > MAX_THUMBNAIL_SIZE) {
+      fs.unlinkSync(destPath);
+      throw new BadRequestException('Image too large (max 10MB)');
+    }
+
+    this.deleteThumbnailFile(track.thumbnail_path);
+    await this.db.update(schema.tracks).set({ thumbnail_path: destPath }).where(eq(schema.tracks.id, trackId));
+    this.logger.log(`Custom thumbnail set: track=${trackId}`);
+    return { thumbnail_path: destPath };
+  }
+
+  async removeThumbnail(trackId: string) {
+    const track = await this.db.select().from(schema.tracks).where(eq(schema.tracks.id, trackId)).get();
+    if (!track) throw new NotFoundException('Track not found');
+
+    this.deleteThumbnailFile(track.thumbnail_path);
+    await this.db.update(schema.tracks).set({ thumbnail_path: null }).where(eq(schema.tracks.id, trackId));
+  }
+
+  private deleteThumbnailFile(thumbnailPath: string | null): void {
+    if (!thumbnailPath) return;
+    try {
+      fs.unlinkSync(thumbnailPath);
+    } catch (e: unknown) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    }
   }
 
   async updateArtwork(trackId: string, artworkPath: string) {

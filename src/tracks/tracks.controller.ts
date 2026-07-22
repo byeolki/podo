@@ -1,8 +1,10 @@
 import {
-  Controller, Get, Patch, Post, Param, Body, Query, HttpCode,
+  Controller, Get, Patch, Post, Delete, Param, Body, Query, Req, HttpCode, HttpStatus, BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { IsString, IsOptional, IsInt, IsBoolean, IsArray, ArrayNotEmpty, Min, Max } from 'class-validator';
+import { FastifyRequest } from 'fastify';
+import { Readable } from 'stream';
 import { TracksService, SortOption, FilterOption } from './tracks.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
@@ -84,6 +86,27 @@ export class TracksController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.tracks.applyOverride(id, dto, user.sub);
+  }
+
+  @Post(':id/thumbnail')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a custom thumbnail for a track (overrides auto-generated ones)' })
+  async setThumbnail(@Param('id') id: string, @Req() req: FastifyRequest) {
+    if (!req.isMultipart()) throw new BadRequestException('Expected multipart/form-data');
+
+    for await (const part of req.parts()) {
+      if (part.type === 'file') {
+        return this.tracks.setThumbnail(id, part.filename, part.file as unknown as Readable);
+      }
+    }
+    throw new BadRequestException('No file provided');
+  }
+
+  @Delete(':id/thumbnail')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a track\'s custom thumbnail' })
+  removeThumbnail(@Param('id') id: string) {
+    return this.tracks.removeThumbnail(id);
   }
 
   @Post('bulk-metadata')

@@ -1,8 +1,10 @@
 import { useState, useRef, KeyboardEvent } from 'react'
-import { X, Sparkles } from 'lucide-react'
+import { X, Sparkles, Camera } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { updateTrackMetadata, aiAutofillTracks } from '../api/tracks'
+import { updateTrackMetadata, aiAutofillTracks, uploadTrackThumbnail, removeTrackThumbnail } from '../api/tracks'
 import type { Track, TrackMetadataInput } from '../api/tracks'
+import { getArtworkUrl } from '../api/client'
+import ArtworkImage from './ArtworkImage'
 
 interface Props {
   track: Track
@@ -39,13 +41,13 @@ function TagInput({ tags, onChange, placeholder }: { tags: string[]; onChange: (
 
   return (
     <div
-      className="flex flex-wrap gap-1.5 w-full bg-[#111] border border-[#333] rounded-lg px-2 py-1.5 cursor-text focus-within:border-accent transition-colors min-h-[38px]"
+      className="flex flex-wrap gap-1.5 w-full bg-surface-1 border border-border-strong rounded-lg px-2 py-1.5 cursor-text focus-within:border-accent transition-colors min-h-[38px]"
       onClick={() => inputRef.current?.focus()}
     >
       {tags.map((tag) => (
-        <span key={tag} className="flex items-center gap-1 bg-[#2a2a2a] text-sm px-2 py-0.5 rounded-md">
+        <span key={tag} className="flex items-center gap-1 bg-surface-3 text-sm px-2 py-0.5 rounded-md">
           {tag}
-          <button type="button" onClick={() => remove(tag)} className="text-[#666] hover:text-white transition-colors">
+          <button type="button" onClick={() => remove(tag)} className="text-ink-faint hover:text-white transition-colors">
             <X size={10} />
           </button>
         </span>
@@ -57,7 +59,7 @@ function TagInput({ tags, onChange, placeholder }: { tags: string[]; onChange: (
         onKeyDown={handleKey}
         onBlur={commit}
         placeholder={tags.length === 0 ? placeholder : ''}
-        className="flex-1 min-w-[80px] bg-transparent text-sm outline-none placeholder:text-[#444]"
+        className="flex-1 min-w-[80px] bg-transparent text-sm outline-none placeholder:text-ink-faint"
       />
     </div>
   )
@@ -72,8 +74,29 @@ export default function TrackEditModal({ track, onClose }: Props) {
   )
   const [isCover, setIsCover] = useState(ov?.is_cover ?? track.is_cover ?? false)
   const [alternateTitles, setAlternateTitles] = useState<string[]>(splitList(ov?.alternate_titles))
+  const [hasThumbnail, setHasThumbnail] = useState(!!track.thumbnail_path)
+  const [thumbnailBust, setThumbnailBust] = useState(0)
+  const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
   const queryClient = useQueryClient()
+
+  const thumbnailMut = useMutation({
+    mutationFn: (file: File) => uploadTrackThumbnail(track.id, file),
+    onSuccess: () => {
+      setHasThumbnail(true)
+      setThumbnailBust((v) => v + 1)
+      queryClient.invalidateQueries({ queryKey: ['tracks'] })
+    },
+  })
+
+  const removeThumbnailMut = useMutation({
+    mutationFn: () => removeTrackThumbnail(track.id),
+    onSuccess: () => {
+      setHasThumbnail(false)
+      setThumbnailBust((v) => v + 1)
+      queryClient.invalidateQueries({ queryKey: ['tracks'] })
+    },
+  })
   const { mutate, isPending, error } = useMutation({
     mutationFn: (data: TrackMetadataInput) => updateTrackMetadata(track.id, data),
     onSuccess: () => {
@@ -112,22 +135,22 @@ export default function TrackEditModal({ track, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl w-full max-w-md"
+        className="bg-surface-2 border border-border rounded-xl w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-sm font-semibold">Edit Track</h2>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => runAiFill()}
               disabled={aiFilling}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-xs text-[#a1a1a1] hover:text-white transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-white transition-colors disabled:opacity-50"
             >
               <Sparkles size={12} />
               {aiFilling ? 'Filling…' : 'AI Fill'}
             </button>
-            <button onClick={onClose} className="text-[#6b6b6b] hover:text-white transition-colors">
+            <button onClick={onClose} className="text-ink-tertiary hover:text-white transition-colors">
               <X size={16} />
             </button>
           </div>
@@ -135,17 +158,63 @@ export default function TrackEditModal({ track, onClose }: Props) {
 
         <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
           <div>
-            <label className="block text-xs text-[#6b6b6b] mb-1.5">Title</label>
+            <label className="block text-xs text-ink-tertiary mb-1.5">Thumbnail</label>
+            <div className="flex items-center gap-3">
+              <div className="relative w-16 h-16 flex-shrink-0 group">
+                <ArtworkImage
+                  src={hasThumbnail ? `${getArtworkUrl(track.id)}?v=${thumbnailBust}` : getArtworkUrl(track.album_version_id)}
+                  alt={title}
+                  className="w-full h-full rounded-lg object-cover bg-surface-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => thumbnailInputRef.current?.click()}
+                  disabled={thumbnailMut.isPending}
+                  className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 group-hover:bg-black/50 text-transparent group-hover:text-white transition-all disabled:opacity-50"
+                  title="Change thumbnail"
+                >
+                  <Camera size={18} />
+                </button>
+                <input
+                  ref={thumbnailInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) thumbnailMut.mutate(file)
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1 text-xs text-ink-tertiary">
+                <span>{hasThumbnail ? 'Custom thumbnail' : 'Auto-generated (YouTube / video frame)'}</span>
+                {hasThumbnail && (
+                  <button
+                    type="button"
+                    onClick={() => removeThumbnailMut.mutate()}
+                    disabled={removeThumbnailMut.isPending}
+                    className="self-start text-red-400 hover:underline disabled:opacity-50"
+                  >
+                    {removeThumbnailMut.isPending ? 'Removing…' : 'Remove custom thumbnail'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-ink-tertiary mb-1.5">Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
             />
           </div>
 
           <div>
-            <label className="block text-xs text-[#6b6b6b] mb-1.5">Artist</label>
+            <label className="block text-xs text-ink-tertiary mb-1.5">Artist</label>
             <TagInput tags={origArtists} onChange={setOrigArtists} placeholder="Add artist, press Enter" />
           </div>
 
@@ -153,22 +222,22 @@ export default function TrackEditModal({ track, onClose }: Props) {
             <button
               type="button"
               onClick={() => setIsCover(!isCover)}
-              className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 overflow-hidden ${isCover ? 'bg-accent' : 'bg-[#333]'}`}
+              className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 overflow-hidden ${isCover ? 'bg-accent' : 'bg-border-strong'}`}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${isCover ? 'translate-x-[20px]' : 'translate-x-0'}`}
               />
             </button>
-            <label className="text-sm text-[#a1a1a1]">Cover song</label>
+            <label className="text-sm text-ink-secondary">Cover song</label>
           </div>
 
           <div className={isCover ? '' : 'hidden'}>
-            <label className="block text-xs text-[#6b6b6b] mb-1.5">Cover by</label>
+            <label className="block text-xs text-ink-tertiary mb-1.5">Cover by</label>
             <TagInput tags={coverByArtists} onChange={setCoverByArtists} placeholder="Add cover artist, press Enter" />
           </div>
 
           <div>
-            <label className="block text-xs text-[#6b6b6b] mb-1.5">Alternate names (for search)</label>
+            <label className="block text-xs text-ink-tertiary mb-1.5">Alternate names (for search)</label>
             <TagInput
               tags={alternateTitles}
               onChange={setAlternateTitles}
@@ -176,7 +245,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
             />
           </div>
 
-          <div className="text-xs text-[#6b6b6b] pt-1 border-t border-[#222] flex justify-between">
+          <div className="text-xs text-ink-tertiary pt-1 border-t border-border flex justify-between">
             <span>Added {new Date(track.added_at).toLocaleDateString()}</span>
             {ov?.updated_at && <span>Last edited {new Date(ov.updated_at).toLocaleDateString()}</span>}
           </div>
@@ -187,14 +256,14 @@ export default function TrackEditModal({ track, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-lg bg-[#222] hover:bg-[#2a2a2a] text-sm transition-colors"
+              className="flex-1 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-sm font-medium transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium transition-colors disabled:opacity-50"
             >
               {isPending ? 'Saving…' : 'Save'}
             </button>

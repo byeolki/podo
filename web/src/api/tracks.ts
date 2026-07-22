@@ -110,6 +110,32 @@ export function deleteTracks(trackIds: string[]): Promise<{ deleted: number }> {
   return api.post('/tracks/delete', { track_ids: trackIds })
 }
 
+export function uploadTrackThumbnail(id: string, file: File): Promise<{ thumbnail_path: string }> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData()
+    form.append('file', file)
+
+    const token = localStorage.getItem('access_token')
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `/api/v1/tracks/${id}/thumbnail`)
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText))
+      } else {
+        reject(new Error(xhr.responseText || `HTTP ${xhr.status}`))
+      }
+    }
+    xhr.onerror = () => reject(new Error('Network error'))
+    xhr.send(form)
+  })
+}
+
+export function removeTrackThumbnail(id: string): Promise<void> {
+  return api.delete(`/tracks/${id}/thumbnail`)
+}
+
 export function formatDuration(ms: number | null): string {
   if (!ms) return '--:--'
   const s = Math.floor(ms / 1000)

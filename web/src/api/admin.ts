@@ -18,10 +18,18 @@ export interface User {
   created_at: string
 }
 
+export interface DiskUsage {
+  total_bytes: number
+  free_bytes: number
+  used_bytes: number
+}
+
 export interface StorageInfo {
   upload_dir: { path: string; size_bytes: number }
   artwork_dir: { path: string; size_bytes: number }
   transcode_cache: { path: string; size_bytes: number }
+  /** All zeroes when `df` isn't available (e.g. a non-POSIX host). */
+  disk: DiskUsage
 }
 
 export function getHealth(): Promise<SystemHealth> {

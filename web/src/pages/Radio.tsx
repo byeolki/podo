@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Radio as RadioIcon, Play, ListMusic } from 'lucide-react'
-import { getStation, createMix } from '../api/radio'
+import { getStation } from '../api/radio'
+import { createPlaylist, addTracksToPlaylist } from '../api/playlists'
 import { usePlayerStore } from '../store/player'
 import type { Track } from '../api/tracks'
 import TrackRow from '../components/TrackRow'
@@ -9,16 +10,28 @@ import TrackRow from '../components/TrackRow'
 export default function Radio() {
   const qc = useQueryClient()
   const [tracks, setTracks] = useState<Track[]>([])
+  const [seedArtist, setSeedArtist] = useState('')
   const [mixName, setMixName] = useState('')
   const { setQueue, play } = usePlayerStore()
 
   const stationMut = useMutation({
-    mutationFn: () => getStation({ count: 50 }),
+    mutationFn: () =>
+      getStation({ count: 50, seed_artist_name: seedArtist.trim() || undefined }),
     onSuccess: (data) => setTracks(data),
   })
 
+  // Saved from the station that's actually on screen, not by re-running the seed:
+  // `POST /radio/mix` would generate a fresh (randomised) selection, so the saved
+  // playlist wouldn't match what the user just listened to.
   const mixMut = useMutation({
-    mutationFn: () => createMix({ name: mixName || undefined, count: tracks.length || 50 }),
+    mutationFn: async () => {
+      const playlist = await createPlaylist({
+        name: mixName.trim() || `Mix · ${new Date().toLocaleDateString()}`,
+        description: seedArtist.trim() ? `Radio station seeded from ${seedArtist.trim()}` : 'Auto-generated mix',
+      })
+      await addTracksToPlaylist(playlist.id, tracks.map((t) => t.id))
+      return playlist
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['playlists'] })
       setMixName('')
@@ -40,6 +53,14 @@ export default function Radio() {
       </div>
 
       <div className="flex gap-3 mb-8 flex-wrap">
+        <input
+          type="text"
+          value={seedArtist}
+          onChange={(e) => setSeedArtist(e.target.value)}
+          placeholder="Artist name (blank = whole library)"
+          className="bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent w-60"
+          onKeyDown={(e) => e.key === 'Enter' && stationMut.mutate()}
+        />
         <button
           onClick={() => stationMut.mutate()}
           disabled={stationMut.isPending}
@@ -82,6 +103,10 @@ export default function Radio() {
             <div key={i} className="h-12 rounded-lg bg-surface-2 animate-pulse" />
           ))}
         </div>
+      )}
+
+      {mixMut.isError && (
+        <p className="text-sm text-red-400 mb-4">{(mixMut.error as Error).message}</p>
       )}
 
       {tracks.length > 0 && (

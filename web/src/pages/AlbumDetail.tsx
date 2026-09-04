@@ -20,6 +20,7 @@ export default function AlbumDetail() {
   if (!album) return <div className="p-4 sm:p-6 text-ink-tertiary">Album not found</div>
 
   const allTracks = album.versions?.flatMap((v) => v.tracks ?? []) ?? []
+  const coverVersion = album.versions?.find((v) => v.artwork_path) ?? album.versions?.[0]
 
   return (
     <div className="p-4 sm:p-6">
@@ -29,14 +30,15 @@ export default function AlbumDetail() {
 
       <div className="flex items-start gap-6 mb-8">
         <ArtworkImage
-          src={getArtworkUrl(album.versions?.[0]?.id)}
+          src={getArtworkUrl(coverVersion?.artwork_path ? coverVersion.id : null)}
+          fallbackSrc={allTracks.find((t) => t.thumbnail_path) ? getArtworkUrl(allTracks.find((t) => t.thumbnail_path)!.id) : null}
           alt={album.title}
           className="w-40 h-40 rounded-xl flex-shrink-0"
         />
         <div>
           <p className="text-xs text-ink-tertiary uppercase tracking-wider mb-1">Album</p>
           <h1 className="text-3xl font-bold">{album.title}</h1>
-          {album.versions?.[0]?.release_year && <p className="text-sm text-ink-secondary mt-1">{album.versions[0].release_year}</p>}
+          {coverVersion?.release_year && <p className="text-sm text-ink-secondary mt-1">{coverVersion.release_year}</p>}
           <p className="text-sm text-ink-secondary">{allTracks.length} tracks</p>
           {allTracks.length > 0 && (
             <button

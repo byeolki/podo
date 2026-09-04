@@ -69,9 +69,13 @@ export default function TrackEditModal({ track, onClose }: Props) {
   const ov = track.override
   const [title, setTitle] = useState(ov?.title ?? track.title)
   const [origArtists, setOrigArtists] = useState<string[]>(splitList(ov?.original_artist))
-  const [coverByArtists, setCoverByArtists] = useState<string[]>(
-    splitList(ov?.artist) || splitList(track.artists?.map((a) => a.name).join(', '))
-  )
+  // An empty array is truthy, so `||` here never reached the fallback: a track
+  // with no artist override showed an empty "Cover by" field instead of its
+  // current artists.
+  const [coverByArtists, setCoverByArtists] = useState<string[]>(() => {
+    const fromOverride = splitList(ov?.artist)
+    return fromOverride.length ? fromOverride : (track.artists?.map((a) => a.name) ?? [])
+  })
   const [isCover, setIsCover] = useState(ov?.is_cover ?? track.is_cover ?? false)
   const [alternateTitles, setAlternateTitles] = useState<string[]>(splitList(ov?.alternate_titles))
   const [volumeDb, setVolumeDb] = useState(ov?.volume_db ?? 0)
@@ -165,6 +169,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
               <div className="relative w-16 h-16 flex-shrink-0 group">
                 <ArtworkImage
                   src={hasThumbnail ? `${getArtworkUrl(track.id)}?v=${thumbnailBust}` : getArtworkUrl(track.album_version_id)}
+                  fallbackSrc={hasThumbnail ? null : track.thumbnail_path ? getArtworkUrl(track.id) : null}
                   alt={title}
                   className="w-full h-full rounded-lg object-cover bg-surface-1"
                 />

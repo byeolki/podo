@@ -4,8 +4,14 @@ import type { Track } from './tracks'
 export interface PlayHistory {
   id: string
   track_id: string
+  source_id: string | null
   played_at: string
   played_duration: number
+  /** Override-resolved, joined server-side so the list is renderable on its own. */
+  title: string
+  artist: string | null
+  album_version_id: string | null
+  thumbnail_path: string | null
 }
 
 export interface Stats {

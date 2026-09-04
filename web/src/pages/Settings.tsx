@@ -379,8 +379,8 @@ function HealthTab() {
             </button>
           </div>
 
-          {'disk' in storage && (storage as { disk: { total_bytes: number; used_bytes: number; free_bytes: number } }).disk.total_bytes > 0 && (() => {
-            const disk = (storage as { disk: { total_bytes: number; used_bytes: number; free_bytes: number } }).disk
+          {storage.disk.total_bytes > 0 && (() => {
+            const disk = storage.disk
             const pct = Math.round((disk.used_bytes / disk.total_bytes) * 100)
             return (
               <div className="mb-3 p-3 rounded-lg bg-surface-2 border border-border">

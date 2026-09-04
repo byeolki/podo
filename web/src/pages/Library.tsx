@@ -73,7 +73,8 @@ export default function Library() {
     })
   }, [])
 
-  const selectAll = () => setSelectedIds(new Set(tracks.map((t) => t.id)))
+  // Selection acts on what's visible, so both of these follow the search filter.
+  const selectAllVisible = () => setSelectedIds(new Set(filteredTracks.map((t) => t.id)))
   const deselectAll = () => setSelectedIds(new Set())
 
   const exitSelection = () => {
@@ -125,7 +126,7 @@ export default function Library() {
         {selectionMode && (
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={allSelected ? deselectAll : () => setSelectedIds(new Set(filteredTracks.map((t) => t.id)))}
+              onClick={allSelected ? deselectAll : selectAllVisible}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm transition-colors"
             >
               {allSelected ? <Square size={14} /> : <CheckSquare size={14} />}

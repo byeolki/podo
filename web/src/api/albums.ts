@@ -4,15 +4,18 @@ import type { Track } from './tracks'
 export interface Album {
   id: string
   title: string
-  primary_artist_id: string | null
-  year: number | null
   created_at: string
+  updated_at: string
+  /** Release year of the album's representative version, when one is known. */
+  year: number | null
+  /** Album *version* id to pass to `getArtworkUrl`, or null when there's no cover. */
+  artwork_id: string | null
 }
 
 export interface AlbumVersion {
   id: string
   album_id: string
-  label: string | null
+  version_type: string
   release_year: number | null
   artwork_path: string | null
   tracks?: Track[]

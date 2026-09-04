@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { History as HistoryIcon, Clock } from 'lucide-react'
+import { History as HistoryIcon } from 'lucide-react'
 import { getHistory, getStats } from '../api/history'
 import { formatDuration } from '../api/tracks'
+import { getArtworkUrl } from '../api/client'
+import ArtworkImage from '../components/ArtworkImage'
 
 function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -52,10 +54,18 @@ export default function History() {
         <div className="space-y-1">
           {history.map((entry) => (
             <div key={entry.id} className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/5">
-              <Clock size={14} className="text-ink-faint flex-shrink-0" />
+              <ArtworkImage
+                src={getArtworkUrl(entry.album_version_id)}
+                fallbackSrc={entry.thumbnail_path ? getArtworkUrl(entry.track_id) : null}
+                alt={entry.title}
+                className="w-9 h-9 rounded object-cover flex-shrink-0 bg-surface-2"
+              />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-ink-secondary truncate">{entry.track_id}</p>
-                <p className="text-xs text-ink-tertiary">{formatDuration(entry.played_duration * 1000)} listened</p>
+                <p className="text-sm font-medium truncate">{entry.title}</p>
+                <p className="text-xs text-ink-tertiary truncate">
+                  {entry.artist ? `${entry.artist} · ` : ''}
+                  {formatDuration(entry.played_duration * 1000)} listened
+                </p>
               </div>
               <span className="text-xs text-ink-tertiary flex-shrink-0">{formatRelativeTime(entry.played_at)}</span>
             </div>

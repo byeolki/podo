@@ -22,7 +22,6 @@ export interface Track {
   duration: number | null
   added_at: string
   is_cover: boolean
-  original_artist_id: string | null
   album_version_id: string | null
   thumbnail_path: string | null
   has_video?: boolean
@@ -47,11 +46,9 @@ export interface Source {
   origin: 'local' | 'ytdlp'
 }
 
+/** Artists are plain names split out of `tracks.artist` — there is no artists table. */
 export interface Artist {
-  id: string
   name: string
-  is_custom: boolean
-  external_ids: Record<string, string>
 }
 
 export interface Tag {
@@ -101,6 +98,8 @@ export function updateTrackMetadata(id: string, data: TrackMetadataInput): Promi
 export interface AiFillResult {
   track_id: string
   applied: boolean
+  /** True when the track already had both a title and artist override. */
+  skipped: boolean
   result: { title: string | null; artist: string | null; is_cover: boolean; original_artist: string | null } | null
 }
 

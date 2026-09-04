@@ -72,15 +72,17 @@ export default function Search() {
                 <Users size={16} /> Artists
               </h2>
               <div className="space-y-0.5">
+                {/* There is no artist entity to navigate to (artist names live on the
+                    track row), so selecting one re-runs the search scoped to that name. */}
                 {data.artists.map((hit) => (
-                  <Link
+                  <button
                     key={hit.id}
-                    to={`/artists/${hit.id}`}
-                    className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/5"
+                    onClick={() => setQ(hit.name)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/5 text-left"
                   >
                     <Users size={14} className="text-ink-faint flex-shrink-0" />
                     <span className="text-sm">{hit.name}</span>
-                  </Link>
+                  </button>
                 ))}
               </div>
             </section>

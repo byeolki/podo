@@ -200,16 +200,20 @@ export default function Player() {
       {/* Track info */}
       <div className="flex items-center gap-2 sm:gap-3 w-32 sm:w-52 flex-shrink-0">
         <ArtworkImage
-          src={getArtworkUrl(track?.album_version_id) ?? (track?.thumbnail_path ? getArtworkUrl(track.id) : null)}
+          src={getArtworkUrl(track?.album_version_id)}
+          fallbackSrc={track?.thumbnail_path ? getArtworkUrl(track.id) : null}
           alt={track?.title}
           className={`w-10 h-10 sm:w-12 sm:h-12 rounded object-cover flex-shrink-0 bg-surface-2 transition-shadow ${isPlaying ? 'shadow-glow' : ''}`}
         />
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{track?.title ?? 'Not playing'}</p>
+          {/* Performer first, then who it's a cover of — same order as the track
+              rows and the native client. */}
           <p className="text-xs text-ink-secondary truncate">
-            {track?.is_cover
-              ? (track.override?.original_artist ?? track.artists?.map((a) => a.name).join(', ') ?? '')
-              : (track?.artists?.map((a) => a.name).join(', ') ?? '')}
+            {track?.artists?.map((a) => a.name).join(', ') ?? ''}
+            {track?.is_cover && track.override?.original_artist
+              ? `${track.artists?.length ? ' · ' : ''}cover of ${track.override.original_artist}`
+              : ''}
           </p>
         </div>
       </div>

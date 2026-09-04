@@ -58,10 +58,16 @@ export default function TrackRow({
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['tracks'] }),
   })
 
+  // `artists` is the performing artist (the `artist` override column), and
+  // `original_artist` is who wrote/first released it — so a cover reads
+  // "Performer · cover of Original", the same way MuscatKit's artistLineText
+  // renders it. Getting these two the other way round is what made the same
+  // track read differently on web and on the phone.
   const performer = track.artists?.map((a) => a.name).join(', ') ?? ''
   const originalArtist = track.override?.original_artist ?? null
   const isCover = track.is_cover
-  const artistStr = isCover ? (originalArtist ?? performer) : (performer || originalArtist || '')
+  const artistStr = performer || (isCover ? '' : originalArtist ?? '')
+  const artistLabel = artistStr || 'Unknown Artist'
 
   return (
     <>
@@ -120,12 +126,12 @@ export default function TrackRow({
           </p>
           {(showArtist || isCover) && (
             <p className="text-xs text-ink-tertiary truncate leading-tight mt-0.5">
-              {artistStr}
-              {isCover && performer && (
+              {artistLabel}
+              {isCover && (
                 <span className="text-ink-tertiary">
-                  {artistStr ? ' · ' : ''}
+                  {' · '}
                   <span className="text-accent">cover</span>
-                  {` of ${performer}`}
+                  {originalArtist ? ` of ${originalArtist}` : ''}
                 </span>
               )}
             </p>

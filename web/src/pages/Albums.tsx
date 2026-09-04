@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Disc3, Search, X, ChevronDown } from 'lucide-react'
 import { getAlbums } from '../api/albums'
+import { getArtworkUrl } from '../api/client'
 import ArtworkImage from '../components/ArtworkImage'
 
 type AlbumSort = 'az' | 'za' | 'year_desc' | 'year_asc'
@@ -111,7 +112,7 @@ export default function Albums() {
               className="group p-3 rounded-xl bg-surface-2 hover:bg-surface-2 transition-colors"
             >
               <ArtworkImage
-                src={null}
+                src={getArtworkUrl(album.artwork_id)}
                 alt={album.title}
                 className="w-full aspect-square rounded-lg object-cover mb-3"
               />

@@ -60,6 +60,9 @@ export class StreamingController {
     );
   }
 
+  // Public because `<img>` and `AsyncImage` can't attach an Authorization header
+  // and cover images aren't sensitive. The lyrics route below has no such
+  // constraint, so it stays authenticated like every other content endpoint.
   @Public()
   @Get('artwork/:id')
   @ApiOperation({ summary: 'Get artwork image' })
@@ -103,7 +106,6 @@ export class StreamingController {
     return reply.send(fs.createReadStream(artworkPath));
   }
 
-  @Public()
   @Get('lyrics/:track_id')
   @ApiOperation({ summary: 'Get track lyrics (all available languages)' })
   async lyrics(@Param('track_id') trackId: string) {

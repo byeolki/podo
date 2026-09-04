@@ -5,7 +5,7 @@ import * as schema from '../db/schema';
 import { TranscodeCacheService } from './transcode-cache.service';
 import { newId } from '../common/id';
 import { spawn, ChildProcess } from 'child_process';
-import { PassThrough } from 'stream';
+import { PassThrough, Readable, Transform } from 'stream';
 import * as fs from 'fs';
 import * as mime from 'mime-types';
 import { FastifyReply, FastifyRequest } from 'fastify';
@@ -26,6 +26,10 @@ export interface StreamRequest {
 export class StreamingService {
   private readonly logger = new Logger(StreamingService.name);
   private readonly activeProcesses = new Map<string, ChildProcess>();
+  /// Bytes actually handed to the client per stream session, flushed to
+  /// `stream_sessions.bytes_sent` when the session ends — that column backs the
+  /// admin traffic dashboard and stays at 0 unless something counts here.
+  private readonly sessionBytes = new Map<string, number>();
 
   constructor(
     @Inject(DB_TOKEN) private readonly db: Db,
@@ -125,7 +129,7 @@ export class StreamingService {
 
     const needsTranscode = this.needsTranscode(source, req.format, req.bitrate) || !!req.normalize || !!manualVolumeDb;
     if (!needsTranscode) {
-      await this.servePassthrough(filePath, fileStat.size, source, httpReq, reply);
+      await this.servePassthrough(filePath, fileStat.size, source, httpReq, reply, sessionId);
     } else {
       await this.serveTranscoded(source, req, httpReq, reply, sessionId, manualVolumeDb);
     }
@@ -137,6 +141,7 @@ export class StreamingService {
     source: typeof schema.sources.$inferSelect,
     req: FastifyRequest,
     reply: FastifyReply,
+    sessionId: string,
   ): Promise<void> {
     const contentType = this.sourceContentType(source);
     const rangeHeader = req.headers.range;
@@ -145,7 +150,7 @@ export class StreamingService {
       reply.header('Content-Type', contentType);
       reply.header('Content-Length', fileSize);
       reply.header('Accept-Ranges', 'bytes');
-      return reply.send(fs.createReadStream(filePath));
+      return reply.send(this.countingStream(sessionId, fs.createReadStream(filePath)));
     }
 
     const { start, end } = this.parseRange(rangeHeader, fileSize);
@@ -156,7 +161,27 @@ export class StreamingService {
     reply.header('Content-Length', chunkSize);
     reply.header('Accept-Ranges', 'bytes');
     reply.header('Content-Type', contentType);
-    return reply.send(fs.createReadStream(filePath, { start, end }));
+    return reply.send(this.countingStream(sessionId, fs.createReadStream(filePath, { start, end })));
+  }
+
+  /**
+   * Tees a response body through a byte counter. Errors are forwarded rather than
+   * swallowed, so a vanished file still aborts the response instead of ending it
+   * as a silently truncated success.
+   */
+  private countingStream(sessionId: string, source: Readable): Readable {
+    const counter = new Transform({
+      transform: (chunk: Buffer, _enc, done) => {
+        // Only count while the session is still open: `endStreamSession` removes the
+        // entry, and re-creating it here would leak one map entry per finished stream.
+        const sent = this.sessionBytes.get(sessionId);
+        if (sent !== undefined) this.sessionBytes.set(sessionId, sent + chunk.length);
+        done(null, chunk);
+      },
+    });
+    source.on('error', (err) => counter.destroy(err));
+    source.pipe(counter);
+    return counter;
   }
 
   private async serveTranscoded(
@@ -189,7 +214,7 @@ export class StreamingService {
         reply.header('Content-Type', this.mimeType(targetFormat));
         reply.header('Content-Length', stat.size);
         reply.header('X-Cache', 'HIT');
-        return reply.send(fs.createReadStream(cachePath));
+        return reply.send(this.countingStream(sessionId, fs.createReadStream(cachePath)));
       } catch {
         this.logger.warn(`Cache file missing for key ${cacheKey}, falling through to transcode`);
         this.cache.evict(cacheKey);
@@ -203,61 +228,65 @@ export class StreamingService {
     reply.header('Accept-Ranges', 'none');
     reply.header('X-Cache', 'MISS');
 
-    const cachePath = this.cache.getCachePath(cacheKey);
+    // Written to a `.part` sibling and only published on a clean exit, so a
+    // concurrent request for the same key can't pick up a partial file.
+    const pendingPath = this.cache.getPendingPath(cacheKey);
     let cacheWriteStream: fs.WriteStream;
     try {
-      cacheWriteStream = fs.createWriteStream(cachePath);
+      cacheWriteStream = fs.createWriteStream(pendingPath);
     } catch (e) {
-      this.logger.error(`Failed to create cache write stream: ${cachePath}`, (e as Error).message);
+      this.logger.error(`Failed to create cache write stream: ${pendingPath}`, (e as Error).message);
       throw new InternalServerErrorException('Transcoding cache unavailable');
     }
 
     const passthrough = new PassThrough();
     const proc = spawn('ffmpeg', ffmpegArgs);
     this.activeProcesses.set(sessionId, proc);
+    let cacheUsable = true;
 
     cacheWriteStream.on('error', (err) => {
-      this.logger.error(`Cache write stream error for ${cachePath}: ${err.message}`);
-      try { fs.unlinkSync(cachePath); } catch {}
+      this.logger.error(`Cache write stream error for ${pendingPath}: ${err.message}`);
+      cacheUsable = false;
+      this.cache.abort(cacheKey);
     });
 
-    proc.stdout.on('data', (chunk: Buffer) => {
-      cacheWriteStream.write(chunk);
-      passthrough.push(chunk);
-    });
-
-    proc.stdout.on('end', () => {
-      passthrough.push(null);
-    });
+    // Two `pipe()` destinations rather than manual `push()`: pipe honours
+    // backpressure from both the client socket and the cache file, so a slow
+    // client throttles ffmpeg instead of buffering the whole transcode in memory.
+    // The cache file is piped with `end: false` so it is closed exactly once, by
+    // the exit handler below, which is the only place that knows whether the
+    // output is complete enough to publish.
+    proc.stdout.pipe(cacheWriteStream, { end: false });
+    proc.stdout.pipe(passthrough);
 
     proc.stdout.on('error', (err) => {
       passthrough.destroy(err);
     });
 
-    proc.on('close', (_code, signal) => {
+    proc.on('close', (code, signal) => {
       this.activeProcesses.delete(sessionId);
-      if (signal === 'SIGKILL') {
+      if (signal === 'SIGKILL' || code !== 0 || !cacheUsable) {
         cacheWriteStream.destroy();
-        try { fs.unlinkSync(cachePath); } catch {}
+        this.cache.abort(cacheKey);
       } else {
-        cacheWriteStream.end();
-        void this.cache.markWritten(cacheKey);
+        cacheWriteStream.end(() => void this.cache.commit(cacheKey));
       }
     });
 
     proc.on('error', (err) => {
       this.logger.error(`ffmpeg spawn error: ${err.message}`);
       this.activeProcesses.delete(sessionId);
+      cacheUsable = false;
       cacheWriteStream.destroy();
       passthrough.destroy(err);
-      try { fs.unlinkSync(cachePath); } catch {}
+      this.cache.abort(cacheKey);
     });
 
     proc.stderr.on('data', (d: Buffer) => {
       this.logger.verbose(`ffmpeg: ${d.toString().trim()}`);
     });
 
-    return reply.send(passthrough);
+    return reply.send(this.countingStream(sessionId, passthrough));
   }
 
   private buildFfmpegArgs(
@@ -342,6 +371,7 @@ export class StreamingService {
   }
 
   private async createStreamSession(sessionId: string, req: StreamRequest, source: typeof schema.sources.$inferSelect): Promise<void> {
+    this.sessionBytes.set(sessionId, 0);
     await this.db.insert(schema.stream_sessions).values({
       id: sessionId,
       user_id: req.userId,
@@ -354,7 +384,12 @@ export class StreamingService {
   }
 
   private async endStreamSession(sessionId: string): Promise<void> {
-    await this.db.update(schema.stream_sessions).set({ ended_at: new Date() }).where(eq(schema.stream_sessions.id, sessionId));
+    const bytesSent = this.sessionBytes.get(sessionId) ?? 0;
+    this.sessionBytes.delete(sessionId);
+    await this.db
+      .update(schema.stream_sessions)
+      .set({ ended_at: new Date(), bytes_sent: bytesSent })
+      .where(eq(schema.stream_sessions.id, sessionId));
   }
 
   getActiveStreams() {

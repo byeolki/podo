@@ -76,67 +76,25 @@ export class TracksService {
         .orderBy(orderBy);
     }
 
-    if (!rawTracks.length) return [];
+    const results = await this.enrich(rawTracks, userId);
 
-    const trackIds = rawTracks.map((t) => t.id);
-    const [videoSources, overrides, allFavs, userFavs] = await Promise.all([
-      this.db
-        .selectDistinct({ track_id: schema.sources.track_id })
-        .from(schema.sources)
-        .where(and(eq(schema.sources.media_kind, 'video'), eq(schema.sources.available, true), isNull(schema.sources.deleted_at), inArray(schema.sources.track_id, trackIds))),
-      this.db
-        .select()
-        .from(schema.track_metadata_overrides)
-        .where(inArray(schema.track_metadata_overrides.track_id, trackIds)),
-      this.db
-        .select({ track_id: schema.favorites.track_id })
-        .from(schema.favorites)
-        .where(inArray(schema.favorites.track_id, trackIds)),
-      this.db
-        .select({ track_id: schema.favorites.track_id })
-        .from(schema.favorites)
-        .where(and(inArray(schema.favorites.track_id, trackIds), eq(schema.favorites.user_id, userId))),
-    ]);
-
-    const videoTrackIds = new Set(videoSources.map((s) => s.track_id));
-    const overrideByTrack = new Map(overrides.map((o) => [o.track_id, o]));
-
-    const favCountByTrack = new Map<string, number>();
-    for (const f of allFavs) {
-      favCountByTrack.set(f.track_id, (favCountByTrack.get(f.track_id) ?? 0) + 1);
-    }
-    const userFavSet = new Set(userFavs.map((f) => f.track_id));
-
-    let results = rawTracks.map((t) => {
-      const ov = overrideByTrack.get(t.id);
-      const artists = resolveArtists(ov?.artist ?? null, t.artist ?? null);
-      return {
-        ...t,
-        duration: t.canonical_duration,
-        title: ov?.title ?? t.title,
-        is_cover: ov?.is_cover ?? t.is_cover,
-        artists,
-        has_video: videoTrackIds.has(t.id) || !!ov?.video_locator,
-        override: ov ?? null,
-        play_count: t.play_count,
-        favorite_count: favCountByTrack.get(t.id) ?? 0,
-        is_favorited: userFavSet.has(t.id),
-      };
-    });
-
-    if (sort === 'popular') {
-      results = results.sort((a, b) => b.favorite_count - a.favorite_count);
-    }
-
-    return results;
+    // "Most favorited" can't be an ORDER BY: favorite_count is aggregated during
+    // enrichment, not stored on the row.
+    return sort === 'popular'
+      ? [...results].sort((a, b) => b.favorite_count - a.favorite_count)
+      : results;
   }
 
   /**
-   * Shared enrichment (override-resolved title/artist/is_cover, has_video, favorite
-   * state) for any endpoint that already has a specific list of track ids to show —
-   * favorites, playlist detail, radio. Selecting straight from `tracks` instead (as
-   * favorites/playlists used to) skips the override join entirely, so edited tracks
-   * silently revert to their raw scanned/imported title outside the library list.
+   * Shared enrichment for any endpoint that already has a specific list of track
+   * ids to show — favorites, playlist detail, album detail, radio. Selecting
+   * straight from `tracks` instead (as those used to) skips the override join
+   * entirely, so edited tracks silently revert to their raw scanned/imported
+   * title outside the library list.
+   *
+   * Result order follows the `tracks` rows the database returns, not `ids` —
+   * callers that need a specific order should re-index by id (see
+   * `RadioService.getStation`).
    */
   async findByIds(ids: string[], userId?: string) {
     if (!ids.length) return [];
@@ -145,6 +103,15 @@ export class TracksService {
       .from(schema.tracks)
       .where(and(isNull(schema.tracks.deleted_at), inArray(schema.tracks.id, ids)));
 
+    return this.enrich(rawTracks, userId);
+  }
+
+  /**
+   * Resolves the metadata-override layer, video availability and favorite state
+   * for a batch of raw `tracks` rows in a fixed number of queries, regardless of
+   * batch size. This is the one shape every list endpoint returns.
+   */
+  private async enrich(rawTracks: (typeof schema.tracks.$inferSelect)[], userId?: string) {
     if (!rawTracks.length) return [];
 
     const trackIds = rawTracks.map((t) => t.id);
@@ -180,13 +147,12 @@ export class TracksService {
 
     return rawTracks.map((t) => {
       const ov = overrideByTrack.get(t.id);
-      const artists = resolveArtists(ov?.artist ?? null, t.artist ?? null);
       return {
         ...t,
         duration: t.canonical_duration,
         title: ov?.title ?? t.title,
         is_cover: ov?.is_cover ?? t.is_cover,
-        artists,
+        artists: resolveArtists(ov?.artist ?? null, t.artist ?? null),
         has_video: videoTrackIds.has(t.id) || !!ov?.video_locator,
         override: ov ?? null,
         play_count: t.play_count,

@@ -5,6 +5,11 @@ import * as schema from '../db/schema';
 import { newId } from '../common/id';
 import { TracksService } from '../tracks/tracks.service';
 
+/// SQLite caps how many bound parameters one statement may carry, and both the
+/// caller-supplied `exclude` list and the running "already picked" set are
+/// interpolated as parameters. Past this many, filtering moves to JS instead.
+const MAX_SQL_EXCLUSIONS = 500;
+
 export interface RadioOptions {
   seedTrackId?: string;
   seedArtistName?: string;
@@ -30,12 +35,13 @@ export class RadioService {
 
   private async getOrderedTrackIds(opts: RadioOptions): Promise<string[]> {
     const count = Math.min(opts.count ?? 50, 200);
-    const excludeIds = opts.excludeIds ?? [];
+    const excludeIds = (opts.excludeIds ?? []).slice(0, MAX_SQL_EXCLUSIONS);
 
     const seedArtistNames = await this.resolveSeedArtistNames(opts);
     const seedTagIds = await this.resolveSeedTags(opts);
 
     const scored: Array<{ track: typeof schema.tracks.$inferSelect; score: number }> = [];
+    const scoredIndex = new Map<string, number>();
     const seen = new Set<string>(excludeIds);
 
     const baseCond = and(
@@ -58,6 +64,7 @@ export class RadioService {
       for (const track of rows) {
         if (seen.has(track.id)) continue;
         seen.add(track.id);
+        scoredIndex.set(track.id, scored.length);
         scored.push({ track, score: 3 + Math.random() });
       }
     }
@@ -71,25 +78,35 @@ export class RadioService {
 
       for (const { track } of rows) {
         if (seen.has(track.id)) {
-          const existing = scored.find((s) => s.track.id === track.id);
-          if (existing) existing.score += 1;
+          // Already matched on artist: a genre match on top of that is a stronger
+          // signal, so bump its score rather than adding a duplicate entry.
+          const existingIndex = scoredIndex.get(track.id);
+          if (existingIndex !== undefined) scored[existingIndex].score += 1;
           continue;
         }
         seen.add(track.id);
+        scoredIndex.set(track.id, scored.length);
         scored.push({ track, score: 2 + Math.random() });
       }
     }
 
     if (scored.length < count) {
       const needed = count - scored.length;
+      // A big seed can match thousands of tracks; excluding them all as bound
+      // parameters would blow SQLite's statement limit, so past the threshold we
+      // over-fetch and drop the duplicates here instead.
+      const excludeInSql = seen.size > 0 && seen.size <= MAX_SQL_EXCLUSIONS;
       const randomRows = await this.db
         .select()
         .from(schema.tracks)
-        .where(and(isNull(schema.tracks.deleted_at), seen.size ? notInArray(schema.tracks.id, [...seen]) : undefined))
+        .where(and(isNull(schema.tracks.deleted_at), excludeInSql ? notInArray(schema.tracks.id, [...seen]) : undefined))
         .orderBy(sql`RANDOM()`)
-        .limit(needed);
+        .limit(excludeInSql ? needed : needed + seen.size);
 
       for (const track of randomRows) {
+        if (seen.has(track.id)) continue;
+        if (scored.length >= count) break;
+        seen.add(track.id);
         scored.push({ track, score: Math.random() });
       }
     }

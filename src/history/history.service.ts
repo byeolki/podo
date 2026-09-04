@@ -24,10 +24,30 @@ export class HistoryService {
     return { id };
   }
 
+  /**
+   * Joined against the track (and its override layer) rather than returned as bare
+   * `play_history` rows: a history list has nothing to render without a title, and
+   * every client would otherwise have to re-fetch the whole library to resolve ids.
+   */
   getRecent(userId: string, limit = 50) {
     return this.db
-      .select()
+      .select({
+        id: schema.play_history.id,
+        track_id: schema.play_history.track_id,
+        source_id: schema.play_history.source_id,
+        played_at: schema.play_history.played_at,
+        played_duration: schema.play_history.played_duration,
+        title: sql<string>`COALESCE(${schema.track_metadata_overrides.title}, ${schema.tracks.title})`,
+        artist: sql<string | null>`COALESCE(${schema.track_metadata_overrides.artist}, ${schema.tracks.artist})`,
+        album_version_id: schema.tracks.album_version_id,
+        thumbnail_path: schema.tracks.thumbnail_path,
+      })
       .from(schema.play_history)
+      .innerJoin(schema.tracks, eq(schema.play_history.track_id, schema.tracks.id))
+      .leftJoin(
+        schema.track_metadata_overrides,
+        eq(schema.track_metadata_overrides.track_id, schema.tracks.id),
+      )
       .where(eq(schema.play_history.user_id, userId))
       .orderBy(desc(schema.play_history.played_at))
       .limit(limit);

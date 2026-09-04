@@ -31,8 +31,10 @@ is a directory.
 
 1. `JwtAuthGuard` is a global `APP_GUARD`, so **every route is authenticated by
    default**. Opting out is explicit: `@Public()`. Currently public are `/health`,
-   the auth endpoints, `GET /artwork/:id`, `GET /lyrics/:track_id`,
-   `GET /playlists/public` and `GET /broadcast/:token`.
+   the auth endpoints, `GET /artwork/:id`, `GET /playlists/public` and
+   `GET /broadcast/:token`. Artwork is public because `<img>` can't send an
+   Authorization header; the others are either credential exchanges or
+   token-authenticated in their own right.
 2. Role checks are *not* global — a handler that must be admin-only needs
    `@UseGuards(RolesGuard) @AdminOnly()`. Forgetting it is a silent privilege leak,
    so check for it whenever you add an admin route.

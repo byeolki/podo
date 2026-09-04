@@ -1,4 +1,5 @@
 import { Injectable, Inject, NotFoundException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { eq, and, isNull, sql, desc, gte, inArray } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
@@ -16,6 +17,7 @@ export class AdminService {
     @Inject(DB_TOKEN) private readonly db: Db,
     private readonly streaming: StreamingService,
     private readonly cache: TranscodeCacheService,
+    private readonly config: ConfigService,
   ) {}
 
   async verifyLibraryIntegrity() {
@@ -105,8 +107,8 @@ export class AdminService {
   }
 
   async getStorageBreakdown() {
-    const uploadDir = process.env.UPLOAD_DIR ?? path.join(process.cwd(), 'data', 'uploads');
-    const artworkDir = process.env.ARTWORK_DIR ?? path.join(process.cwd(), 'data', 'artwork');
+    const uploadDir = this.config.get<string>('upload_dir', path.join(process.cwd(), 'data', 'uploads'));
+    const artworkDir = this.config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
     const cacheStats = this.cache.getCacheStats();
 
     return {

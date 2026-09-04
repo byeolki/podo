@@ -27,6 +27,9 @@ process.on('uncaughtException', (err) => {
 });
 
 async function bootstrap() {
+  // Read straight from the environment rather than ConfigService: the Fastify
+  // adapter has to be constructed before the Nest app (and therefore before the
+  // DI container) exists.
   const trustProxy = process.env.TRUST_PROXY !== 'false';
   const adapter = new FastifyAdapter({ logger: false, trustProxy });
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter);
@@ -83,7 +86,12 @@ async function bootstrap() {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        // web/index.html pulls Inter from Google Fonts: the stylesheet comes from
+        // fonts.googleapis.com and the font files it references from fonts.gstatic.com.
+        // Overriding styleSrc drops helmet's permissive default, so both hosts have to
+        // be named explicitly or the page silently falls back to the system font.
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
         imgSrc: ["'self'", 'data:', 'https:'],
         mediaSrc: ["'self'", 'blob:'],
         connectSrc: ["'self'", 'ws:', 'wss:'],

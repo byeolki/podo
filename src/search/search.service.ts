@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import Database from 'better-sqlite3';
 import * as https from 'https';
 import { SQLITE_TOKEN } from '../db/database.module';
@@ -14,7 +15,16 @@ const MB_CACHE_TTL = 7 * 24 * 3600 * 1000;
 
 @Injectable()
 export class SearchService {
-  constructor(@Inject(SQLITE_TOKEN) private readonly sqlite: Database.Database) {}
+  private readonly userAgent: string;
+
+  constructor(
+    @Inject(SQLITE_TOKEN) private readonly sqlite: Database.Database,
+    config: ConfigService,
+  ) {
+    // MusicBrainz rejects requests with a generic/absent UA, so honour the same
+    // configured identity MetadataService sends instead of a second hardcoded one.
+    this.userAgent = config.get<string>('musicbrainz_user_agent', 'podo/0.1.0');
+  }
 
   async search(query: string, types: string[] = ['track', 'artist', 'album'], limit = 20): Promise<Record<string, SearchHit[]>> {
     const terms = await this.expandWithMusicBrainz(query);
@@ -54,7 +64,7 @@ export class SearchService {
         return [...terms];
       }
 
-      const ua = 'podo/1.0 (self-hosted music server)';
+      const ua = this.userAgent;
       const searchData = await this.mbGet(
         `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(query)}&limit=1&fmt=json`,
         ua,

@@ -53,7 +53,7 @@ export class UploadService {
       throw new BadRequestException('File too large (max 500MB)');
     }
 
-    const sanitizedName = path.basename(filename).replace(/[^a-zA-Z0-9._\-\s]/g, '_');
+    const sanitizedName = path.basename(filename).replace(FILENAME_SANITIZE, '_');
     const destPath = path.join(this.uploadDir, `${Date.now()}_${sanitizedName}`);
 
     await pipeline(fileStream, fs.createWriteStream(destPath));

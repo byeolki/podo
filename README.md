@@ -2,25 +2,100 @@
   <img src="docs/podo_lg.png" alt="Podo" width="120" />
 </p>
 
-# Podo
+<h1 align="center">Podo</h1>
 
-Self-hosted music streaming server. One container, no external dependencies.
+<p align="center">
+  <b>Your music library, on your own server.</b><br />
+  One container. No Postgres, no Redis, no search cluster, no API keys.
+</p>
 
-## Deploy (using published image)
+<p align="center">
+  <a href="https://github.com/byeolki/podo/actions/workflows/docker.yml"><img src="https://github.com/byeolki/podo/actions/workflows/docker.yml/badge.svg" alt="Build status" /></a>
+  <a href="https://github.com/byeolki/podo/pkgs/container/podo"><img src="https://img.shields.io/badge/ghcr.io-podo-blue?logo=docker&logoColor=white" alt="Container image" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="License: AGPL-3.0" /></a>
+  <img src="https://img.shields.io/badge/node-22-339933?logo=nodedotjs&logoColor=white" alt="Node 22" />
+</p>
+
+---
+
+Podo scans the music you already have, and streams it to a browser or to the
+[Muscat](https://github.com/byeolki/muscat) app on your iPhone and Mac. It also
+knows how to go get the music you *don't* have yet: paste a URL, or search
+YouTube from inside the app, and it lands in your library with artwork and
+synced lyrics attached.
+
+It's built for a small group sharing one server — a household, a few friends —
+so accounts are invite-only and everyone gets their own favorites, playlists and
+history over the same library.
+
+```bash
+docker run -d -p 3000:3000 \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  -e LIBRARY_ROOTS=/music \
+  -v /path/to/music:/music:ro -v podo-data:/data \
+  ghcr.io/byeolki/podo:latest
+```
+
+Then open `http://localhost:3000` and create the first admin account.
+
+## Why it might suit you
+
+**One process, one file.** SQLite in WAL mode is the database, SQLite FTS5 is the
+search engine, p-queue is the job runner, a directory is the cache. There is
+nothing else to deploy, back up, or keep upgraded — `data/` is the whole state.
+
+**Your edits are permanent.** Scanned tags and (optionally) an LLM fill in what
+they can, but they write to a base layer. Anything you type by hand goes in an
+override layer on top, and no rescan, re-download or re-tag ever overwrites it.
+
+**A song, not a file.** A track can have several sources: the FLAC and the music
+video are one entry, not two. Drop `song.mp3` and `song.mp4` in the same folder
+and Podo pairs them; the video button appears next to the track and plays in
+sync with the audio.
+
+**Made for libraries that aren't in English.** Alternate titles are free text per
+track, so "米津玄師" is findable as "Kenshi Yonezu" or "Yonezu Kenshi". Search
+also expands artist names through MusicBrainz aliases before it queries.
+
+**Music you don't own yet.** yt-dlp is wired in for both downloading and
+searching, so there's no second tool and no API key. Downloads keep the source
+URL, pull the thumbnail, and turn manually-uploaded subtitle tracks into synced,
+per-language lyrics — auto-generated captions are deliberately skipped as too
+unreliable to call lyrics.
+
+**A radio station out of any playlist.** Mint a permanent URL and paste it into
+VLC, a network speaker, a Discord bot — anything that can open a stream. It loops
+forever in the codec you pick, with no login and no playback session behind it.
+
+## Features
+
+| | |
+|---|---|
+| **Library** | Recursive scan with live filesystem watching, ffprobe metadata, album/version grouping, genres, soft deletes |
+| **Playback** | HTTP Range streaming, on-the-fly ffmpeg transcode with a disk cache, ReplayGain/loudnorm normalization, per-track manual gain |
+| **Video** | Music videos as a source of the same track, with thumbnail extraction |
+| **Lyrics** | Synced (LRC-style) lyrics per language, imported from yt-dlp subtitle tracks |
+| **Metadata** | ID3 tags → optional LLM fill → user override layer that always wins; multi-select AI autofill from the dashboard |
+| **Search** | SQLite FTS5 over titles and albums, plus artist/alternate-title matching and MusicBrainz alias expansion |
+| **Import** | Drag-and-drop upload, or yt-dlp by URL or YouTube search, with progress over websockets |
+| **Sharing** | Invite-only accounts, public playlists, permanent public radio URLs per playlist |
+| **Per user** | Favorites, playlists, play history, listening stats |
+| **Clients** | Bundled React web dashboard + [Muscat](https://github.com/byeolki/muscat) for iOS/macOS |
+| **Admin** | Library roots and scans, uploaded-file browser, storage and traffic stats, user management, radio token control |
+| **Live** | Socket.IO events for scan and download progress, and a `/sync` cursor for delta sync |
+
+## Install
+
+### Docker (recommended)
 
 ```bash
 cd deploy
-cp .env.example .env
-# Edit .env — set JWT_SECRET
-
-# Edit docker-compose.yml:
-#   image: ghcr.io/byeolki/podo:latest
-#   volumes: point to your actual music and data paths
-
+cp .env.example .env      # set JWT_SECRET
+# edit docker-compose.yml: point the volumes at your music and data paths
 docker compose up -d
 ```
 
-On first run, create the admin account:
+Create the first admin account — this only works while the server has zero users:
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/auth/bootstrap \
@@ -28,152 +103,96 @@ curl -X POST http://localhost:3000/api/v1/auth/bootstrap \
   -d '{"name":"Admin","email":"admin@example.com","password":"changeme"}'
 ```
 
-## Build from source
+Everyone after that registers with an invite token an admin generates.
 
-```bash
-cp .env.example .env
-docker compose up -d
-```
-
-Or run locally without Docker:
+### From source
 
 ```bash
 npm install
-cp .env.example .env   # edit as needed
-npm run start:dev
+cp .env.example .env
+npm run build:all         # web client + server
+npm run start:prod
 ```
 
-## Environment variables
+Requires Node 22, plus `ffmpeg`/`ffprobe` on PATH (and `yt-dlp` if you want URL
+downloads). The Docker image bundles all three.
 
-| Variable                 | Default                   | Description                                                               |
-| ------------------------ | ------------------------- | ------------------------------------------------------------------------- |
-| `JWT_SECRET`             | `change-me-in-production` | **Required in production**                                                |
-| `JWT_ACCESS_EXPIRES_IN`  | `15m`                     | Access token lifetime                                                     |
-| `JWT_REFRESH_EXPIRES_IN` | `30d`                     | Refresh token lifetime                                                    |
-| `PORT`                   | `3000`                    | HTTP port                                                                 |
-| `HOST`                   | `0.0.0.0`                 | Bind address                                                              |
-| `DB_PATH`                | `./data/podo.db`          | SQLite database path                                                      |
-| `LIBRARY_ROOTS`          | _(empty)_                 | Comma-separated paths to scan on startup                                  |
-| `UPLOAD_DIR`             | `./data/uploads`          | Uploaded files storage                                                    |
-| `ARTWORK_DIR`            | `./data/artwork`          | Artwork image storage                                                     |
-| `TRANSCODE_CACHE_DIR`    | `./data/transcode-cache`  | Transcoding segment cache                                                 |
-| `STATIC_DIR`             | `./web/dist`              | Web client static files (Docker image sets this to `/app/public`)        |
-| `CORS_ORIGIN`            | `*`                       | Allowed CORS origin(s)                                                    |
-| `TRUST_PROXY`            | `true`                    | Trust `X-Forwarded-*` headers (set `false` if not behind a reverse proxy) |
-| `RATE_LIMIT_MAX`         | `1000`                    | Global requests per minute per IP                                         |
-| `AUTH_RATE_LIMIT_MAX`    | `10`                      | Login/register/refresh attempts per minute per IP                         |
-| `SWAGGER_ENABLED`        | _(dev only)_              | Set `true` to expose `/api/docs` in production                            |
-| `OPENAI_API_KEY`         | _(empty)_                 | Enables AI metadata extraction on scan                                    |
-| `OPENAI_MODEL`           | `gpt-4o-mini`             | Model used for AI metadata extraction                                     |
-| `YTDLP_PATH`             | `yt-dlp`                  | Path to the yt-dlp binary for URL downloads                               |
-| `MUSICBRAINZ_USER_AGENT` | `podo/0.1.0`              | Sent to MusicBrainz; a generic UA gets rate-limited                       |
-| `MIGRATIONS_PATH`        | `./src/db/migrations`     | Migration folder (the Docker image points this at `dist/`)                |
+## Configuration
+
+Everything is environment variables; the full list is in
+[`.env.example`](.env.example). The ones that matter:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `JWT_SECRET` | `change-me-in-production` | **Required in production** — the server refuses to start with the default |
+| `LIBRARY_ROOTS` | _(empty)_ | Comma-separated paths to scan on startup |
+| `DB_PATH` | `./data/podo.db` | SQLite database |
+| `UPLOAD_DIR` / `ARTWORK_DIR` / `TRANSCODE_CACHE_DIR` | `./data/*` | Where uploads, artwork and cached transcodes live |
+| `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN` | `15m` / `30d` | Token lifetimes |
+| `CORS_ORIGIN` | `*` | Allowed origin(s) |
+| `TRUST_PROXY` | `true` | Set `false` when not behind a reverse proxy |
+| `RATE_LIMIT_MAX` / `AUTH_RATE_LIMIT_MAX` | `1000` / `10` | Requests per minute per IP, globally and on credential endpoints |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` | _(empty)_ / `gpt-4o-mini` | Enables LLM metadata extraction. Entirely optional — everything else works without it |
+| `YTDLP_PATH` | `yt-dlp` | Binary used for downloads and YouTube search |
+| `MUSICBRAINZ_USER_AGENT` | `podo/0.1.0` | Identify your deployment; a generic UA gets rate-limited |
+| `SWAGGER_ENABLED` | _(dev only)_ | Set `true` to expose `/api/docs` in production |
+
+## API
+
+Full OpenAPI spec at `/api/docs` in development. Base path is `/api/v1`.
+
+- `POST /auth/bootstrap` — create the first admin (one-time)
+- `POST /auth/login` · `POST /auth/refresh` · `POST /auth/invite`
+- `GET /tracks` · `GET /tracks/{id}` · `PATCH /tracks/{id}/metadata`
+- `GET /stream/{track_id}` — HTTP Range, optional transcode/normalize
+- `GET /tracks/{id}/lyrics` — synced lyrics, per language
+- `GET /search?q=` · `GET /albums` · `GET /history` · `GET /stats/me`
+- `POST /upload` · `POST /download` · `GET /download/search?q=`
+- `GET/POST/PATCH/DELETE /playlists` · `POST /playlists/{id}/tracks`
+- `POST /playlists/{id}/radio-tokens` → `GET /broadcast/{token}` (public stream)
+- `GET /radio?seed_artist_name=` · `POST /radio/mix`
+- `GET /sync?since=` — delta sync cursor
+- `GET /health` — unauthenticated liveness probe
+
+Real-time events over Socket.IO at `/api/v1/events` with
+`{ auth: { token: "<access_token>" } }`: `track.upserted`, `source.removed`,
+`scan.*`, `download.*`.
+
+## Security
+
+- Invite-only registration; `bootstrap` works only while the server has no users
+- Short-lived JWT access tokens, revocable refresh tokens, bcrypt-hashed at rest
+- Every route authenticated by default — public endpoints are opt-in, one by one
+- Per-IP rate limiting, stricter on credential endpoints
+- helmet security headers with a locked-down CSP
+- Upload hardening: extension allowlist, size cap, filename sanitization;
+  non-admins can only touch their own uploads
+- Streaming and artwork accept a `?token=` query parameter, because `<audio>`,
+  `<img>` and `AVPlayer` can't send headers — access tokens only, never refresh
+  tokens
 
 ## Development
 
 ```bash
-npm install
-npm run typecheck        # tsc --noEmit
-npm run build            # nest build
-npm run build:all        # web client + server
-cd web && npm run dev    # SPA dev server, proxies /api to localhost:3000
+npm run typecheck         # tsc --noEmit
+npm run build             # server
+cd web && npm run dev     # SPA dev server, proxies /api to :3000
 ```
 
-There is no automated test suite yet — the typecheck and both builds are the gate.
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the module map and the
-invariants worth knowing before changing anything.
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) is the internal reference: module
+map, the guard model, the metadata-override invariant, how scanning and the
+transcode cache actually work. Read it before changing anything structural.
 
-## API
+Issues and pull requests are welcome.
 
-Full OpenAPI spec at `/api/docs` (development; set `SWAGGER_ENABLED=true` to expose it in production).
+## Clients
 
-Base path: `/api/v1`
-
-Key endpoints:
-
-- `POST /api/v1/auth/bootstrap` — create first admin (one-time)
-- `POST /api/v1/auth/login` — get access + refresh tokens
-- `POST /api/v1/auth/invite` — generate invite token (admin); registration requires one
-- `GET/PATCH /api/v1/auth/me` — self-service account (display name, password)
-- `GET  /api/v1/tracks` — browse library
-- `GET  /api/v1/stream/{track_id}` — stream with HTTP Range support
-- `GET  /api/v1/tracks/{id}/lyrics` — synced lyrics per language, when available
-- `GET  /api/v1/search?q=` — full-text search
-- `GET  /api/v1/albums` — album list (with year + cover id) and `/albums/{id}` for its tracks
-- `GET  /api/v1/history` — recent plays, already joined to track titles; `GET /api/v1/stats/me` for totals
-- `POST /api/v1/upload` — upload audio/video files (any authenticated user)
-- `GET/PATCH/DELETE /api/v1/upload/files[/{source_id}]` — list, rename, delete own uploads
-- `GET/PATCH/DELETE /api/v1/admin/files[/{source_id}]` — admin file browser over all uploads
-- `GET  /api/v1/admin/storage` — per-directory usage + disk capacity
-- `GET  /api/v1/admin/health/detail` — uptime, memory, row counts (admin only)
-- `GET  /api/v1/admin/stats/traffic` — stream sessions and bytes served, per period
-- `POST /api/v1/download` — download from a URL via yt-dlp (audio-only or video); auto-fetches a thumbnail and any manually-uploaded subtitle tracks as lyrics
-- `GET  /api/v1/download/search?q=` — search the local library first, then YouTube
-- `POST /api/v1/playlists/{id}/tracks` — append tracks to a playlist
-- `POST/GET/DELETE /api/v1/playlists/{id}/radio-tokens` — generate/list/revoke a public, infinitely-looping stream URL for a playlist (choice of codec, optional shuffle); admins can list/force-close any token via `/api/v1/admin/radio-tokens`
-- `GET  /api/v1/broadcast/{token}` — the public radio stream itself (no auth)
-- `GET  /api/v1/radio?seed_artist_name=` — auto-generated station (`POST /api/v1/radio/mix` saves one as a playlist)
-- `GET  /api/v1/sync?since=` — delta sync cursor
-- `GET  /health` — Docker healthcheck
-
-## Real-time events
-
-Connect via Socket.IO to `/api/v1/events` with `{ auth: { token: "<access_token>" } }`.
-
-Events emitted: `track.upserted`, `source.removed`, `scan.started`, `scan.progress`, `scan.completed`, `scan.failed`, `download.started`, `download.progress`, `download.completed`, `download.failed`.
-
-## Architecture
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the internal reference. In short:
-
-- **NestJS + Fastify** — HTTP server
-- **SQLite + Drizzle ORM** — WAL mode, FTS5 full-text search built in
-- **ffmpeg/ffprobe** — media probing, thumbnail extraction, and on-the-fly transcoding
-- **yt-dlp** — reused for both URL downloads and YouTube search (no separate API key)
-- **p-queue** — in-process job queue (no Redis required)
-- **chokidar** — filesystem watch for instant library updates
-
-### Track ↔ Source model
-
-A _Track_ is a logical song (what playlists, favorites, and history reference).
-A _Source_ is a physical file — local audio or video. One track can have multiple sources.
-Streaming resolves the best available source by `media_kind` and `priority`.
-Files in the same directory sharing a filename stem (e.g. `song.mp3` + `song.mp4`)
-are attached to the same track, so a music video plays alongside its audio.
-
-Metadata has a base layer (ID3 tags, optionally enriched by an LLM when `OPENAI_API_KEY`
-is set) with a user override layer on top. User edits always win — automatic sources never
-overwrite manual input. Free-text alternate titles can be attached per track so search still
-finds it when written in a different script (e.g. "Yonezu Kenshi" vs "米津玄師").
-
-Artist names live directly on the track (`tracks.artist`, with `artist` / `original_artist`
-override columns for covers) — there is no separate artists table or browsing tab. For a
-cover, `artist` is who performed this recording and `original_artist` is who it's a cover
-of, so both clients render the row as "Performer · cover of Original".
-
-Tracks with a video source get a thumbnail — either the source's own thumbnail (when
-downloaded via yt-dlp) or the first extracted frame (via ffmpeg) as a fallback. Videos
-downloaded via yt-dlp also carry the exact URL they came from, and any manually-uploaded
-subtitle track is captured as synced, per-language lyrics (auto-generated captions are
-skipped as unreliable).
-
-A playlist can also be exposed as a permanent public radio stream (`/radio-tokens`) that
-loops forever in a chosen codec, independent of any playback session — built on a single
-persistent ffmpeg encoder fed by per-track decoders, since restarting the encoder between
-tracks corrupts the output at track boundaries.
-
-## Security
-
-- Invite-only registration — accounts require an admin-issued invite token; `bootstrap` only works while the server has zero users
-- JWT auth with short-lived access tokens and revocable refresh tokens (bcrypt-hashed at rest); production refuses to start with the default `JWT_SECRET`
-- Security headers via helmet (CSP, X-Frame-Options, etc.)
-- Global per-IP rate limiting plus a stricter limit on credential endpoints (`RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_MAX`)
-- Upload hardening: extension allowlist, 500MB size cap, filename sanitization; non-admins can only rename/delete their own uploads
-- Swagger UI disabled in production unless `SWAGGER_ENABLED=true`
-- Streaming and artwork endpoints accept a `?token=` query parameter because `<audio>`,
-  `<img>` and `AVPlayer` can't set headers — only short-lived access tokens are accepted
-  that way, never refresh tokens
+- **Web** — bundled, served by the same process at `/`
+- **[Muscat](https://github.com/byeolki/muscat)** — native iOS and macOS client:
+  background audio, lock-screen and Control Center controls, Live Activity and
+  Dynamic Island
 
 ## License
 
-AGPL-3.0
+[AGPL-3.0](LICENSE). If you run a modified version as a network service, its
+source has to be available to its users.

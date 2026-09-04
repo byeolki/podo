@@ -1,6 +1,6 @@
 services:
   podo:
-    image: ghcr.io/GITHUB_USERNAME/podo:latest
+    image: ghcr.io/byeolki/podo:latest
     ports:
       - "3000:3000"
     environment:

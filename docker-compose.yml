@@ -17,7 +17,6 @@ services:
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
       LIBRARY_ROOTS: ${LIBRARY_ROOTS:-/music}
       MUSICBRAINZ_USER_AGENT: ${MUSICBRAINZ_USER_AGENT:-podo/0.1.0}
-      METRICS_ENABLED: ${METRICS_ENABLED:-false}
     volumes:
       - podo-data:/data
       - ${MUSIC_DIR:-./music}:/music:ro

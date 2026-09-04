@@ -106,6 +106,13 @@
       "when": 1784686919299,
       "tag": "0014_track_volume",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1788534785528,
+      "tag": "0015_playlist_subscriptions",
+      "breakpoints": true
     }
   ]
 }

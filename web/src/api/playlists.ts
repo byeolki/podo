@@ -66,3 +66,43 @@ export function uploadPlaylistCover(id: string, file: File): Promise<{ artwork_p
 export function removePlaylistCover(id: string): Promise<void> {
   return api.delete(`/playlists/${id}/cover`)
 }
+
+export interface PlaylistSubscription {
+  playlist_id: string
+  source_url: string
+  provider: string
+  audio_only: boolean
+  interval_minutes: number
+  enabled: boolean
+  last_synced_at: string | null
+  last_status: 'ok' | 'failed' | 'running' | null
+  last_error: string | null
+  added_count: number
+  created_at: string
+}
+
+export interface SyncResult {
+  checked: number
+  added: number
+  skipped: number
+  failed: number
+}
+
+export function getSubscription(id: string): Promise<PlaylistSubscription | null> {
+  return api.get(`/playlists/${id}/subscription`)
+}
+
+export function setSubscription(
+  id: string,
+  data: { source_url: string; interval_minutes?: number; audio_only?: boolean; enabled?: boolean },
+): Promise<PlaylistSubscription> {
+  return api.put(`/playlists/${id}/subscription`, data)
+}
+
+export function removeSubscription(id: string): Promise<void> {
+  return api.delete(`/playlists/${id}/subscription`)
+}
+
+export function syncSubscriptionNow(id: string): Promise<SyncResult> {
+  return api.post(`/playlists/${id}/subscription/sync`, {})
+}

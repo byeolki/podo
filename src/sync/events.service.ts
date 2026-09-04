@@ -13,7 +13,10 @@ export type EventName =
   | 'download.started'
   | 'download.progress'
   | 'download.completed'
-  | 'download.failed';
+  | 'download.failed'
+  | 'playlist.sync.started'
+  | 'playlist.sync.completed'
+  | 'playlist.sync.failed';
 
 @Injectable()
 export class EventsService {

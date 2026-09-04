@@ -280,6 +280,30 @@ export const playlist_radio_tokens = sqliteTable('playlist_radio_tokens', {
   index('idx_playlist_radio_tokens_playlist').on(t.playlist_id),
 ]);
 
+// ─── Playlist subscriptions (auto-sync from a remote playlist) ───────────────
+
+/// Links a Podo playlist to a playlist URL on an external platform (a YouTube
+/// playlist, a SoundCloud set, ...). One-way and additive: new remote entries are
+/// downloaded and appended, but nothing is ever removed locally, so curating the
+/// Podo side by hand keeps working. At most one subscription per playlist, hence
+/// `playlist_id` as the primary key.
+export const playlist_subscriptions = sqliteTable('playlist_subscriptions', {
+  playlist_id: text('playlist_id').primaryKey().references(() => playlists.id, { onDelete: 'cascade' }),
+  source_url: text('source_url').notNull(),
+  provider: text('provider').notNull().default('other'),
+  audio_only: integer('audio_only', { mode: 'boolean' }).notNull().default(true),
+  interval_minutes: integer('interval_minutes').notNull().default(360),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  last_synced_at: integer('last_synced_at', { mode: 'timestamp_ms' }),
+  last_status: text('last_status', { enum: ['ok', 'failed', 'running'] }),
+  last_error: text('last_error'),
+  added_count: integer('added_count').notNull().default(0),
+  created_by: text('created_by').references(() => users.id),
+  created_at: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
+}, (t) => [
+  index('idx_playlist_subscriptions_enabled').on(t.enabled),
+]);
+
 // ─── Favorites ────────────────────────────────────────────────────────────────
 
 export const favorites = sqliteTable('favorites', {

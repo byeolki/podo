@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Disc3, Search, X, ChevronDown } from 'lucide-react'
+import { Disc3 } from 'lucide-react'
 import { getAlbums } from '../api/albums'
 import { getArtworkUrl } from '../api/client'
 import ArtworkImage from '../components/ArtworkImage'
+import SearchInput from '../components/SearchInput'
+import SortMenu from '../components/SortMenu'
 
 type AlbumSort = 'az' | 'za' | 'year_desc' | 'year_asc'
 
@@ -18,7 +20,6 @@ const SORT_LABELS: Record<AlbumSort, string> = {
 export default function Albums() {
   const [q, setQ] = useState('')
   const [sort, setSort] = useState<AlbumSort>('az')
-  const [sortOpen, setSortOpen] = useState(false)
 
   const { data: albums = [], isLoading } = useQuery({
     queryKey: ['albums'],
@@ -47,49 +48,10 @@ export default function Albums() {
         </div>
       </div>
 
-      {/* Search bar */}
-      <div className="relative mb-3">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
-        <input
-          type="text"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search albums..."
-          className="w-full bg-surface-2 border border-border rounded-lg pl-8 pr-4 py-2 text-sm focus:outline-none focus:border-accent transition-colors"
-        />
-        {q && (
-          <button onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-white">
-            <X size={13} />
-          </button>
-        )}
-      </div>
+      <SearchInput value={q} onChange={setQ} placeholder="Search albums..." className="mb-3" />
 
-      {/* Sort bar */}
       <div className="flex justify-end mb-5">
-        <div className="relative">
-          <button
-            onClick={() => setSortOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-2 text-xs text-ink-secondary hover:text-white transition-colors"
-          >
-            {SORT_LABELS[sort]}
-            <ChevronDown size={12} />
-          </button>
-          {sortOpen && (
-            <div className="absolute right-0 top-full mt-1 w-36 bg-surface-3 border border-border rounded-lg overflow-hidden shadow-xl z-20">
-              {(Object.keys(SORT_LABELS) as AlbumSort[]).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => { setSort(s); setSortOpen(false) }}
-                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                    sort === s ? 'text-accent bg-accent/10' : 'text-ink-secondary hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {SORT_LABELS[s]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <SortMenu value={sort} options={SORT_LABELS} onChange={setSort} />
       </div>
 
       {isLoading ? (

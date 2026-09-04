@@ -1,11 +1,13 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Shuffle, Sparkles, X, ChevronDown, Trash2, CheckSquare, Square, Search, ListPlus } from 'lucide-react'
+import { Play, Shuffle, Sparkles, X, Trash2, CheckSquare, Square, ListPlus } from 'lucide-react'
 import { getTracks, aiAutofillTracks, deleteTracks } from '../api/tracks'
 import type { SortOption, FilterOption } from '../api/tracks'
 import { usePlayerStore } from '../store/player'
 import TrackRow from '../components/TrackRow'
 import AddToPlaylistModal from '../components/AddToPlaylistModal'
+import SearchInput from '../components/SearchInput'
+import SortMenu from '../components/SortMenu'
 
 const SORT_LABELS: Record<SortOption, string> = {
   newest: 'Newest',
@@ -23,7 +25,6 @@ const FILTER_LABELS: Record<FilterOption, string> = {
 export default function Library() {
   const [sort, setSort] = useState<SortOption>('newest')
   const [filter, setFilter] = useState<FilterOption>('all')
-  const [sortOpen, setSortOpen] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [q, setQ] = useState('')
@@ -176,22 +177,7 @@ export default function Library() {
         )}
       </div>
 
-      {/* Search bar */}
-      <div className="relative mb-3">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
-        <input
-          type="text"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search tracks..."
-          className="w-full bg-surface-2 border border-border rounded-lg pl-8 pr-4 py-2 text-sm focus:outline-none focus:border-accent transition-colors"
-        />
-        {q && (
-          <button onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-white">
-            <X size={13} />
-          </button>
-        )}
-      </div>
+      <SearchInput value={q} onChange={setQ} placeholder="Search tracks..." className="mb-3" />
 
       {/* Filter + Sort bar */}
       <div className="flex items-center justify-between mb-3">
@@ -209,30 +195,7 @@ export default function Library() {
           ))}
         </div>
 
-        <div className="relative">
-          <button
-            onClick={() => setSortOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-2 text-xs text-ink-secondary hover:text-white transition-colors"
-          >
-            {SORT_LABELS[sort]}
-            <ChevronDown size={12} />
-          </button>
-          {sortOpen && (
-            <div className="absolute right-0 top-full mt-1 w-40 bg-surface-3 border border-border rounded-lg overflow-hidden shadow-xl z-20">
-              {(Object.keys(SORT_LABELS) as SortOption[]).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => { setSort(s); setSortOpen(false) }}
-                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                    sort === s ? 'text-accent bg-accent/10' : 'text-ink-secondary hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {SORT_LABELS[s]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <SortMenu value={sort} options={SORT_LABELS} onChange={setSort} menuWidthClass="w-40" />
       </div>
 
       {isLoading ? (

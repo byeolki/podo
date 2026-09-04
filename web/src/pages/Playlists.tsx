@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ListMusic, Plus, Trash2, Globe, Lock, Search, X, ChevronDown } from 'lucide-react'
+import { ListMusic, Plus, Trash2, Globe, Lock } from 'lucide-react'
 import { getPlaylists, getPublicPlaylists, createPlaylist, deletePlaylist } from '../api/playlists'
 import { getArtworkUrl } from '../api/client'
 import ArtworkImage from '../components/ArtworkImage'
+import SearchInput from '../components/SearchInput'
+import SortMenu from '../components/SortMenu'
 import { useAuthStore } from '../store/auth'
 
 type PlaylistFilter = 'mine' | 'all'
@@ -30,7 +32,6 @@ export default function Playlists() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<PlaylistFilter>('mine')
   const [sort, setSort] = useState<PlaylistSort>('az')
-  const [sortOpen, setSortOpen] = useState(false)
 
   const { data: myPlaylists = [] } = useQuery({
     queryKey: ['playlists', 'mine'],
@@ -120,22 +121,7 @@ export default function Playlists() {
         </div>
       )}
 
-      {/* Search bar */}
-      <div className="relative mb-3">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
-        <input
-          type="text"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search playlists..."
-          className="w-full bg-surface-2 border border-border rounded-lg pl-8 pr-4 py-2 text-sm focus:outline-none focus:border-accent transition-colors"
-        />
-        {q && (
-          <button onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-white">
-            <X size={13} />
-          </button>
-        )}
-      </div>
+      <SearchInput value={q} onChange={setQ} placeholder="Search playlists..." className="mb-3" />
 
       {/* Filter + Sort bar */}
       <div className="flex items-center justify-between mb-4">
@@ -153,30 +139,7 @@ export default function Playlists() {
           ))}
         </div>
 
-        <div className="relative">
-          <button
-            onClick={() => setSortOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-2 text-xs text-ink-secondary hover:text-white transition-colors"
-          >
-            {SORT_LABELS[sort]}
-            <ChevronDown size={12} />
-          </button>
-          {sortOpen && (
-            <div className="absolute right-0 top-full mt-1 w-32 bg-surface-3 border border-border rounded-lg overflow-hidden shadow-xl z-20">
-              {(Object.keys(SORT_LABELS) as PlaylistSort[]).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => { setSort(s); setSortOpen(false) }}
-                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                    sort === s ? 'text-accent bg-accent/10' : 'text-ink-secondary hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {SORT_LABELS[s]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <SortMenu value={sort} options={SORT_LABELS} onChange={setSort} menuWidthClass="w-32" />
       </div>
 
       {visible.length === 0 ? (

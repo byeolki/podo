@@ -58,10 +58,17 @@ track, so "米津玄師" is findable as "Kenshi Yonezu" or "Yonezu Kenshi". Sear
 also expands artist names through MusicBrainz aliases before it queries.
 
 **Music you don't own yet.** yt-dlp is wired in for both downloading and
-searching, so there's no second tool and no API key. Downloads keep the source
-URL, pull the thumbnail, and turn manually-uploaded subtitle tracks into synced,
-per-language lyrics — auto-generated captions are deliberately skipped as too
-unreliable to call lyrics.
+searching, so there's no second tool and no API key — and because it's yt-dlp,
+that means YouTube, X, SoundCloud, Bandcamp, Vimeo and the [thousand-odd other
+sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) it knows,
+not just one. Downloads keep the source URL, pull the thumbnail, and turn
+manually-uploaded subtitle tracks into synced, per-language lyrics —
+auto-generated captions are deliberately skipped as too unreliable to call lyrics.
+
+**Playlists that fill themselves.** Point a playlist at one on YouTube (or
+anywhere else yt-dlp reads) and Podo checks it on a schedule, downloads what's
+new and appends it. One-way and additive on purpose: when a video disappears
+upstream, your copy stays — usually the whole reason to keep one.
 
 **A radio station out of any playlist.** Mint a permanent URL and paste it into
 VLC, a network speaker, a Discord bot — anything that can open a stream. It loops
@@ -77,9 +84,11 @@ forever in the codec you pick, with no login and no playback session behind it.
 | **Lyrics** | Synced (LRC-style) lyrics per language, imported from yt-dlp subtitle tracks |
 | **Metadata** | ID3 tags → optional LLM fill → user override layer that always wins; multi-select AI autofill from the dashboard |
 | **Search** | SQLite FTS5 over titles and albums, plus artist/alternate-title matching and MusicBrainz alias expansion |
-| **Import** | Drag-and-drop upload, or yt-dlp by URL or YouTube search, with progress over websockets |
+| **Import** | Drag-and-drop upload, or yt-dlp from any supported site by URL, or YouTube search, with progress over websockets |
+| **Auto-sync** | Subscribe a playlist to a remote playlist URL; new items are downloaded and appended on a schedule you pick |
 | **Sharing** | Invite-only accounts, public playlists, permanent public radio URLs per playlist |
 | **Per user** | Favorites, playlists, play history, listening stats |
+| **Listening** | Sleep timer (preset delay or end-of-track) and favorites-only playback within a playlist, on both clients |
 | **Clients** | Bundled React web dashboard + [Muscat](https://github.com/byeolki/muscat) for iOS/macOS |
 | **Admin** | Library roots and scans, uploaded-file browser, storage and traffic stats, user management, radio token control |
 | **Live** | Socket.IO events for scan and download progress, and a `/sync` cursor for delta sync |
@@ -147,8 +156,10 @@ Full OpenAPI spec at `/api/docs` in development. Base path is `/api/v1`.
 - `GET /stream/{track_id}` — HTTP Range, optional transcode/normalize
 - `GET /tracks/{id}/lyrics` — synced lyrics, per language
 - `GET /search?q=` · `GET /albums` · `GET /history` · `GET /stats/me`
-- `POST /upload` · `POST /download` · `GET /download/search?q=`
+- `POST /upload` · `POST /download` (any yt-dlp site) · `GET /download/inspect?url=`
+- `GET /download/search?q=` — local library first, then YouTube
 - `GET/POST/PATCH/DELETE /playlists` · `POST /playlists/{id}/tracks`
+- `GET/PUT/DELETE /playlists/{id}/subscription` · `POST /playlists/{id}/subscription/sync` — playlist auto-sync
 - `POST /playlists/{id}/radio-tokens` → `GET /broadcast/{token}` (public stream)
 - `GET /radio?seed_artist_name=` · `POST /radio/mix`
 - `GET /sync?since=` — delta sync cursor
@@ -156,7 +167,7 @@ Full OpenAPI spec at `/api/docs` in development. Base path is `/api/v1`.
 
 Real-time events over Socket.IO at `/api/v1/events` with
 `{ auth: { token: "<access_token>" } }`: `track.upserted`, `source.removed`,
-`scan.*`, `download.*`.
+`scan.*`, `download.*`, `playlist.sync.*`.
 
 ## Security
 

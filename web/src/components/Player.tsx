@@ -5,6 +5,7 @@ import { getStreamUrl, getArtworkUrl, ensureFreshToken } from '../api/client'
 import { formatDuration, recordPlay } from '../api/tracks'
 import ArtworkImage from './ArtworkImage'
 import VideoModal from './VideoModal'
+import SleepTimerMenu from './SleepTimerMenu'
 
 const MAX_RECOVERY_ATTEMPTS = 4
 const STALL_TIMEOUT_MS = 12_000
@@ -165,6 +166,13 @@ export default function Player() {
     const store = usePlayerStore.getState()
     const { repeatMode: mode, queue: q, currentIndex: idx } = store
 
+    // An "end of this track" sleep timer outranks repeat and auto-advance —
+    // that's the whole point of it.
+    if (store.sleepTimer?.kind === 'endOfTrack') {
+      store.fireSleepTimer()
+      return
+    }
+
     if (mode === 'one') {
       const audio = audioRef.current
       if (audio) {
@@ -287,6 +295,7 @@ export default function Player() {
             <Video size={15} />
           </button>
         )}
+        <SleepTimerMenu />
         <button
           onClick={() => setNormalize(!normalize)}
           className={`hidden sm:block transition-colors ${normalize ? 'text-accent' : 'text-ink-tertiary hover:text-ink-secondary'}`}

@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import type { Track } from '../api/tracks'
 
+/**
+ * `null` = off. `endOfTrack` stops once the current track finishes; a number is
+ * an absolute epoch-ms deadline, so the countdown survives re-renders and stays
+ * correct if the tab is backgrounded (unlike a decrementing counter).
+ */
+export type SleepTimer = { kind: 'endOfTrack' } | { kind: 'at'; endsAt: number } | null
+
 interface PlayerState {
   queue: Track[]
   currentIndex: number
@@ -12,6 +19,7 @@ interface PlayerState {
   normalize: boolean
   resumeTime: number | null
   repeatMode: 'off' | 'all' | 'one'
+  sleepTimer: SleepTimer
 
   setQueue: (tracks: Track[], startIndex?: number) => void
   play: () => void
@@ -27,6 +35,9 @@ interface PlayerState {
   setNormalize: (v: boolean) => void
   consumeResumeTime: () => number | null
   cycleRepeatMode: () => void
+  setSleepTimer: (timer: SleepTimer) => void
+  /** Called by the player when a deadline passes or a track ends under `endOfTrack`. */
+  fireSleepTimer: () => void
 }
 
 const QUEUE_KEY = 'podo_player_queue'
@@ -111,6 +122,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   normalize: loadNormalize(),
   resumeTime: restored && restored.currentTime > 3 ? restored.currentTime : null,
   repeatMode: loadRepeatMode(),
+  // Deliberately not persisted: waking the app tomorrow to a timer you set last
+  // night would be a surprise, not a feature.
+  sleepTimer: null,
 
   setQueue: (tracks, startIndex = 0) => {
     set({ queue: tracks, currentIndex: startIndex, resumeTime: null })
@@ -201,6 +215,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const next = REPEAT_ORDER[(REPEAT_ORDER.indexOf(current) + 1) % REPEAT_ORDER.length]
     set({ repeatMode: next })
     try { localStorage.setItem(REPEAT_KEY, next) } catch {}
+  },
+
+  setSleepTimer: (timer) => set({ sleepTimer: timer }),
+
+  fireSleepTimer: () => {
+    const { audioRef } = get()
+    if (audioRef) audioRef.pause()
+    set({ isPlaying: false, sleepTimer: null })
+    persistTime(get().currentTime, true)
   },
 }))
 

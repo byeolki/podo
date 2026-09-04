@@ -111,6 +111,42 @@ crash are swept at startup.
 `stream_sessions.bytes_sent` is counted by a `Transform` in front of the response
 body — that column is what the admin traffic view reads.
 
+## Playlist auto-sync
+
+`playlist_subscriptions` links a playlist to a remote playlist URL (at most one
+per playlist, hence `playlist_id` as the primary key). `PlaylistSyncService` runs
+a scheduler tick every minute and syncs whatever is past its interval,
+sequentially — each sync can spawn yt-dlp downloads, and running several at once
+just multiplies that against one CPU.
+
+Two invariants worth keeping:
+
+- **One-way and additive.** Remote entries are downloaded and appended; nothing
+  local is ever deleted. A video disappearing upstream must not delete the copy
+  the user kept.
+- **Dedupe is by `sources.source_url`.** The downloader records the canonical
+  per-item URL, so re-syncing an N-track playlist costs one `--flat-playlist`
+  listing and zero downloads. Never dedupe by title.
+
+Entries are downloaded one at a time with `allowPlaylist: false` — the listing
+already expanded the playlist, so letting yt-dlp expand it again per entry would
+re-download everything, N times over.
+
+Reading a subscription needs playlist ownership; creating, changing or running
+one needs admin, because it pulls files onto the server and that's the bar
+`POST /download` already sets.
+
+## Downloads and providers
+
+`src/download/providers.ts` classifies a URL, for two reasons only: to label it
+in the UI, and to decide whether it names one item or a collection. There is no
+site allowlist — whatever yt-dlp accepts is accepted.
+
+`looksLikePlaylist` matters more than it looks: yt-dlp follows playlists by
+default, so a plain `watch?v=…&list=…` share link would otherwise drag in the
+entire playlist. Single items are fetched with `--no-playlist`; only URLs that
+clearly mean "the whole collection" get `--yes-playlist`.
+
 ## Broadcast (radio URLs)
 
 A playlist can be exposed as a permanent public stream. One long-lived ffmpeg

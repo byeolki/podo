@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Play, Shuffle, Globe, Lock, Pencil, Radio, Camera, X } from 'lucide-react'
+import { ArrowLeft, Play, Shuffle, Globe, Lock, Pencil, Radio, Camera, X, Heart, RefreshCw } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { getPlaylist, updatePlaylist, uploadPlaylistCover, removePlaylistCover } from '../api/playlists'
 import { getArtworkUrl } from '../api/client'
@@ -9,14 +9,18 @@ import { useAuthStore } from '../store/auth'
 import ArtworkImage from '../components/ArtworkImage'
 import TrackRow from '../components/TrackRow'
 import RadioModal from '../components/RadioModal'
+import PlaylistSyncPanel from '../components/PlaylistSyncPanel'
 
 export default function PlaylistDetail() {
   const { id } = useParams<{ id: string }>()
   const qc = useQueryClient()
   const userId = useAuthStore((s) => s.userId)
+  const isAdmin = useAuthStore((s) => s.role === 'admin')
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
   const [radioOpen, setRadioOpen] = useState(false)
+  const [syncOpen, setSyncOpen] = useState(false)
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [coverBust, setCoverBust] = useState(0)
   const coverInputRef = useRef<HTMLInputElement>(null)
 
@@ -58,7 +62,11 @@ export default function PlaylistDetail() {
   if (isLoading) return <div className="p-4 sm:p-6 text-ink-tertiary">Loading...</div>
   if (!playlist) return <div className="p-4 sm:p-6 text-ink-tertiary">Playlist not found</div>
 
-  const tracks = playlist.tracks ?? []
+  const allTracks = playlist.tracks ?? []
+  // Filtering here (rather than server-side) keeps the toggle instant and means
+  // the queue you play is exactly the list you're looking at.
+  const favoriteTracks = allTracks.filter((t) => t.is_favorited)
+  const tracks = favoritesOnly ? favoriteTracks : allTracks
   const isOwner = playlist.owner_user_id === userId
   const artworkUrl = playlist.artwork_path ? `${getArtworkUrl(playlist.id)}?v=${coverBust}` : null
 
@@ -138,6 +146,18 @@ export default function PlaylistDetail() {
 
           <div className="flex items-center gap-3 text-sm text-ink-secondary">
             <span>{tracks.length} tracks</span>
+            {favoriteTracks.length > 0 && (
+              <button
+                onClick={() => setFavoritesOnly((v) => !v)}
+                title={favoritesOnly ? 'Show every track' : 'Play only tracks you favorited'}
+                className={`flex items-center gap-1 transition-colors ${
+                  favoritesOnly ? 'text-red-400' : 'hover:text-white'
+                }`}
+              >
+                <Heart size={12} fill={favoritesOnly ? 'currentColor' : 'none'} />
+                {favoritesOnly ? 'Favorites only' : `${favoriteTracks.length} favorited`}
+              </button>
+            )}
             <button
               onClick={() => updateMut.mutate({ is_public: !playlist.is_public })}
               className="flex items-center gap-1 hover:text-white transition-colors"
@@ -171,6 +191,15 @@ export default function PlaylistDetail() {
                   <Radio size={14} /> Radio URL
                 </button>
               )}
+              {isOwner && isAdmin && (
+                <button
+                  onClick={() => setSyncOpen(true)}
+                  title="Keep this playlist in step with a YouTube/SoundCloud/… playlist"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm font-medium transition-colors"
+                >
+                  <RefreshCw size={14} /> Auto-sync
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -181,11 +210,14 @@ export default function PlaylistDetail() {
           <TrackRow key={track.id} track={track} index={i} queue={tracks} showNumber showArtist />
         ))}
         {tracks.length === 0 && (
-          <p className="text-center py-12 text-ink-tertiary">This playlist is empty</p>
+          <p className="text-center py-12 text-ink-tertiary">
+            {favoritesOnly ? 'No favorited tracks in this playlist' : 'This playlist is empty'}
+          </p>
         )}
       </div>
 
       {radioOpen && <RadioModal playlistId={id!} onClose={() => setRadioOpen(false)} />}
+      {syncOpen && <PlaylistSyncPanel playlistId={id!} onClose={() => setSyncOpen(false)} />}
     </div>
   )
 }

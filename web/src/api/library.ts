@@ -42,9 +42,14 @@ export function getScanJobs(): Promise<ScanJob[]> {
   return api.get('/library/scans')
 }
 
+export type Provider =
+  | 'youtube' | 'twitter' | 'soundcloud' | 'bandcamp' | 'vimeo'
+  | 'tiktok' | 'instagram' | 'twitch' | 'niconico' | 'bilibili' | 'other'
+
 export interface DownloadJob {
   id: string
   url: string
+  provider: Provider
   status: 'pending' | 'running' | 'done' | 'failed'
   progress: number
   completed_items: number
@@ -53,8 +58,20 @@ export interface DownloadJob {
   created_at: string
 }
 
-export function startDownload(url: string, audio_only = true): Promise<DownloadJob> {
-  return api.post('/download', { url, audio_only })
+export interface UrlInspection {
+  url: string
+  provider: Provider
+  provider_label: string
+  is_playlist: boolean
+}
+
+/** Classifies a pasted URL so the UI can say what it's about to do. */
+export function inspectUrl(url: string): Promise<UrlInspection> {
+  return api.get(`/download/inspect?url=${encodeURIComponent(url)}`)
+}
+
+export function startDownload(url: string, audio_only = true, allow_playlist?: boolean): Promise<DownloadJob> {
+  return api.post('/download', { url, audio_only, ...(allow_playlist !== undefined && { allow_playlist }) })
 }
 
 export function getDownloads(): Promise<DownloadJob[]> {

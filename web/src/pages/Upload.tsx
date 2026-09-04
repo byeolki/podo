@@ -9,7 +9,7 @@ import {
   type UploadedFile,
 } from '../api/upload'
 import { formatBytes } from '../api/admin'
-import { startDownload, getDownloads, searchDownload, type UnifiedSearchResult } from '../api/library'
+import { startDownload, getDownloads, searchDownload, inspectUrl, type UnifiedSearchResult, type UrlInspection } from '../api/library'
 import { useAuthStore } from '../store/auth'
 
 const URL_PATTERN = /^https?:\/\//i
@@ -36,6 +36,7 @@ function AddMusicSection() {
   const [lastQuery, setLastQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
+  const [inspection, setInspection] = useState<UrlInspection | null>(null)
 
   const { data: jobs = [] } = useQuery({ queryKey: ['downloads'], queryFn: getDownloads, refetchInterval: 2000 })
 
@@ -54,6 +55,23 @@ function AddMusicSection() {
   })
 
   const isUrl = URL_PATTERN.test(input.trim())
+
+  // Ask the server what a pasted link actually is, so the button can say
+  // "Download playlist" instead of silently pulling 200 tracks.
+  useEffect(() => {
+    const trimmed = input.trim()
+    if (!URL_PATTERN.test(trimmed)) {
+      setInspection(null)
+      return
+    }
+    let cancelled = false
+    const t = setTimeout(() => {
+      inspectUrl(trimmed)
+        .then((result) => { if (!cancelled) setInspection(result) })
+        .catch(() => { if (!cancelled) setInspection(null) })
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [input])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,13 +104,17 @@ function AddMusicSection() {
 
   return (
     <div className="mb-6">
-      <h3 className="text-sm font-semibold text-ink-secondary uppercase tracking-wider mb-2">Add from YouTube</h3>
+      <h3 className="text-sm font-semibold text-ink-secondary uppercase tracking-wider mb-2">Add from a link</h3>
+      <p className="text-xs text-ink-faint mb-2">
+        Paste a link from YouTube, X, SoundCloud, Bandcamp, Vimeo — anything yt-dlp
+        supports — or type a title to search YouTube.
+      </p>
       <form onSubmit={handleSubmit} className="flex gap-2 mb-2">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Paste a URL or search by title/artist..."
+          placeholder="Paste a link, or search by title/artist..."
           className="flex-1 bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
         />
         <button
@@ -101,13 +123,25 @@ function AddMusicSection() {
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50"
         >
           {isUrl ? <Download size={14} /> : <Search size={14} />}
-          {isSearching ? 'Searching…' : isUrl ? 'Download' : 'Search'}
+          {isSearching
+            ? 'Searching…'
+            : isUrl
+              ? inspection?.is_playlist ? 'Download playlist' : 'Download'
+              : 'Search'}
         </button>
       </form>
-      <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer mb-3">
-        <input type="checkbox" checked={audioOnly} onChange={(e) => setAudioOnly(e.target.checked)} className="accent-accent" />
-        Audio only
-      </label>
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer">
+          <input type="checkbox" checked={audioOnly} onChange={(e) => setAudioOnly(e.target.checked)} className="accent-accent" />
+          Audio only
+        </label>
+        {inspection && (
+          <span className="text-xs text-ink-faint">
+            {inspection.provider_label}
+            {inspection.is_playlist ? ' · whole playlist' : ' · single item'}
+          </span>
+        )}
+      </div>
 
       {searchResult && searchResult.local.length > 0 && (
         <div className="mb-3">
@@ -169,6 +203,9 @@ function AddMusicSection() {
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${DOWNLOAD_STATUS_STYLE[job.status] ?? 'text-ink-tertiary bg-surface-2'}`}>
                   {job.status}
                 </span>
+                {job.provider && job.provider !== 'other' && (
+                  <span className="text-xs text-ink-faint capitalize">{job.provider}</span>
+                )}
                 {job.status === 'running' && (
                   <span className="text-xs text-ink-secondary">
                     {job.total_items ? `${job.completed_items}/${job.total_items} · ` : ''}{job.progress.toFixed(0)}%

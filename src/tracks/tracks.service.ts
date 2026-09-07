@@ -36,8 +36,11 @@ export class TracksService {
     fs.mkdirSync(this.artworkDir, { recursive: true });
   }
 
-  async findAll(userId: string, opts: { sort?: SortOption; filter?: FilterOption; role?: string } = {}) {
-    const { sort = 'newest', filter = 'all', role } = opts;
+  async findAll(
+    userId: string,
+    opts: { sort?: SortOption; filter?: FilterOption; role?: string; limit?: number; offset?: number } = {},
+  ) {
+    const { sort = 'newest', filter = 'all', role, limit, offset } = opts;
 
     const orderBy = sort === 'oldest'
       ? asc(schema.tracks.added_at)
@@ -54,26 +57,27 @@ export class TracksService {
         .where(eq(schema.favorites.user_id, userId));
       const favIds = favRows.map((f) => f.track_id);
       if (!favIds.length) return [];
-      rawTracks = await this.db
-        .select()
-        .from(schema.tracks)
-        .where(and(isNull(schema.tracks.deleted_at), inArray(schema.tracks.id, favIds)))
-        .orderBy(orderBy);
+      rawTracks = await this.page(
+        this.db
+          .select()
+          .from(schema.tracks)
+          .where(and(isNull(schema.tracks.deleted_at), inArray(schema.tracks.id, favIds)))
+          .orderBy(orderBy),
+        limit, offset, sort,
+      );
     } else if (filter === 'mine') {
       const mineCondition = role === 'admin'
         ? and(isNull(schema.tracks.deleted_at), sql`(${schema.tracks.added_by} = ${userId} OR ${schema.tracks.added_by} IS NULL)`)
         : and(isNull(schema.tracks.deleted_at), eq(schema.tracks.added_by, userId));
-      rawTracks = await this.db
-        .select()
-        .from(schema.tracks)
-        .where(mineCondition)
-        .orderBy(orderBy);
+      rawTracks = await this.page(
+        this.db.select().from(schema.tracks).where(mineCondition).orderBy(orderBy),
+        limit, offset, sort,
+      );
     } else {
-      rawTracks = await this.db
-        .select()
-        .from(schema.tracks)
-        .where(isNull(schema.tracks.deleted_at))
-        .orderBy(orderBy);
+      rawTracks = await this.page(
+        this.db.select().from(schema.tracks).where(isNull(schema.tracks.deleted_at)).orderBy(orderBy),
+        limit, offset, sort,
+      );
     }
 
     const results = await this.enrich(rawTracks, userId);
@@ -83,6 +87,21 @@ export class TracksService {
     return sort === 'popular'
       ? [...results].sort((a, b) => b.favorite_count - a.favorite_count)
       : results;
+  }
+
+  /**
+   * Applies limit/offset — except for `popular`, which is ordered by a count that
+   * only exists after enrichment, so paginating it in SQL would return the wrong
+   * page. That sort stays whole-library.
+   */
+  private async page<T>(
+    query: { limit: (n: number) => { offset: (n: number) => Promise<T[]> } & Promise<T[]> } & Promise<T[]>,
+    limit: number | undefined,
+    offset: number | undefined,
+    sort: SortOption,
+  ): Promise<T[]> {
+    if (sort === 'popular' || (limit === undefined && offset === undefined)) return query;
+    return query.limit(limit ?? 1000).offset(offset ?? 0);
   }
 
   /**

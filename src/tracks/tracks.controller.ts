@@ -1,7 +1,7 @@
 import {
   Controller, Get, Patch, Post, Delete, Param, Body, Query, Req, HttpCode, HttpStatus, BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiQuery } from '@nestjs/swagger';
 import { IsString, IsOptional, IsInt, IsBoolean, IsArray, ArrayNotEmpty, IsNumber, Min, Max } from 'class-validator';
 import { FastifyRequest } from 'fastify';
 import { Readable } from 'stream';
@@ -47,17 +47,42 @@ export class TracksController {
   constructor(private readonly tracks: TracksService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all tracks' })
+  @ApiOperation({ summary: 'List tracks' })
+  @ApiQuery({ name: 'sort', required: false, enum: ['newest', 'oldest', 'popular', 'plays'] })
+  @ApiQuery({ name: 'filter', required: false, enum: ['all', 'mine', 'favorites'] })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Omit to return the whole library' })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiQuery({ name: 'ids', required: false, description: 'Comma-separated ids; returns just those, ignoring sort/filter' })
   findAll(
     @Query('sort') sort?: string,
     @Query('filter') filter?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('ids') ids?: string,
     @CurrentUser() user?: JwtPayload,
   ) {
+    // Resolving a handful of known ids (search results, a shared link) shouldn't
+    // require pulling the whole library down and filtering it client-side.
+    if (ids) {
+      const wanted = ids.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 500);
+      return this.tracks.findByIds(wanted, user?.sub);
+    }
+
     const validSorts = ['newest', 'oldest', 'popular', 'plays'] as const;
     const validFilters = ['all', 'mine', 'favorites'] as const;
     const sortOpt = (validSorts as readonly string[]).includes(sort ?? '') ? sort as SortOption : 'newest';
     const filterOpt = (validFilters as readonly string[]).includes(filter ?? '') ? filter as FilterOption : 'all';
-    return this.tracks.findAll(user?.sub ?? '', { sort: sortOpt, filter: filterOpt, role: user?.role });
+    // Unpaginated by default: both shipped clients hold the whole library in
+    // memory and paginating unasked would silently truncate them.
+    const parsedLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 0, 1), 1000) : undefined;
+    const parsedOffset = offset ? Math.max(parseInt(offset, 10) || 0, 0) : undefined;
+    return this.tracks.findAll(user?.sub ?? '', {
+      sort: sortOpt,
+      filter: filterOpt,
+      role: user?.role,
+      limit: parsedLimit,
+      offset: parsedOffset,
+    });
   }
 
   @Get(':id')

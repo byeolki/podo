@@ -66,7 +66,7 @@ export class StreamingController {
   @Public()
   @Get('artwork/:id')
   @ApiOperation({ summary: 'Get artwork image' })
-  async artwork(@Param('id') id: string, @Res() reply: FastifyReply) {
+  async artwork(@Param('id') id: string, @Req() req: FastifyRequest, @Res() reply: FastifyReply) {
     const artworkDir = this.config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
 
     const version = await this.db
@@ -99,10 +99,25 @@ export class StreamingController {
       return reply.status(404).send({ code: 'NOT_FOUND', message: 'Artwork not found' });
     }
 
+    // Covers are re-requested constantly (every list row, every track change) and
+    // change only when someone uploads a new one. A validator derived from the
+    // file's own size+mtime turns those into 304s, which matters most on the
+    // native clients over a slow link.
+    const stat = fs.statSync(artworkPath);
+    const etag = `"${stat.size.toString(16)}-${stat.mtimeMs.toString(16)}"`;
+
+    reply.header('Cache-Control', 'public, max-age=86400');
+    reply.header('ETag', etag);
+    reply.header('Last-Modified', stat.mtime.toUTCString());
+
+    if (req.headers['if-none-match'] === etag) {
+      return reply.status(304).send();
+    }
+
     const ext = path.extname(artworkPath).toLowerCase();
     const mimeTypes: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
     reply.header('Content-Type', mimeTypes[ext] ?? 'image/jpeg');
-    reply.header('Cache-Control', 'public, max-age=86400');
+    reply.header('Content-Length', stat.size);
     return reply.send(fs.createReadStream(artworkPath));
   }
 

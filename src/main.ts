@@ -10,6 +10,7 @@ import fastifyMultipart from '@fastify/multipart';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
+import fastifyCompress from '@fastify/compress';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -80,6 +81,17 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
+  // A full library listing is the biggest response this server sends and it's
+  // almost entirely repeated JSON keys, so it compresses roughly 10:1. Media is
+  // excluded: audio/video are already compressed, and gzipping a stream would
+  // break byte-range seeking.
+  await app.register(fastifyCompress, {
+    global: true,
+    threshold: 1024,
+    encodings: ['br', 'gzip', 'deflate'],
+    customTypes: /^application\/json|^text\//,
+  });
 
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: {

@@ -6,6 +6,7 @@ import * as schema from '../db/schema';
 import { StreamingService } from '../streaming/streaming.service';
 import { TranscodeCacheService } from '../streaming/transcode-cache.service';
 import * as fs from 'fs';
+import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { execSync } from 'child_process';
 
@@ -111,9 +112,14 @@ export class AdminService {
     const artworkDir = this.config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
     const cacheStats = this.cache.getCacheStats();
 
+    const [uploadSize, artworkSize] = await Promise.all([
+      this.dirSize(uploadDir),
+      this.dirSize(artworkDir),
+    ]);
+
     return {
-      upload_dir: { path: uploadDir, size_bytes: this.dirSize(uploadDir) },
-      artwork_dir: { path: artworkDir, size_bytes: this.dirSize(artworkDir) },
+      upload_dir: { path: uploadDir, size_bytes: uploadSize },
+      artwork_dir: { path: artworkDir, size_bytes: artworkSize },
       transcode_cache: { path: cacheStats.dir, size_bytes: cacheStats.size_bytes },
       disk: this.getDiskUsage(uploadDir),
     };
@@ -186,33 +192,35 @@ export class AdminService {
     }
   }
 
-  private dirSize(dirPath: string): number {
+  /**
+   * Async on purpose: an upload directory holding a real library is tens of
+   * thousands of files, and walking it with the sync fs API blocks the event
+   * loop — every other request, including in-flight audio streams, stalls until
+   * it finishes.
+   */
+  private async dirSize(dirPath: string): Promise<number> {
     let total = 0;
-    try {
-      const walk = (p: string) => {
-        let entries: fs.Dirent[];
-        try {
-          entries = fs.readdirSync(p, { withFileTypes: true });
-        } catch {
-          return;
-        }
-        for (const e of entries) {
-          const full = path.join(p, e.name);
-          if (e.isDirectory()) {
-            walk(full);
-          } else {
-            try {
-              total += fs.statSync(full).size;
-            } catch {
-              // skip inaccessible files
-            }
+    const walk = async (p: string): Promise<void> => {
+      let entries: fs.Dirent[];
+      try {
+        entries = await fsp.readdir(p, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const entry of entries) {
+        const full = path.join(p, entry.name);
+        if (entry.isDirectory()) {
+          await walk(full);
+        } else {
+          try {
+            total += (await fsp.stat(full)).size;
+          } catch {
+            // skip inaccessible files
           }
         }
-      };
-      walk(dirPath);
-    } catch {
-      // directory doesn't exist
-    }
+      }
+    };
+    await walk(dirPath);
     return total;
   }
 }

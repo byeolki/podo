@@ -7,6 +7,8 @@ import type { Track } from '../api/tracks'
 import { formatDuration } from '../api/tracks'
 import VideoModal from './VideoModal'
 import TrackEditModal from './TrackEditModal'
+import ArtworkImage from './ArtworkImage'
+import { getArtworkUrl } from '../api/client'
 
 interface Props {
   track: Track
@@ -118,6 +120,15 @@ export default function TrackRow({
             </>
           )}
         </div>
+
+        {/* Cover — the native client shows one on every row and the web list
+            looked bare without it. */}
+        <ArtworkImage
+          src={getArtworkUrl(track.album_version_id)}
+          fallbackSrc={track.thumbnail_path ? getArtworkUrl(track.id) : null}
+          alt=""
+          className="w-10 h-10 rounded object-cover flex-shrink-0 bg-surface-2"
+        />
 
         {/* Center: title + subtitle */}
         <div className="flex-1 min-w-0">

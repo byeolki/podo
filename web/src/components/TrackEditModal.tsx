@@ -305,7 +305,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
             <button
               type="submit"
               disabled={isPending}
-              className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50"
             >
               {isPending ? 'Saving…' : 'Save'}
             </button>

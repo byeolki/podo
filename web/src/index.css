@@ -29,6 +29,32 @@ body {
   background: #52524c;
 }
 
+/* Every interactive element in the app sets `focus:outline-none` to kill the
+   default ring, which left keyboard users with no visible focus at all. This
+   restores one globally, only for keyboard focus, so pointer users don't see it. */
+:focus-visible {
+  outline: 2px solid #8850E0;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Honour the OS "reduce motion" setting: the equalizer bars and every
+   transition/animation in the app are decorative. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .eq-bar {
+    animation: none;
+    transform: scaleY(0.7);
+  }
+}
+
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -44,12 +70,12 @@ input[type="range"]::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #b8d148;
+  background: #8850E0;
   cursor: pointer;
-  box-shadow: 0 0 8px -1px rgba(184, 209, 72, 0.6);
+  box-shadow: 0 0 8px -1px rgba(136, 80, 224, 0.65);
 }
 input[type="range"]:hover::-webkit-slider-thumb {
-  background: #c8dc72;
+  background: #C098F0;
 }
 
 /* Now-playing equalizer signature: replaces the play icon on the active
@@ -62,7 +88,7 @@ input[type="range"]:hover::-webkit-slider-thumb {
   display: inline-block;
   width: 3px;
   height: 12px;
-  background: #b8d148;
+  background: #8850E0;
   border-radius: 1px;
   animation: eq-bounce 0.85s ease-in-out infinite;
   transform-origin: bottom;

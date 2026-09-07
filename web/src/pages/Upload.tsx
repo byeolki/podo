@@ -120,7 +120,7 @@ function AddMusicSection() {
         <button
           type="submit"
           disabled={!input.trim() || isSearching || downloadMut.isPending}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
         >
           {isUrl ? <Download size={14} /> : <Search size={14} />}
           {isSearching
@@ -180,7 +180,7 @@ function AddMusicSection() {
                 <button
                   onClick={() => handleDownloadResult(r.url, r.id)}
                   disabled={added || downloadMut.isPending}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-black text-xs font-medium disabled:opacity-50 flex-shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium disabled:opacity-50 flex-shrink-0"
                 >
                   {added ? <Check size={12} /> : <Download size={12} />}
                   {added ? 'Added' : 'Download'}

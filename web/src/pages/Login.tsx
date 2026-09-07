@@ -100,7 +100,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-black font-medium text-sm transition-colors disabled:opacity-50"
+            className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-white font-medium text-sm transition-colors disabled:opacity-50"
           >
             {loading ? 'Please wait...' : mode === 'bootstrap' ? 'Create account' : 'Sign in'}
           </button>

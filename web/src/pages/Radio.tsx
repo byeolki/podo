@@ -64,7 +64,7 @@ export default function Radio() {
         <button
           onClick={() => stationMut.mutate()}
           disabled={stationMut.isPending}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50 transition-colors"
         >
           <RadioIcon size={14} /> Generate Station
         </button>

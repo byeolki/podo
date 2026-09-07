@@ -111,7 +111,7 @@ export default function Library() {
             </button>
             <button
               onClick={() => { setQueue(filteredTracks, 0); play() }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
             >
               <Play size={14} fill="currentColor" /> Play all
             </button>
@@ -147,7 +147,7 @@ export default function Library() {
                 <button
                   onClick={() => runAiFill([...selectedIds])}
                   disabled={aiFilling}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <Sparkles size={14} />
                   {aiFilling ? 'Filling…' : 'AI Fill'}

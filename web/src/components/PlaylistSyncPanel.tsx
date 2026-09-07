@@ -161,7 +161,7 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
           <button
             onClick={() => saveMut.mutate()}
             disabled={!url.trim() || saveMut.isPending}
-            className="flex-1 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50 transition-colors"
+            className="flex-1 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50 transition-colors"
           >
             {saveMut.isPending ? 'Saving…' : subscription ? 'Update' : 'Link playlist'}
           </button>

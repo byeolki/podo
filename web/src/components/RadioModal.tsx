@@ -131,7 +131,7 @@ export default function RadioModal({ playlistId, onClose }: Props) {
           <button
             onClick={() => createMut.mutate()}
             disabled={createMut.isPending}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50 transition-colors"
           >
             <Plus size={14} /> {createMut.isPending ? 'Creating…' : 'Generate new radio URL'}
           </button>

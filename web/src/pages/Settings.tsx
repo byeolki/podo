@@ -89,7 +89,7 @@ function AccountTab() {
           <button
             type="submit"
             disabled={!name.trim() || name === me?.name || nameMut.isPending}
-            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50 transition-colors"
           >
             {nameMut.isPending ? 'Saving…' : 'Save name'}
           </button>
@@ -130,7 +130,7 @@ function AccountTab() {
           <button
             type="submit"
             disabled={!currentPassword || !newPassword || !confirmPassword || passwordMut.isPending}
-            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50 transition-colors"
           >
             {passwordMut.isPending ? 'Saving…' : 'Change password'}
           </button>
@@ -201,7 +201,7 @@ function LibraryTab() {
           <button
             onClick={() => addMut.mutate()}
             disabled={!newPath || addMut.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
           >
             <Plus size={14} /> Add
           </button>
@@ -292,7 +292,7 @@ function UsersTab() {
         <h3 className="text-base font-semibold">Users</h3>
         <button
           onClick={() => inviteMut.mutate()}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
         >
           <Plus size={14} /> Generate Invite
         </button>

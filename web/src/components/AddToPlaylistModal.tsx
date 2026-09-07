@@ -94,7 +94,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
               <button
                 type="submit"
                 disabled={!newName.trim() || creatingAndAdding}
-                className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {creatingAndAdding ? '…' : 'Create'}
               </button>

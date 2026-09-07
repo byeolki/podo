@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Search as SearchIcon, Users, Disc3 } from 'lucide-react'
 import { search } from '../api/search'
-import { getTracks, type Track } from '../api/tracks'
+import { getTracksByIds, type Track } from '../api/tracks'
 import TrackRow from '../components/TrackRow'
 
 export default function Search() {
@@ -15,19 +15,20 @@ export default function Search() {
     return () => clearTimeout(t)
   }, [q])
 
-  const { data: allTracks = [] } = useQuery<Track[]>({ queryKey: ['tracks'], queryFn: () => getTracks() })
   const { data, isLoading } = useQuery({
     queryKey: ['search', debouncedQ],
     queryFn: () => search(debouncedQ),
     enabled: debouncedQ.length >= 2,
   })
 
-  const trackMap = useMemo(() => new Map(allTracks.map((t) => [t.id, t])), [allTracks])
-
-  const resultTracks = useMemo(
-    () => (data?.tracks ?? []).map((h) => trackMap.get(h.id)).filter(Boolean) as typeof allTracks,
-    [data?.tracks, trackMap],
-  )
+  // Search returns hits (id + name), not playable rows. Resolve just those ids
+  // rather than downloading the whole library to look them up locally.
+  const hitIds = useMemo(() => (data?.tracks ?? []).map((h) => h.id), [data?.tracks])
+  const { data: resultTracks = [] } = useQuery<Track[]>({
+    queryKey: ['tracks', 'byIds', hitIds],
+    queryFn: () => getTracksByIds(hitIds),
+    enabled: hitIds.length > 0,
+  })
 
   const hasResults = data && (data.tracks.length + data.artists.length + data.albums.length > 0)
 

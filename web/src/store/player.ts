@@ -27,6 +27,8 @@ interface PlayerState {
   toggle: () => void
   next: () => void
   prev: () => void
+  /** Plays a specific position in the current queue (used by the queue panel). */
+  jumpTo: (index: number) => void
   setVolume: (v: number) => void
   setCurrentTime: (t: number) => void
   setDuration: (d: number) => void
@@ -158,6 +160,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       persistQueue(queue, 0)
       persistTime(0, true)
     }
+  },
+
+  jumpTo: (index) => {
+    const { queue } = get()
+    if (index < 0 || index >= queue.length) return
+    set({ currentIndex: index, currentTime: 0, resumeTime: null, isPlaying: true })
+    persistQueue(queue, index)
+    persistTime(0, true)
   },
 
   prev: () => {

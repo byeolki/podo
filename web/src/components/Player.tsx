@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity, Repeat, Repeat1 } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity, Repeat, Repeat1, ListMusic } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
 import { getStreamUrl, getArtworkUrl, ensureFreshToken } from '../api/client'
 import { formatDuration, recordPlay } from '../api/tracks'
 import ArtworkImage from './ArtworkImage'
 import VideoModal from './VideoModal'
 import SleepTimerMenu from './SleepTimerMenu'
+import QueuePanel from './QueuePanel'
 
 const MAX_RECOVERY_ATTEMPTS = 4
 const STALL_TIMEOUT_MS = 12_000
@@ -21,6 +22,7 @@ export default function Player() {
     repeatMode, cycleRepeatMode,
   } = usePlayerStore()
   const [videoOpen, setVideoOpen] = useState(false)
+  const [queueOpen, setQueueOpen] = useState(false)
   const playRecordedRef = useRef<string | null>(null)
   const recoveryAttemptsRef = useRef(0)
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -102,6 +104,48 @@ export default function Player() {
     if (isPlaying) audio.play().catch(() => {})
     else audio.pause()
   }, [isPlaying])
+
+  // Transport shortcuts, the ones every music player has. Suppressed while a
+  // text field or contenteditable has focus, so typing in search doesn't
+  // scrub the track.
+  useEffect(() => {
+    const isTyping = (target: EventTarget | null) => {
+      const el = target as HTMLElement | null
+      if (!el) return false
+      return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
+      const audio = audioRef.current
+      switch (e.key) {
+        case ' ':
+          e.preventDefault()
+          usePlayerStore.getState().toggle()
+          break
+        case 'ArrowRight':
+          if (audio) audio.currentTime = Math.min(audio.currentTime + 5, audio.duration || Infinity)
+          break
+        case 'ArrowLeft':
+          if (audio) audio.currentTime = Math.max(audio.currentTime - 5, 0)
+          break
+        case 'n':
+          usePlayerStore.getState().next()
+          break
+        case 'p':
+          usePlayerStore.getState().prev()
+          break
+        case 'm':
+          usePlayerStore.getState().setVolume(usePlayerStore.getState().volume > 0 ? 0 : 0.8)
+          break
+        case 'q':
+          setQueueOpen((v) => !v)
+          break
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   useEffect(() => {
     const handleOnline = () => {
@@ -234,12 +278,12 @@ export default function Player() {
             disabled={!track}
             className="text-ink-secondary hover:text-white disabled:opacity-30 transition-colors"
           >
-            <SkipBack size={18} />
+            <SkipBack size={18} aria-label="Previous track" />
           </button>
           <button
             onClick={toggle}
             disabled={!track}
-            className="w-9 h-9 rounded-full bg-accent text-black flex items-center justify-center hover:bg-accent-hover disabled:opacity-30 transition-colors"
+            className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center hover:bg-accent-hover disabled:opacity-30 transition-colors"
           >
             {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
           </button>
@@ -248,7 +292,7 @@ export default function Player() {
             disabled={!track || (currentIndex >= queue.length - 1 && repeatMode !== 'all')}
             className="text-ink-secondary hover:text-white disabled:opacity-30 transition-colors"
           >
-            <SkipForward size={18} />
+            <SkipForward size={18} aria-label="Next track" />
           </button>
           <button
             onClick={cycleRepeatMode}
@@ -275,7 +319,7 @@ export default function Player() {
             }}
             className="flex-1"
             style={{
-              background: `linear-gradient(to right, #b8d148 ${(currentTime / (duration || 1)) * 100}%, #333333 0%)`,
+              background: `linear-gradient(to right, #8850E0 ${(currentTime / (duration || 1)) * 100}%, #333333 0%)`,
             }}
           />
           <span className="hidden sm:inline text-xs text-ink-tertiary w-9 tabular-nums">
@@ -295,6 +339,14 @@ export default function Player() {
             <Video size={15} />
           </button>
         )}
+        <button
+          onClick={() => setQueueOpen(true)}
+          className="text-ink-tertiary hover:text-white transition-colors"
+          title="Queue (q)"
+          aria-label="Show queue"
+        >
+          <ListMusic size={15} />
+        </button>
         <SleepTimerMenu />
         <button
           onClick={() => setNormalize(!normalize)}
@@ -318,12 +370,13 @@ export default function Player() {
           onChange={(e) => setVolume(Number(e.target.value))}
           className="hidden sm:block w-20"
           style={{
-            background: `linear-gradient(to right, #b8d148 ${volume * 100}%, #333333 0%)`,
+            background: `linear-gradient(to right, #8850E0 ${volume * 100}%, #333333 0%)`,
           }}
         />
       </div>
     </div>
     {videoOpen && track && <VideoModal track={track} onClose={() => setVideoOpen(false)} />}
+    {queueOpen && <QueuePanel onClose={() => setQueueOpen(false)} />}
     </>
   )
 }

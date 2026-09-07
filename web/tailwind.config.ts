@@ -24,17 +24,19 @@ export default {
           tertiary: '#7a7a74',
           faint: '#52524c',
         },
-        // Shine Muscat green — the app's single accent color, shared with the
-        // native client (MuscatKit's DesignSystem.appAccent) for brand parity.
+        // Grape purple, sampled from the logo in docs/podo_lg.png — podo means
+        // grape, and the accent is the one place that has to say so. The native
+        // client (Muscat, as in Shine Muscat) is deliberately the green one; they
+        // are sibling apps, not the same brand.
         accent: {
-          DEFAULT: '#b8d148',
-          hover: '#a3bc3d',
-          soft: '#c8dc72',
-          muted: '#b8d14822',
+          DEFAULT: '#8850E0',
+          hover: '#7A42D4',
+          soft: '#C098F0',
+          muted: '#8850E022',
         },
       },
       boxShadow: {
-        glow: '0 0 28px -4px rgba(184, 209, 72, 0.5)',
+        glow: '0 0 28px -4px rgba(136, 80, 224, 0.55)',
       },
     },
   },

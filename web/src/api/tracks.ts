@@ -67,6 +67,12 @@ export function getTracks(params?: { sort?: SortOption; filter?: FilterOption })
   return api.get(`/tracks${query ? `?${query}` : ''}`)
 }
 
+/** Resolves a known set of ids in one request — used by search results. */
+export function getTracksByIds(ids: string[]): Promise<Track[]> {
+  if (!ids.length) return Promise.resolve([])
+  return api.get(`/tracks?ids=${ids.map(encodeURIComponent).join(',')}`)
+}
+
 export function getTrack(id: string): Promise<Track & { sources: Source[]; artists: Artist[] }> {
   return api.get(`/tracks/${id}`)
 }

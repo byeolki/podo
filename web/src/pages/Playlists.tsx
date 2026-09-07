@@ -81,7 +81,7 @@ export default function Playlists() {
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
         >
           <Plus size={14} /> New playlist
         </button>
@@ -103,7 +103,7 @@ export default function Playlists() {
             <button
               onClick={() => createMut.mutate()}
               disabled={!newName || createMut.isPending}
-              className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black text-sm font-medium disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
             >
               Create
             </button>

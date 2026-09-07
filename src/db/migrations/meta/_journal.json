@@ -113,6 +113,13 @@
       "when": 1788534785528,
       "tag": "0015_playlist_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1788756181201,
+      "tag": "0016_albums_drop_artist_fk",
+      "breakpoints": true
     }
   ]
 }

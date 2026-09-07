@@ -12,6 +12,7 @@ import { createInvite, getMe, updateMe } from '../api/auth'
 import { listAllFiles, adminRenameFile, adminDeleteFile, type UploadedFile } from '../api/upload'
 import { getAllRadioTokens, adminRevokeRadioToken, getRadioStreamUrl, type RadioToken } from '../api/broadcast'
 import { useAuthStore } from '../store/auth'
+import UpdateCard from '../components/UpdateCard'
 
 type Tab = 'account' | 'library' | 'users' | 'health' | 'files' | 'radio'
 
@@ -342,6 +343,8 @@ function HealthTab() {
 
   return (
     <div className="space-y-6">
+      <UpdateCard />
+
       <div>
         <h3 className="text-base font-semibold mb-3">System</h3>
         {isLoading ? (
@@ -354,6 +357,7 @@ function HealthTab() {
               { label: 'Sources', value: health.sources.toString() },
               { label: 'Users', value: health.users.toString() },
               { label: 'Uptime', value: `${Math.floor(health.uptime_seconds / 3600)}h ${Math.floor((health.uptime_seconds % 3600) / 60)}m` },
+              { label: 'Version', value: health.version },
               { label: 'Node', value: health.node_version },
               { label: 'Memory', value: formatBytes(health.memory.heapUsed) },
             ].map(({ label, value, accent }) => (

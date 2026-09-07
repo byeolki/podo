@@ -124,7 +124,7 @@ forever in the codec you pick, with no login and no playback session behind it.
 | **Player** | Play queue, repeat modes, sleep timer, keyboard shortcuts (space, ←/→, n/p/m/q) |
 | **Listening** | Sleep timer (preset delay or end-of-track) and favorites-only playback within a playlist, on both clients |
 | **Clients** | Bundled React web dashboard + [Muscat](https://github.com/byeolki/muscat) for iOS/macOS |
-| **Admin** | Library roots and scans, uploaded-file browser, storage and traffic stats, user management, radio token control |
+| **Admin** | Library roots and scans, uploaded-file browser, storage and traffic stats, user management, radio token control, update notices |
 | **Live** | Socket.IO events for scan and download progress, and a `/sync` cursor for delta sync |
 
 ## Install
@@ -179,6 +179,7 @@ Everything is environment variables; the full list is in
 | `YTDLP_PATH` | `yt-dlp` | Binary used for downloads and YouTube search |
 | `MUSICBRAINZ_USER_AGENT` | `podo/0.1.0` | Identify your deployment; a generic UA gets rate-limited |
 | `SWAGGER_ENABLED` | _(dev only)_ | Set `true` to expose `/api/docs` in production |
+| `UPDATE_CHECK_ENABLED` | `true` | Check GitHub for a newer release. One outbound GET every 12h, nothing sent about your instance; set `false` to disable |
 
 ## API
 
@@ -202,6 +203,20 @@ Full OpenAPI spec at `/api/docs` in development. Base path is `/api/v1`.
 Real-time events over Socket.IO at `/api/v1/events` with
 `{ auth: { token: "<access_token>" } }`: `track.upserted`, `source.removed`,
 `scan.*`, `download.*`, `playlist.sync.*`.
+
+## Updating
+
+Podo tells you when a newer release is out — the Settings → Health tab shows a
+notice with the release notes and the command to take it:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Migrations run automatically at startup. The check is one unauthenticated
+request to the GitHub releases API every 12 hours; no version, instance id or
+anything else about your server is sent, and `UPDATE_CHECK_ENABLED=false` turns
+it off completely.
 
 ## Security
 

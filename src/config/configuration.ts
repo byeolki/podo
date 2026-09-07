@@ -1,4 +1,25 @@
 import * as path from 'path';
+import * as fs from 'fs';
+
+/**
+ * The running version, for the update check and the admin health view. Read from
+ * package.json rather than hardcoded, so a release only has to bump one place;
+ * `APP_VERSION` overrides it for builds that don't ship package.json.
+ */
+function appVersion(): string {
+  if (process.env.APP_VERSION) return process.env.APP_VERSION;
+  // dist/config/ → ../../package.json in the image, ../../ in a source checkout.
+  for (const candidate of ['../../package.json', '../../../package.json']) {
+    try {
+      const raw = fs.readFileSync(path.join(__dirname, candidate), 'utf-8');
+      const version = (JSON.parse(raw) as { version?: string }).version;
+      if (version) return version;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return '0.0.0';
+}
 
 export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
@@ -20,5 +41,10 @@ export default () => ({
   cors_origin: process.env.CORS_ORIGIN ?? '*',
   rate_limit_max: parseInt(process.env.RATE_LIMIT_MAX ?? '1000', 10),
   auth_rate_limit_max: parseInt(process.env.AUTH_RATE_LIMIT_MAX ?? '10', 10),
+  app_version: appVersion(),
+  // One unauthenticated GET to the GitHub releases API, nothing sent about this
+  // instance. Off with UPDATE_CHECK_ENABLED=false.
+  update_check_enabled: process.env.UPDATE_CHECK_ENABLED !== 'false',
+  update_check_repo: process.env.UPDATE_CHECK_REPO ?? 'byeolki/podo',
   swagger_enabled: process.env.SWAGGER_ENABLED === 'true' || process.env.NODE_ENV !== 'production',
 });

@@ -161,6 +161,7 @@ export class AdminService {
 
     return {
       status: 'ok',
+      version: this.config.get<string>('app_version', '0.0.0'),
       uptime_seconds: process.uptime(),
       memory: process.memoryUsage(),
       tracks: dbCount,

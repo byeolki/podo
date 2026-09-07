@@ -2,6 +2,7 @@ import { api } from './client'
 
 export interface SystemHealth {
   status: string
+  version: string
   uptime_seconds: number
   memory: { rss: number; heapTotal: number; heapUsed: number }
   tracks: number
@@ -34,6 +35,27 @@ export interface StorageInfo {
 
 export function getHealth(): Promise<SystemHealth> {
   return api.get('/admin/health/detail')
+}
+
+export interface UpdateStatus {
+  current: string
+  latest: string | null
+  update_available: boolean
+  release_url: string | null
+  published_at: string | null
+  notes: string | null
+  /** False when the operator set UPDATE_CHECK_ENABLED=false. */
+  enabled: boolean
+  checked_at: string | null
+  error: string | null
+}
+
+export function getUpdateStatus(): Promise<UpdateStatus> {
+  return api.get('/admin/update')
+}
+
+export function recheckUpdate(): Promise<UpdateStatus> {
+  return api.post('/admin/update/check', {})
 }
 
 export function getUsers(): Promise<User[]> {

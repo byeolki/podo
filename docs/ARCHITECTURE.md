@@ -160,6 +160,25 @@ two halves are split. Revoking a token kills its live sessions immediately.
 sampled *before* the reads, so concurrent writes are handed out again on the next
 call — the cursor may lag, but it must never skip.
 
+## Update check
+
+`UpdateService` asks the GitHub releases API for the newest tag, caches it for
+12 hours, and compares it against `app_version` (read from package.json, or
+`APP_VERSION`). Three properties it has to keep:
+
+- **Nothing about the instance leaves.** One unauthenticated GET; the only
+  header is a User-Agent naming the software. Self-hosters notice this kind of
+  thing, and rightly.
+- **Never on the critical path.** Lazily refreshed, never at startup, and a
+  failure keeps serving the last known answer rather than surfacing an error
+  every time an admin opens Settings.
+- **Fully switchable.** `UPDATE_CHECK_ENABLED=false` means no request is ever
+  made, not that the result is hidden.
+
+`compareVersions` ignores pre-release suffixes, so `1.2.3-rc1` and `1.2.3` are
+the same version — an rc shouldn't advertise itself as an upgrade over the
+release it precedes.
+
 ## Conventions
 
 - 2-space indent, single quotes, semicolons.

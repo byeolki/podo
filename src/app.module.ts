@@ -18,6 +18,7 @@ import { AdminModule } from './admin/admin.module';
 import { DownloadModule } from './download/download.module';
 import { RadioModule } from './radio/radio.module';
 import { BroadcastModule } from './broadcast/broadcast.module';
+import { UpdateModule } from './update/update.module';
 import { HealthController } from './health/health.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
@@ -40,6 +41,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     DownloadModule,
     RadioModule,
     BroadcastModule,
+    UpdateModule,
   ],
   controllers: [HealthController],
   providers: [

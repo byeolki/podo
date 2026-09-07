@@ -10,6 +10,8 @@ export interface ProbeResult {
   duration: number | null;
   replaygain_track: number | null;
   replaygain_album: number | null;
+  /** True when the file embeds cover art (an `attached_pic` video stream). */
+  has_embedded_art: boolean;
   tags: Record<string, string>;
 }
 
@@ -58,7 +60,11 @@ export class FfprobeService implements OnApplicationBootstrap {
         try {
           const data = JSON.parse(stdout) as {
             format?: { format_name?: string; bit_rate?: string; duration?: string; tags?: Record<string, string> };
-            streams?: Array<{ codec_type?: string; codec_name?: string; sample_rate?: string; channels?: number; bit_rate?: string }>;
+            streams?: Array<{
+              codec_type?: string; codec_name?: string; sample_rate?: string;
+              channels?: number; bit_rate?: string;
+              disposition?: { attached_pic?: number };
+            }>;
           };
           const fmt = data.format ?? {};
           const streams = data.streams ?? [];
@@ -83,6 +89,9 @@ export class FfprobeService implements OnApplicationBootstrap {
             duration: fmt.duration ? Math.round(parseFloat(fmt.duration) * 1000) : null,
             replaygain_track: parseRg(rgTag('REPLAYGAIN_TRACK_GAIN')),
             replaygain_album: parseRg(rgTag('REPLAYGAIN_ALBUM_GAIN')),
+            // Cover art rides along as a video stream flagged `attached_pic`;
+            // that flag is what separates it from an actual music video.
+            has_embedded_art: streams.some((st) => st.disposition?.attached_pic === 1),
             tags,
           });
         } catch (e) {

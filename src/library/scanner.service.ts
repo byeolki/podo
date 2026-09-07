@@ -263,6 +263,9 @@ export class ScannerService {
     let albumVersionId: string | null = null;
     if (meta.album) {
       albumVersionId = await this.metadata.resolveOrCreateAlbumVersion(meta.album, meta.year);
+      if (probe.has_embedded_art) {
+        await this.maybeSetAlbumArtwork(albumVersionId, filePath);
+      }
     }
 
     if (!existing) {
@@ -396,6 +399,49 @@ export class ScannerService {
     await this.maybeSetThumbnail(trackId, filePath, kind, origin);
     await this.maybeSetLyrics(trackId, filePath, origin);
     return 'added';
+  }
+
+  /**
+   * Copies a file's embedded cover art onto its album version, once. Most tagged
+   * libraries carry art this way — it's the common case, more so than the yt-dlp
+   * sidecar or the extracted video frame handled below — and without it an
+   * otherwise fully-scanned library shows placeholder tiles everywhere.
+   *
+   * First writer wins: albums are shared by many files and re-extracting per
+   * track would be pure churn.
+   */
+  private async maybeSetAlbumArtwork(albumVersionId: string, mediaFilePath: string): Promise<void> {
+    const version = await this.db
+      .select({ artwork_path: schema.album_versions.artwork_path })
+      .from(schema.album_versions)
+      .where(eq(schema.album_versions.id, albumVersionId))
+      .get();
+    if (version?.artwork_path && fs.existsSync(version.artwork_path)) return;
+
+    const dest = path.join(this.artworkDir, `album_${albumVersionId}.jpg`);
+    try {
+      await this.extractEmbeddedArt(mediaFilePath, dest);
+      await this.db
+        .update(schema.album_versions)
+        .set({ artwork_path: dest, updated_at: new Date() })
+        .where(eq(schema.album_versions.id, albumVersionId));
+    } catch (e) {
+      this.logger.warn(`Failed to extract cover art from ${mediaFilePath}`, e instanceof Error ? e.stack : String(e));
+    }
+  }
+
+  /** `-map 0:v` selects the attached picture; audio is dropped with `-vn`'s inverse. */
+  private extractEmbeddedArt(mediaFilePath: string, dest: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const proc = spawn('ffmpeg', ['-y', '-i', mediaFilePath, '-an', '-map', '0:v', '-frames:v', '1', '-q:v', '3', dest]);
+      let stderr = '';
+      proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+      proc.on('close', (code) => {
+        if (code === 0 && fs.existsSync(dest)) resolve();
+        else reject(new Error(stderr.slice(-300)));
+      });
+      proc.on('error', reject);
+    });
   }
 
   // Skip if the track already has one — yt-dlp's own thumbnail (downloaded

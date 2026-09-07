@@ -44,10 +44,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
+          # arm64 matters more than usual here: a self-hosted music server is
+          # exactly the thing people run on a Raspberry Pi, an ARM VPS or an
+          # Apple Silicon Mac, and an amd64-only image simply won't start there.
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

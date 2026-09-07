@@ -38,6 +38,39 @@ docker run -d -p 3000:3000 \
 
 Then open `http://localhost:3000` and create the first admin account.
 
+## What it looks like
+
+<p align="center">
+  <img src="docs/screenshots/library.png" alt="The Podo library, playing a track" width="820" />
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/queue.png" alt="The play queue" /></td>
+    <td width="50%"><img src="docs/screenshots/playlist.png" alt="A playlist, with favorites-only playback and auto-sync" /></td>
+  </tr>
+  <tr>
+    <td align="center"><em>The queue — played, playing, up next</em></td>
+    <td align="center"><em>A playlist: favorites-only playback, radio URLs, auto-sync</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/autosync.png" alt="Linking a playlist to a remote one" /></td>
+    <td width="50%"><img src="docs/screenshots/upload.png" alt="Pasting a link from X" /></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Auto-sync a playlist from YouTube, SoundCloud, …</em></td>
+    <td align="center"><em>Paste a link from anywhere yt-dlp supports</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/albums.png" alt="The album grid" /></td>
+    <td width="50%"><img src="docs/screenshots/sleeptimer.png" alt="The sleep timer menu" /></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Albums, with cover art pulled from your files' tags</em></td>
+    <td align="center"><em>Sleep timer — a delay, or the end of this track</em></td>
+  </tr>
+</table>
+
 ## Why it might suit you
 
 **One process, one file.** SQLite in WAL mode is the database, SQLite FTS5 is the
@@ -88,6 +121,7 @@ forever in the codec you pick, with no login and no playback session behind it.
 | **Auto-sync** | Subscribe a playlist to a remote playlist URL; new items are downloaded and appended on a schedule you pick |
 | **Sharing** | Invite-only accounts, public playlists, permanent public radio URLs per playlist |
 | **Per user** | Favorites, playlists, play history, listening stats |
+| **Player** | Play queue, repeat modes, sleep timer, keyboard shortcuts (space, ←/→, n/p/m/q) |
 | **Listening** | Sleep timer (preset delay or end-of-track) and favorites-only playback within a playlist, on both clients |
 | **Clients** | Bundled React web dashboard + [Muscat](https://github.com/byeolki/muscat) for iOS/macOS |
 | **Admin** | Library roots and scans, uploaded-file browser, storage and traffic stats, user management, radio token control |

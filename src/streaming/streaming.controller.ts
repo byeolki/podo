@@ -99,14 +99,19 @@ export class StreamingController {
       return reply.status(404).send({ code: 'NOT_FOUND', message: 'Artwork not found' });
     }
 
-    // Covers are re-requested constantly (every list row, every track change) and
-    // change only when someone uploads a new one. A validator derived from the
-    // file's own size+mtime turns those into 304s, which matters most on the
-    // native clients over a slow link.
+    // Covers are re-requested constantly (every list row, every track change), so
+    // a validator derived from the file's own size+mtime turns those into 304s,
+    // which matters most on the native clients over a slow link.
+    //
+    // The freshness window is deliberately short rather than a day: a source
+    // refresh rewrites a track's thumbnail at the same path, and with `max-age`
+    // set to 24h a client wouldn't even ask, leaving the old cover on screen long
+    // after the re-fetch. An hour bounds that while still collapsing the constant
+    // re-requests into cheap revalidations.
     const stat = fs.statSync(artworkPath);
     const etag = `"${stat.size.toString(16)}-${stat.mtimeMs.toString(16)}"`;
 
-    reply.header('Cache-Control', 'public, max-age=86400');
+    reply.header('Cache-Control', 'public, max-age=3600, must-revalidate');
     reply.header('ETag', etag);
     reply.header('Last-Modified', stat.mtime.toUTCString());
 

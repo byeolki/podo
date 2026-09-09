@@ -64,6 +64,7 @@ export class FfprobeService implements OnApplicationBootstrap {
               codec_type?: string; codec_name?: string; sample_rate?: string;
               channels?: number; bit_rate?: string;
               disposition?: { attached_pic?: number };
+              tags?: Record<string, string>;
             }>;
           };
           const fmt = data.format ?? {};
@@ -72,7 +73,12 @@ export class FfprobeService implements OnApplicationBootstrap {
           const videoStream = streams.find((s) => s.codec_type === 'video');
           const primaryStream = audioStream ?? videoStream;
 
-          const tags = fmt.tags ?? {};
+          // Ogg-family containers (Opus, Vorbis, FLAC) carry their Vorbis comments
+          // on the audio stream, not on the container — reading only `format.tags`
+          // left every one of those files apparently untagged, so the scanner fell
+          // back to the filename for a title and had no artist at all. Container
+          // tags still win where both exist (MP3/MP4/Matroska).
+          const tags = { ...(audioStream?.tags ?? {}), ...(fmt.tags ?? {}) };
           const rgTag = (k: string) => tags[k] ?? tags[k.toLowerCase()] ?? null;
           const parseRg = (v: string | null) => {
             if (!v) return null;

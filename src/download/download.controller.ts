@@ -65,6 +65,18 @@ export class DownloadController {
     return { local, youtube };
   }
 
+  @Get('source/:trackId')
+  @ApiOperation({ summary: "Where a track was downloaded from, and whether it can be re-fetched (admin only)" })
+  getTrackSource(@Param('trackId') trackId: string) {
+    return this.download.getTrackSource(trackId);
+  }
+
+  @Post('refresh/:trackId')
+  @ApiOperation({ summary: 'Re-download a track from its original URL to pick up upstream changes (admin only)' })
+  refresh(@Param('trackId') trackId: string) {
+    return this.download.refreshTrack(trackId);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List recent download jobs (admin only)' })
   list() {

@@ -13,9 +13,13 @@ COPY . .
 RUN npm run build
 
 FROM node:22-slim AS runner
+# `curl-cffi` is what lets yt-dlp impersonate a real browser's TLS fingerprint.
+# It is not optional in practice: without it YouTube answers subtitle requests
+# with `HTTP Error 429: Too Many Requests` on the very first try, so every
+# download imports with no lyrics.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg python3 python3-pip \
-    && pip3 install --no-cache-dir --break-system-packages yt-dlp \
+    && pip3 install --no-cache-dir --break-system-packages "yt-dlp[default,curl-cffi]" \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./

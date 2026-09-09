@@ -5,6 +5,8 @@ import { updateTrackMetadata, aiAutofillTracks, uploadTrackThumbnail, removeTrac
 import type { Track, TrackMetadataInput } from '../api/tracks'
 import { getArtworkUrl } from '../api/client'
 import ArtworkImage from './ArtworkImage'
+import TrackSourcePanel from './TrackSourcePanel'
+import { useAuthStore } from '../store/auth'
 
 interface Props {
   track: Track
@@ -84,6 +86,9 @@ export default function TrackEditModal({ track, onClose }: Props) {
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
   const queryClient = useQueryClient()
+  // Re-fetching rewrites the library file, so it lives behind the same admin
+  // gate as the download routes it drives.
+  const isAdmin = useAuthStore((s) => s.role === 'admin')
 
   const thumbnailMut = useMutation({
     mutationFn: (file: File) => uploadTrackThumbnail(track.id, file),
@@ -286,6 +291,13 @@ export default function TrackEditModal({ track, onClose }: Props) {
               Compensates for this specific file's own loudness — independent of the player's Normalize toggle.
             </p>
           </div>
+
+          {isAdmin && (
+            <TrackSourcePanel
+              trackId={track.id}
+              onRefreshed={() => setThumbnailBust((v) => v + 1)}
+            />
+          )}
 
           <div className="text-xs text-ink-tertiary pt-1 border-t border-border flex justify-between">
             <span>Added {new Date(track.added_at).toLocaleDateString()}</span>

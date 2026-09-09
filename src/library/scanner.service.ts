@@ -60,12 +60,23 @@ export class ScannerService {
     return jobId;
   }
 
-  async scanFile(filePath: string, origin: 'local' | 'ytdlp' = 'local', sourceUrl?: string): Promise<void> {
+  /**
+   * `force` re-probes and re-derives the sidecars (thumbnail, subtitles) even when
+   * the file looks unchanged. Used by a source refresh: the point of re-downloading
+   * is to pick up whatever changed upstream, and an unchanged media file can still
+   * arrive with a new thumbnail or newly-added subtitles.
+   */
+  async scanFile(
+    filePath: string,
+    origin: 'local' | 'ytdlp' = 'local',
+    sourceUrl?: string,
+    opts: { force?: boolean } = {},
+  ): Promise<void> {
     const kind = mediaKind(path.extname(filePath).toLowerCase());
     if (!kind) return;
 
     try {
-      await this.scanQueue.add(() => this.upsertSource(filePath, kind, origin, sourceUrl));
+      await this.scanQueue.add(() => this.upsertSource(filePath, kind, origin, sourceUrl, opts.force ?? false));
     } catch (e) {
       this.logger.error(
         `Failed to scan ${filePath}`,
@@ -190,6 +201,7 @@ export class ScannerService {
     kind: 'audio' | 'video',
     origin: 'local' | 'ytdlp' = 'local',
     sourceUrl?: string,
+    force = false,
   ): Promise<'added' | 'updated' | 'skipped'> {
     let stat: fs.Stats;
     try {
@@ -212,6 +224,7 @@ export class ScannerService {
     // compared the file's mtime against the row's `updated_at` — the row's write
     // time, not the file's — which never matched, so nothing was ever skipped.)
     if (
+      !force &&
       existing &&
       existing.available &&
       !existing.deleted_at &&
@@ -291,7 +304,7 @@ export class ScannerService {
           })
           .onConflictDoNothing();
         this.events.emit('track.upserted', { track_id: siblingTrackId });
-        await this.maybeSetThumbnail(siblingTrackId, filePath, kind, origin);
+        await this.maybeSetThumbnail(siblingTrackId, filePath, kind, origin, force);
         await this.maybeSetLyrics(siblingTrackId, filePath, origin);
         return 'added';
       }
@@ -335,7 +348,7 @@ export class ScannerService {
         .where(eq(schema.sources.id, existing.id));
 
       this.events.emit('track.upserted', { track_id: trackId });
-      await this.maybeSetThumbnail(trackId, filePath, kind, origin);
+      await this.maybeSetThumbnail(trackId, filePath, kind, origin, force);
       await this.maybeSetLyrics(trackId, filePath, origin);
       return 'updated';
     }
@@ -396,7 +409,7 @@ export class ScannerService {
     }
 
     this.events.emit('track.upserted', { track_id: trackId });
-    await this.maybeSetThumbnail(trackId, filePath, kind, origin);
+    await this.maybeSetThumbnail(trackId, filePath, kind, origin, force);
     await this.maybeSetLyrics(trackId, filePath, origin);
     return 'added';
   }
@@ -453,13 +466,15 @@ export class ScannerService {
     mediaFilePath: string,
     kind: 'audio' | 'video',
     origin: 'local' | 'ytdlp',
+    force = false,
   ): Promise<void> {
     const track = await this.db
       .select({ thumbnail_path: schema.tracks.thumbnail_path })
       .from(schema.tracks)
       .where(eq(schema.tracks.id, trackId))
       .get();
-    if (track?.thumbnail_path) return;
+    // `force` is a source refresh asking for the upstream thumbnail as it is now.
+    if (track?.thumbnail_path && !force) return;
 
     const dest = path.join(this.artworkDir, `track_${trackId}_thumb.jpg`);
 

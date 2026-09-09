@@ -56,6 +56,8 @@ export interface DownloadJob {
   total_items?: number
   error?: string
   created_at: string
+  /** Set when the job is re-fetching an existing track rather than adding one. */
+  refresh_track_id?: string
 }
 
 export interface UrlInspection {
@@ -76,6 +78,31 @@ export function startDownload(url: string, audio_only = true, allow_playlist?: b
 
 export function getDownloads(): Promise<DownloadJob[]> {
   return api.get('/download')
+}
+
+export function getDownload(id: string): Promise<DownloadJob> {
+  return api.get(`/download/${id}`)
+}
+
+export interface TrackSourceInfo {
+  track_id: string
+  source_id: string
+  source_url: string | null
+  provider: Provider | null
+  provider_label: string | null
+  media_kind: 'audio' | 'video'
+  /** False when there is nothing to re-fetch from. */
+  refreshable: boolean
+  last_refreshed_at: string
+}
+
+export function getTrackSource(trackId: string): Promise<TrackSourceInfo> {
+  return api.get(`/download/source/${trackId}`)
+}
+
+/** Re-downloads a track from the URL it came from, in place. */
+export function refreshTrackSource(trackId: string): Promise<DownloadJob> {
+  return api.post(`/download/refresh/${trackId}`, {})
 }
 
 export interface LocalSearchHit {

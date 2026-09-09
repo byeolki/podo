@@ -147,6 +147,33 @@ default, so a plain `watch?v=…&list=…` share link would otherwise drag in th
 entire playlist. Single items are fetched with `--no-playlist`; only URLs that
 clearly mean "the whole collection" get `--yes-playlist`.
 
+**Sidecars run separately, after the media.** The thumbnail and the subtitle
+tracks are fetched by their own `--skip-download` passes rather than as extra
+flags on the download itself. yt-dlp exits non-zero when a sidecar fails, so
+while they rode along, a single `HTTP Error 429` on one subtitle language failed
+the whole job and discarded audio that had already downloaded successfully.
+Each pass is independently best-effort: a failure is logged at debug and the
+import proceeds. Subtitle requests are paced with `--sleep-subtitles` and retried
+on rate limiting, and the image installs `curl-cffi` so yt-dlp can impersonate a
+browser — without it YouTube refuses subtitle requests outright.
+
+Only manually-uploaded subtitles are taken (`--write-subs`, never
+`--write-auto-subs`): auto-generated captions are ASR output, not lyrics.
+`ScannerService.parseVttToLrc` converts the cues to LRC and stores one row per
+language; a row a user edited is never overwritten by a re-download.
+
+**Refreshing a source.** `DownloadService.refreshTrack` re-downloads from
+`sources.source_url`. The invariant is that the *track* row survives — playlists,
+favorites and play counts all reference it — so the new file takes over the
+existing source row instead of being scanned in as a new one. Concretely: the
+download lands in a staging directory (a partial re-fetch must not be able to
+destroy the copy that currently plays), the sidecars are fetched, the file
+replaces the old locator (the extension may legitimately change, so the stem is
+preserved and the source row is repointed *before* the scan), and the scan runs
+with `force: true` — an unchanged media file can still come back with a new
+thumbnail or newly-added subtitles, which the normal size+hash skip would
+otherwise step over.
+
 ## Broadcast (radio URLs)
 
 A playlist can be exposed as a permanent public stream. One long-lived ffmpeg

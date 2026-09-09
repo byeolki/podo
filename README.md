@@ -98,6 +98,12 @@ not just one. Downloads keep the source URL, pull the thumbnail, and turn
 manually-uploaded subtitle tracks into synced, per-language lyrics —
 auto-generated captions are deliberately skipped as too unreliable to call lyrics.
 
+**Nothing is a dead end.** Because the source URL is kept, a track can be
+re-fetched later: an upstream re-upload, a remaster, subtitles added after the
+fact. The new file replaces the old one *on the same track*, so the playlists,
+favorites and play counts pointing at it survive — the alternative, deleting and
+re-downloading, throws all of that away.
+
 **Playlists that fill themselves.** Point a playlist at one on YouTube (or
 anywhere else yt-dlp reads) and Podo checks it on a schedule, downloads what's
 new and appends it. One-way and additive on purpose: when a video disappears
@@ -106,6 +112,26 @@ upstream, your copy stays — usually the whole reason to keep one.
 **A radio station out of any playlist.** Mint a permanent URL and paste it into
 VLC, a network speaker, a Discord bot — anything that can open a stream. It loops
 forever in the codec you pick, with no login and no playback session behind it.
+
+## How it compares
+
+Podo is not trying to replace the big self-hosted media servers, and if one of
+them already fits you, keep it.
+
+- **Navidrome / Airsonic** are Subsonic servers: a huge client ecosystem, and a
+  hard assumption that your files are already tagged the way you want. Podo has
+  one web client and one native client instead, but it treats messy libraries as
+  the normal case — an override layer for anything you fix by hand, alternate
+  titles for non-English names, and yt-dlp wired in for the music that isn't on
+  your disk yet.
+- **Jellyfin / Plex** do everything, music included. Podo does only music, in one
+  container with no companion services.
+- **Plexamp** is the nicest music client of the lot, and it needs Plex.
+
+The specific things Podo has that those don't: one track holding both an audio
+file and its music video, playlists that keep themselves topped up from a
+YouTube playlist, re-fetching a downloaded track in place, per-playlist public
+radio URLs, and subtitle tracks imported as real synced lyrics.
 
 ## Features
 
@@ -118,6 +144,7 @@ forever in the codec you pick, with no login and no playback session behind it.
 | **Metadata** | ID3 tags → optional LLM fill → user override layer that always wins; multi-select AI autofill from the dashboard |
 | **Search** | SQLite FTS5 over titles and albums, plus artist/alternate-title matching and MusicBrainz alias expansion |
 | **Import** | Drag-and-drop upload, or yt-dlp from any supported site by URL, or YouTube search, with progress over websockets |
+| **Re-fetch** | Pull a downloaded track again from its original URL — media, artwork and subtitles — in place, keeping the track and everything attached to it |
 | **Auto-sync** | Subscribe a playlist to a remote playlist URL; new items are downloaded and appended on a schedule you pick |
 | **Sharing** | Invite-only accounts, public playlists, permanent public radio URLs per playlist |
 | **Per user** | Favorites, playlists, play history, listening stats |
@@ -193,6 +220,8 @@ Full OpenAPI spec at `/api/docs` in development. Base path is `/api/v1`.
 - `GET /search?q=` · `GET /albums` · `GET /history` · `GET /stats/me`
 - `POST /upload` · `POST /download` (any yt-dlp site) · `GET /download/inspect?url=`
 - `GET /download/search?q=` — local library first, then YouTube
+- `GET /download/source/{track_id}` · `POST /download/refresh/{track_id}` — where a
+  track came from, and re-fetching it from there
 - `GET/POST/PATCH/DELETE /playlists` · `POST /playlists/{id}/tracks`
 - `GET/PUT/DELETE /playlists/{id}/subscription` · `POST /playlists/{id}/subscription/sync` — playlist auto-sync
 - `POST /playlists/{id}/radio-tokens` → `GET /broadcast/{token}` (public stream)

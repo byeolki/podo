@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { usePlayerStore } from '../store/player'
 import { toggleFavorite } from '../api/tracks'
 import type { Track } from '../api/tracks'
-import { formatDuration } from '../api/tracks'
+import { formatDuration, artistLine } from '../api/tracks'
 import VideoModal from './VideoModal'
 import TrackEditModal from './TrackEditModal'
 import ArtworkImage from './ArtworkImage'
@@ -60,16 +60,8 @@ export default function TrackRow({
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['tracks'] }),
   })
 
-  // `artists` is the performing artist (the `artist` override column), and
-  // `original_artist` is who wrote/first released it — so a cover reads
-  // "Performer · cover of Original", the same way MuscatKit's artistLineText
-  // renders it. Getting these two the other way round is what made the same
-  // track read differently on web and on the phone.
-  const performer = track.artists?.map((a) => a.name).join(', ') ?? ''
-  const originalArtist = track.override?.original_artist ?? null
   const isCover = track.is_cover
-  const artistStr = performer || (isCover ? '' : originalArtist ?? '')
-  const artistLabel = artistStr || 'Unknown Artist'
+  const { lead, coverPerformers } = artistLine(track)
 
   return (
     <>
@@ -137,12 +129,18 @@ export default function TrackRow({
           </p>
           {(showArtist || isCover) && (
             <p className="text-xs text-ink-tertiary truncate leading-tight mt-0.5">
-              {artistLabel}
+              {lead}
               {isCover && (
                 <span className="text-ink-tertiary">
                   {' · '}
-                  <span className="text-accent">cover</span>
-                  {originalArtist ? ` of ${originalArtist}` : ''}
+                  {coverPerformers ? (
+                    <>
+                      <span className="text-accent">covered by</span>
+                      {` ${coverPerformers}`}
+                    </>
+                  ) : (
+                    <span className="text-accent">cover</span>
+                  )}
                 </span>
               )}
             </p>

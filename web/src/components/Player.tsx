@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity, Repeat, Repeat1, ListMusic } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
 import { getStreamUrl, getArtworkUrl, ensureFreshToken } from '../api/client'
-import { formatDuration, recordPlay } from '../api/tracks'
+import { formatDuration, recordPlay, artistLine } from '../api/tracks'
 import ArtworkImage from './ArtworkImage'
 import VideoModal from './VideoModal'
 import SleepTimerMenu from './SleepTimerMenu'
@@ -14,6 +14,11 @@ const STALL_TIMEOUT_MS = 12_000
 export default function Player() {
   const audioRef = useRef<HTMLAudioElement>(null)
   const track = useCurrentTrack()
+  const nowPlayingArtist = (() => {
+    if (!track) return ''
+    const { lead, coverPerformers } = artistLine(track)
+    return coverPerformers ? `${lead} · covered by ${coverPerformers}` : lead
+  })()
   const {
     isPlaying, volume, currentTime, duration,
     toggle, next, prev, setVolume,
@@ -259,14 +264,8 @@ export default function Player() {
         />
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{track?.title ?? 'Not playing'}</p>
-          {/* Performer first, then who it's a cover of — same order as the track
-              rows and the native client. */}
-          <p className="text-xs text-ink-secondary truncate">
-            {track?.artists?.map((a) => a.name).join(', ') ?? ''}
-            {track?.is_cover && track.override?.original_artist
-              ? `${track.artists?.length ? ' · ' : ''}cover of ${track.override.original_artist}`
-              : ''}
-          </p>
+          {/* Same split as the track rows and the native client — see artistLine. */}
+          <p className="text-xs text-ink-secondary truncate">{nowPlayingArtist}</p>
         </div>
       </div>
 

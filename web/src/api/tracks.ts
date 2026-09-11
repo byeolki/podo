@@ -150,3 +150,32 @@ export function formatDuration(ms: number | null): string {
   const sec = s % 60
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
+
+/**
+ * Splits a track's artist line into the part it leads with and the part that
+ * follows the cover marker.
+ *
+ * For a cover the lead is the artist of the *original* song, not the people
+ * performing this version: in a library that is mostly covers, the song's own
+ * identity is what you scan a list for, and the performers are the variable part.
+ *
+ * `artists` is the override-resolved performer list (the `artist` column, which
+ * the editor labels "Cover by"), and `original_artist` is who first released it
+ * (the editor's "Artist"). Reading those two the other way round is what made the
+ * same track read differently on web and on the phone.
+ */
+export function artistLine(track: {
+  artists?: { name: string }[] | null
+  is_cover?: boolean
+  override?: { original_artist?: string | null } | null
+}): { lead: string; coverPerformers: string | null } {
+  const performers = track.artists?.map((a) => a.name).join(', ') ?? ''
+  const originalArtist = track.override?.original_artist ?? null
+  const isCover = !!track.is_cover
+
+  const lead = (isCover && originalArtist ? originalArtist : performers) || 'Unknown Artist'
+  // Dropped when it would merely repeat the lead — a cover with no recorded
+  // original would otherwise read "윤단 · covered by 윤단".
+  const coverPerformers = isCover && performers && performers !== lead ? performers : null
+  return { lead, coverPerformers }
+}

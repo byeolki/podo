@@ -304,7 +304,7 @@ export class ScannerService {
           })
           .onConflictDoNothing();
         this.events.emit('track.upserted', { track_id: siblingTrackId });
-        await this.maybeSetThumbnail(siblingTrackId, filePath, kind, origin, force);
+        await this.maybeSetThumbnail(siblingTrackId, filePath, kind, origin, force, probe.duration ?? null);
         await this.maybeSetLyrics(siblingTrackId, filePath, origin);
         return 'added';
       }
@@ -348,7 +348,7 @@ export class ScannerService {
         .where(eq(schema.sources.id, existing.id));
 
       this.events.emit('track.upserted', { track_id: trackId });
-      await this.maybeSetThumbnail(trackId, filePath, kind, origin, force);
+      await this.maybeSetThumbnail(trackId, filePath, kind, origin, force, probe.duration ?? null);
       await this.maybeSetLyrics(trackId, filePath, origin);
       return 'updated';
     }
@@ -409,7 +409,7 @@ export class ScannerService {
     }
 
     this.events.emit('track.upserted', { track_id: trackId });
-    await this.maybeSetThumbnail(trackId, filePath, kind, origin, force);
+    await this.maybeSetThumbnail(trackId, filePath, kind, origin, force, probe.duration ?? null);
     await this.maybeSetLyrics(trackId, filePath, origin);
     return 'added';
   }
@@ -467,6 +467,7 @@ export class ScannerService {
     kind: 'audio' | 'video',
     origin: 'local' | 'ytdlp',
     force = false,
+    durationMs: number | null = null,
   ): Promise<void> {
     const track = await this.db
       .select({ thumbnail_path: schema.tracks.thumbnail_path })
@@ -500,7 +501,7 @@ export class ScannerService {
 
     if (kind === 'video') {
       try {
-        await this.extractFirstFrame(mediaFilePath, dest);
+        await this.extractPosterFrame(mediaFilePath, dest, durationMs);
         await this.db
           .update(schema.tracks)
           .set({ thumbnail_path: dest })
@@ -511,13 +512,50 @@ export class ScannerService {
     }
   }
 
-  private extractFirstFrame(videoPath: string, dest: string): Promise<void> {
+  /**
+   * Grabs a representative still from a video.
+   *
+   * Taking frame 0 — which is what this did — is how tracks ended up with solid
+   * black thumbnails: a music video almost always opens on a fade-in from black,
+   * or on a title card. Seeking ~15% in lands in actual content, and ffmpeg's
+   * `thumbnail` filter then picks the most representative frame of the batch it
+   * sees from there rather than whatever single frame the seek happened to hit.
+   *
+   * Falls back to the old behaviour if the seek finds nothing, which is what
+   * happens on a clip shorter than the offset or a file with a broken index.
+   */
+  private async extractPosterFrame(
+    videoPath: string,
+    dest: string,
+    durationMs: number | null,
+  ): Promise<void> {
+    const seekSeconds = durationMs && durationMs > 0
+      ? Math.min(Math.max((durationMs / 1000) * 0.15, 2), 120)
+      : 10;
+    try {
+      await this.runFrameGrab(videoPath, dest, seekSeconds);
+    } catch {
+      await this.runFrameGrab(videoPath, dest, null);
+    }
+  }
+
+  private runFrameGrab(videoPath: string, dest: string, seekSeconds: number | null): Promise<void> {
     return new Promise((resolve, reject) => {
-      const proc = spawn('ffmpeg', ['-y', '-i', videoPath, '-frames:v', '1', '-update', '1', '-q:v', '3', dest]);
+      // `-ss` before `-i` so ffmpeg seeks by keyframe rather than decoding up to
+      // the offset — the difference is milliseconds against seconds on a long file.
+      const args = [
+        '-y',
+        ...(seekSeconds === null ? [] : ['-ss', seekSeconds.toFixed(2)]),
+        '-i', videoPath,
+        ...(seekSeconds === null ? [] : ['-vf', 'thumbnail']),
+        '-frames:v', '1', '-update', '1', '-q:v', '3',
+        dest,
+      ];
+      const proc = spawn('ffmpeg', args);
       let stderr = '';
       proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
       proc.on('close', (code) => {
-        if (code === 0 && fs.existsSync(dest)) resolve();
+        if (code === 0 && fs.existsSync(dest) && fs.statSync(dest).size > 0) resolve();
         else reject(new Error(stderr.slice(-300)));
       });
       proc.on('error', reject);

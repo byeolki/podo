@@ -5,7 +5,7 @@ import {
   HardDrive, Shield, X, Pencil, Check, FileAudio, FileVideo, Files, Radio, type LucideIcon,
 } from 'lucide-react'
 import {
-  getHealth, getUsers, getStorage, clearTranscodeCache, verifyIntegrity, formatBytes,
+  getHealth, getUsers, getStorage, clearTranscodeCache, verifyIntegrity, rebuildThumbnails, formatBytes,
 } from '../api/admin'
 import { getRoots, addRoot, removeRoot, triggerScan, getScanJobs } from '../api/library'
 import { createInvite, getMe, updateMe } from '../api/auth'
@@ -340,10 +340,44 @@ function HealthTab() {
     mutationFn: clearTranscodeCache,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['storage'] }),
   })
+  const rebuildThumbsMut = useMutation({
+    mutationFn: rebuildThumbnails,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tracks'] }),
+  })
 
   return (
     <div className="space-y-6">
       <UpdateCard />
+
+      <div>
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div>
+            <h3 className="text-base font-semibold">Artwork</h3>
+            <p className="text-xs text-ink-tertiary mt-0.5">
+              Regenerates covers that are missing, blank, or point at a file that is gone.
+              Downloaded tracks live outside the library roots, so a rescan never reaches them.
+            </p>
+          </div>
+          <button
+            onClick={() => rebuildThumbsMut.mutate()}
+            disabled={rebuildThumbsMut.isPending}
+            className="flex items-center gap-2 flex-shrink-0 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={rebuildThumbsMut.isPending ? 'animate-spin' : ''} />
+            {rebuildThumbsMut.isPending ? 'Rebuilding…' : 'Rebuild Thumbnails'}
+          </button>
+        </div>
+        {rebuildThumbsMut.data && (
+          <p className="text-xs text-ink-secondary mb-6">
+            Regenerated {rebuildThumbsMut.data.rebuilt} of {rebuildThumbsMut.data.examined}
+            {' '}({rebuildThumbsMut.data.blank} blank, {rebuildThumbsMut.data.missing_file} missing file,
+            {' '}{rebuildThumbsMut.data.never_generated} never had one).
+            {rebuildThumbsMut.data.needs_refetch > 0 && (
+              <> {rebuildThumbsMut.data.needs_refetch} have no video on disk — re-fetch those from the track editor.</>
+            )}
+          </p>
+        )}
+      </div>
 
       <div>
         <h3 className="text-base font-semibold mb-3">System</h3>

@@ -475,7 +475,12 @@ export class ScannerService {
       .where(eq(schema.tracks.id, trackId))
       .get();
     // `force` is a source refresh asking for the upstream thumbnail as it is now.
-    if (track?.thumbnail_path && !force) return;
+    // Existence matters, not just the column: a path that no longer resolves —
+    // the artwork directory moved, the volume was recreated, the file was removed
+    // — otherwise pins the track to a permanent placeholder, because nothing ever
+    // looks at it again. `maybeSetAlbumArtwork` has always checked this; track
+    // thumbnails didn't.
+    if (track?.thumbnail_path && !force && fs.existsSync(track.thumbnail_path)) return;
 
     const dest = path.join(this.artworkDir, `track_${trackId}_thumb.jpg`);
 
@@ -537,6 +542,69 @@ export class ScannerService {
     } catch {
       await this.runFrameGrab(videoPath, dest, null);
     }
+  }
+
+  /**
+   * Regenerates one track's thumbnail from its best on-disk video source,
+   * ignoring whatever it has now. Used by the admin rebuild action to repair
+   * thumbnails produced before the poster-frame change, which came out black.
+   *
+   * Returns false when there's nothing local to generate from — a track whose
+   * only source is audio has to be re-fetched from its URL instead.
+   */
+  async rebuildTrackThumbnail(trackId: string): Promise<boolean> {
+    const video = await this.db
+      .select({ locator: schema.sources.locator, duration: schema.sources.duration })
+      .from(schema.sources)
+      .where(and(
+        eq(schema.sources.track_id, trackId),
+        eq(schema.sources.media_kind, 'video'),
+        eq(schema.sources.available, true),
+      ))
+      .orderBy(schema.sources.priority)
+      .get();
+    if (!video || !fs.existsSync(video.locator)) return false;
+
+    const dest = path.join(this.artworkDir, `track_${trackId}_thumb.jpg`);
+    try {
+      await this.extractPosterFrame(video.locator, dest, video.duration ?? null);
+      await this.db
+        .update(schema.tracks)
+        .set({ thumbnail_path: dest })
+        .where(eq(schema.tracks.id, trackId));
+      return true;
+    } catch (e) {
+      this.logger.warn(`Failed to rebuild thumbnail for ${trackId}`, e instanceof Error ? e.stack : String(e));
+      return false;
+    }
+  }
+
+  /**
+   * True when an image is effectively a blank rectangle — which is what frame-0
+   * extraction produced for any video that opens on a fade-in.
+   *
+   * Scaling to a single pixel with the `area` flag is an exact mean, so this
+   * costs one short ffmpeg call and no decoding of our own.
+   */
+  async isBlankImage(imagePath: string): Promise<boolean> {
+    if (!fs.existsSync(imagePath)) return true;
+    const luma = await new Promise<number | null>((resolve) => {
+      const proc = spawn('ffmpeg', [
+        '-v', 'error', '-i', imagePath,
+        '-vf', 'scale=1:1', '-sws_flags', 'area',
+        '-f', 'rawvideo', '-pix_fmt', 'gray', '-',
+      ]);
+      const chunks: Buffer[] = [];
+      proc.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+      proc.on('close', () => {
+        const buf = Buffer.concat(chunks);
+        resolve(buf.length ? buf[0] : null);
+      });
+      proc.on('error', () => resolve(null));
+    });
+    // A real cover can be very dark; this threshold is for images with no
+    // content at all, not for dark ones.
+    return luma !== null && luma <= 6;
   }
 
   private runFrameGrab(videoPath: string, dest: string, seekSeconds: number | null): Promise<void> {

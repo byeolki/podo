@@ -5,6 +5,7 @@ import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { StreamingService } from '../streaming/streaming.service';
 import { TranscodeCacheService } from '../streaming/transcode-cache.service';
+import { ScannerService } from '../library/scanner.service';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
@@ -19,7 +20,68 @@ export class AdminService {
     private readonly streaming: StreamingService,
     private readonly cache: TranscodeCacheService,
     private readonly config: ConfigService,
+    private readonly scanner: ScannerService,
   ) {}
+
+  /**
+   * Repairs track thumbnails across the whole library.
+   *
+   * Three things leave a track without a usable cover, and none of them heal on
+   * their own: a thumbnail that was never generated, a `thumbnail_path` pointing
+   * at a file that is no longer there, and — for anything imported before the
+   * poster-frame change — an image extracted from frame 0, which for a video that
+   * opens on a fade-in is a solid black rectangle.
+   *
+   * A normal rescan can't fix any of these for downloaded tracks, because yt-dlp
+   * files live in the upload directory rather than under a library root.
+   */
+  async rebuildThumbnails() {
+    const tracks = await this.db
+      .select({ id: schema.tracks.id, thumbnail_path: schema.tracks.thumbnail_path })
+      .from(schema.tracks)
+      .where(isNull(schema.tracks.deleted_at));
+
+    let rebuilt = 0;
+    let blank = 0;
+    let missing = 0;
+    let absent = 0;
+    const unfixable: string[] = [];
+
+    for (const track of tracks) {
+      let needsWork = false;
+      if (!track.thumbnail_path) {
+        absent++;
+        needsWork = true;
+      } else if (!fs.existsSync(track.thumbnail_path)) {
+        missing++;
+        needsWork = true;
+      } else if (await this.scanner.isBlankImage(track.thumbnail_path)) {
+        blank++;
+        needsWork = true;
+      }
+      if (!needsWork) continue;
+
+      if (await this.scanner.rebuildTrackThumbnail(track.id)) rebuilt++;
+      else unfixable.push(track.id);
+    }
+
+    this.logger.log(
+      `Thumbnail rebuild: ${rebuilt} regenerated (${blank} blank, ${missing} missing file, ${absent} never had one), ` +
+      `${unfixable.length} have no local video to generate from`,
+    );
+
+    return {
+      examined: tracks.length,
+      rebuilt,
+      blank,
+      missing_file: missing,
+      never_generated: absent,
+      /// These have no video source on disk; re-fetching them from their source
+      /// URL is the only way to get a cover.
+      needs_refetch: unfixable.length,
+      needs_refetch_track_ids: unfixable.slice(0, 200),
+    };
+  }
 
   async verifyLibraryIntegrity() {
     const sources = await this.db

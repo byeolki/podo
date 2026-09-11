@@ -74,6 +74,22 @@ export function verifyIntegrity(): Promise<{ missing_count: number; missing_file
   return api.post('/admin/library/verify')
 }
 
+export interface ThumbnailRebuildResult {
+  examined: number
+  rebuilt: number
+  /// Covers that were a blank rectangle — what frame-0 extraction produced.
+  blank: number
+  missing_file: number
+  never_generated: number
+  /// No video source on disk, so only a re-fetch can give these a cover.
+  needs_refetch: number
+  needs_refetch_track_ids: string[]
+}
+
+export function rebuildThumbnails(): Promise<ThumbnailRebuildResult> {
+  return api.post('/admin/library/thumbnails/rebuild')
+}
+
 export function getTrafficStats(period: string): Promise<unknown> {
   return api.get(`/admin/stats/traffic?period=${period}`)
 }

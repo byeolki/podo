@@ -33,6 +33,12 @@ export class AdminController {
     return this.admin.verifyLibraryIntegrity();
   }
 
+  @Post('library/thumbnails/rebuild')
+  @ApiOperation({ summary: 'Regenerate track thumbnails that are missing, blank, or point at a file that is gone' })
+  rebuildThumbnails() {
+    return this.admin.rebuildThumbnails();
+  }
+
   @Delete('cache/transcode')
   @ApiOperation({ summary: 'Clear transcoding cache' })
   clearCache() {

@@ -9,6 +9,7 @@ import {
   Param,
   UseGuards,
   BadRequestException,
+  PayloadTooLargeException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger';
 import { FastifyRequest } from 'fastify';
@@ -38,15 +39,32 @@ export class UploadController {
     }
 
     const results: Array<{ filename: string; path?: string; error?: string }> = [];
-    const parts = req.parts();
 
-    for await (const part of parts) {
-      if (part.type !== 'file') continue;
-      try {
-        const result = await this.upload.handleUpload(part.filename, part.file as unknown as Readable);
-        results.push({ filename: part.filename, path: result.path });
-      } catch (e: unknown) {
-        results.push({ filename: part.filename, error: (e as Error).message });
+    // The whole iteration is guarded, not just each handler. Once a part breaches
+    // `limits.fileSize` the multipart parser throws from `parts()` itself, which
+    // escaped this loop and surfaced as a bare 500 — an oversized upload reported
+    // "Internal server error" rather than saying the file was too large.
+    try {
+      for await (const part of req.parts()) {
+        if (part.type !== 'file') continue;
+        try {
+          const result = await this.upload.handleUpload(part.filename, part.file as unknown as Readable);
+          results.push({ filename: part.filename, path: result.path });
+        } catch (e: unknown) {
+          results.push({ filename: part.filename, error: (e as Error).message });
+        }
+      }
+    } catch (e: unknown) {
+      const code = (e as { code?: string }).code;
+      const message = code === 'FST_REQ_FILE_TOO_LARGE' || code === 'FST_FILES_LIMIT'
+        ? 'File too large (max 500MB)'
+        : `Upload failed: ${(e as Error).message}`;
+      // Anything that did land before the failure is still reported. The part
+      // that breached the limit usually reported itself already — the parser
+      // then throws on the *next* read — so don't say it twice.
+      if (!results.length) throw new PayloadTooLargeException(message);
+      if (results[results.length - 1]?.error !== message) {
+        results.push({ filename: 'remaining files', error: message });
       }
     }
 

@@ -26,6 +26,19 @@ function mediaKind(ext: string): 'audio' | 'video' | null {
   return null;
 }
 
+/**
+ * The part of a filename that decides whether two files are the same track.
+ *
+ * Uploads are stored as `<epoch-ms>_<name>`, and the timestamp is taken per file
+ * — so `song.m4a` and `song.mp4` uploaded separately became `1789001_song.m4a`
+ * and `1789002_song.mp4`. Compared raw they are two different stems, so the pair
+ * was never found and one track arrived as two. The CLI already strips the same
+ * prefix when deciding what is already uploaded.
+ */
+export function pairingStem(stem: string): string {
+  return stem.replace(/^\d{10,}_/, '');
+}
+
 @Injectable()
 export class ScannerService {
   private readonly logger = new Logger(ScannerService.name);
@@ -232,6 +245,11 @@ export class ScannerService {
       existing.file_hash === fileHash &&
       fileHash !== ''
     ) {
+      // Unchanged on disk, but the *track* may still be soft-deleted: deleting
+      // a track leaves its source row untouched, so this branch is exactly the
+      // one a re-scan takes for it, and returning here is why a deleted track
+      // never came back no matter how many times the library was scanned.
+      await this.reviveTrackIfDeleted(existing.track_id);
       return 'skipped';
     }
 
@@ -333,6 +351,11 @@ export class ScannerService {
           disc_number: meta.disc_number ?? undefined,
           canonical_duration: probe.duration ?? undefined,
           is_cover: isCover,
+          // The source below is revived too, but nothing anywhere cleared this,
+          // so a track soft-deleted once stayed invisible even after its file
+          // came back and rescanned — with no way to undo it from the UI or the
+          // API either.
+          deleted_at: null,
           updated_at: new Date(),
         })
         .where(eq(schema.tracks.id, trackId));
@@ -410,6 +433,30 @@ export class ScannerService {
     await this.maybeSetThumbnail(trackId, filePath, kind, origin, force, probe.duration ?? null);
     await this.maybeSetLyrics(trackId, filePath, origin);
     return 'added';
+  }
+
+  /**
+   * Clears `tracks.deleted_at` when the file behind it is present again.
+   *
+   * Nothing else in the codebase ever cleared it, so a soft delete was in
+   * practice permanent — there is no undelete in the UI or the API either.
+   * Rescanning the file it came from is the one signal that says it should be
+   * back.
+   */
+  private async reviveTrackIfDeleted(trackId: string): Promise<void> {
+    const track = await this.db
+      .select({ deleted_at: schema.tracks.deleted_at })
+      .from(schema.tracks)
+      .where(eq(schema.tracks.id, trackId))
+      .get();
+    if (!track?.deleted_at) return;
+
+    await this.db
+      .update(schema.tracks)
+      .set({ deleted_at: null, updated_at: new Date() })
+      .where(eq(schema.tracks.id, trackId));
+    this.logger.log(`Revived soft-deleted track ${trackId} — its file is back`);
+    this.events.emit('track.upserted', { track_id: trackId });
   }
 
   /** Never overwrites an override that already exists — a person's edit wins. */
@@ -750,18 +797,22 @@ export class ScannerService {
    */
   private async findSiblingTrackId(filePath: string): Promise<string | null> {
     const dir = path.dirname(filePath);
-    const stem = path.basename(filePath, path.extname(filePath));
+    const stem = pairingStem(path.basename(filePath, path.extname(filePath)));
 
+    // The pattern is anchored on the *normalized* stem, which for an upload is
+    // not a prefix of the stored name, so the leading wildcard is unavoidable
+    // here. It still narrows the set enough for the exact check below, which is
+    // what actually decides.
     const candidates = await this.db
       .select({ track_id: schema.sources.track_id, locator: schema.sources.locator })
       .from(schema.sources)
-      .where(and(eq(schema.sources.available, true), like(schema.sources.locator, `${path.join(dir, stem)}.%`)));
+      .where(and(eq(schema.sources.available, true), like(schema.sources.locator, `${dir}/%${stem}.%`)));
 
     for (const candidate of candidates) {
       if (candidate.locator === filePath) continue;
       if (
         path.dirname(candidate.locator) === dir &&
-        path.basename(candidate.locator, path.extname(candidate.locator)) === stem
+        pairingStem(path.basename(candidate.locator, path.extname(candidate.locator))) === stem
       ) {
         return candidate.track_id;
       }

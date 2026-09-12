@@ -365,6 +365,7 @@ async function cmdUpload(args) {
   // workers: "0 uploaded, 0 failed", exit 0, nothing transferred.
   if (!Number.isInteger(concurrency) || concurrency < 1) fail('--jobs takes a positive whole number')
   const force = args.includes('--force')
+  const dryRun = args.includes('--dry-run')
 
   // Per-file tags given on the command line.
   const inlineMeta = coerceMeta({
@@ -419,6 +420,18 @@ async function cmdUpload(args) {
     (skipped ? ` (${skipped} already there)` : '') +
     `, ${concurrency} at a time\n`,
   )
+
+  if (dryRun) {
+    // Walking and the skip check are the parts worth previewing: they are what
+    // decide whether a 200-file run does what you meant.
+    for (const filePath of queue) {
+      const fields = { ...(metaByName.get(basename(filePath)) ?? {}), ...inlineMeta }
+      const tags = Object.keys(fields).length ? `  ${JSON.stringify(fields)}` : ''
+      console.log(`  ↑ ${basename(filePath)} (${human(statSync(filePath).size)})${tags}`)
+    }
+    console.log(`\nWould upload ${queue.length}, skip ${skipped}. Nothing was sent.`)
+    return
+  }
 
   let done = 0
   let failed = 0
@@ -561,6 +574,7 @@ function fail(message) {
 
 const UPLOAD_OPTIONS = `  --jobs N            Files in flight at once (default ${DEFAULT_CONCURRENCY}); use 1 for a progress bar
   --force             Upload even files whose name is already on the server
+  --dry-run           List what would be uploaded and stop
 
 Tagging (written to the override layer, so no rescan can undo them):
   --title, --artist, --cover-of, --cover, --track-number, --disc-number, --alt-titles

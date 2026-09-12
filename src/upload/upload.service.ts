@@ -44,28 +44,46 @@ export class UploadService {
     fs.mkdirSync(this.uploadDir, { recursive: true });
   }
 
+  /**
+   * `fileStream` is a multipart part. `@fastify/multipart` enforces the size
+   * limit while it streams and flags the part `truncated` rather than throwing,
+   * so that flag — not a byte count — is what says the file was too big.
+   *
+   * There was a `fileSize` parameter here doing that job, but no caller ever
+   * passed it, so the pre-check was always false and the only thing standing
+   * between a 600MB file and the disk was a `statSync` *after* it had all been
+   * written.
+   */
   async handleUpload(
     filename: string,
     fileStream: Readable,
-    fileSize?: number,
   ): Promise<{ path: string; track_id?: string }> {
     const ext = path.extname(filename).toLowerCase();
     if (!ALLOWED_EXTS.has(ext)) {
       throw new BadRequestException(`Unsupported file type: ${ext}`);
     }
 
-    if (fileSize && fileSize > MAX_FILE_SIZE) {
-      throw new BadRequestException('File too large (max 500MB)');
-    }
-
     const sanitizedName = path.basename(filename).replace(FILENAME_SANITIZE, '_');
     const destPath = path.join(this.uploadDir, `${Date.now()}_${sanitizedName}`);
 
-    await pipeline(fileStream, fs.createWriteStream(destPath));
+    try {
+      await pipeline(fileStream, fs.createWriteStream(destPath));
+    } catch (e) {
+      // A stream that fails halfway used to leave its partial file sitting in
+      // the upload directory forever.
+      fs.rmSync(destPath, { force: true });
+      throw new BadRequestException(`Upload failed: ${(e as Error).message}`);
+    }
+
+    // Set by the multipart parser once the part passed `limits.fileSize`.
+    if ((fileStream as Readable & { truncated?: boolean }).truncated) {
+      fs.rmSync(destPath, { force: true });
+      throw new BadRequestException('File too large (max 500MB)');
+    }
 
     const stat = fs.statSync(destPath);
     if (stat.size > MAX_FILE_SIZE) {
-      fs.unlinkSync(destPath);
+      fs.rmSync(destPath, { force: true });
       throw new BadRequestException('File too large (max 500MB)');
     }
 

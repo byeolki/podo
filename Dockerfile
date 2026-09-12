@@ -32,6 +32,9 @@ RUN npm ci --omit=dev
 RUN npm install -g @anthropic-ai/claude-code && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 COPY --from=web-builder /web/dist ./public
+# package.json declares `podo` as a bin, but nothing copied the script, so the
+# command did not exist inside the container it ships in.
+COPY cli ./cli
 RUN mkdir -p /data/uploads /data/artwork /data/transcode-cache
 ENV NODE_ENV=production \
     DB_PATH=/data/podo.db \

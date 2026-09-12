@@ -30,6 +30,13 @@ const MEDIA_EXTS = new Set([
 
 const DEFAULT_CONCURRENCY = 2
 const MAX_ATTEMPTS = 3
+const LOGIN_ATTEMPTS = 3
+/**
+ * Cloudflare's free plan rejects request bodies over 100MB at the edge, before
+ * they ever reach the server. The upload then fails with a 413 the server never
+ * saw and cannot explain, so the warning has to come from here.
+ */
+const PROXY_BODY_LIMIT = 100 * 1024 * 1024
 
 // ─── config ──────────────────────────────────────────────────────────────────
 
@@ -90,6 +97,15 @@ async function api(config, path, { method = 'GET', body, headers = {}, raw } = {
   }
   if (!response.ok) {
     const text = await response.text().catch(() => '')
+    if (response.status === 413) {
+      // 413 from a reverse proxy looks identical to one from the server, and the
+      // server's own limit is 500MB — so at 100MB the proxy is the likely one.
+      throw new Error(
+        'Rejected as too large (413). The server allows 500MB, so this is most ' +
+        "likely a proxy in front of it — Cloudflare's free plan caps request " +
+        'bodies at 100MB.',
+      )
+    }
     throw new Error(`${response.status} ${response.statusText}${text ? ` — ${text.slice(0, 200)}` : ''}`)
   }
   return response.status === 204 ? null : response.json()
@@ -421,6 +437,14 @@ async function cmdUpload(args) {
     `, ${concurrency} at a time\n`,
   )
 
+  const oversized = queue.filter((f) => statSync(f).size > PROXY_BODY_LIMIT)
+  if (oversized.length) {
+    warn(`${oversized.length} file${oversized.length === 1 ? ' is' : 's are'} over 100MB.`)
+    warn("If the server is behind Cloudflare's free plan these are rejected at the edge —")
+    warn('upload them over a direct connection or a tunnel that bypasses the proxy.')
+    console.log('')
+  }
+
   if (dryRun) {
     // Walking and the skip check are the parts worth previewing: they are what
     // decide whether a 200-file run does what you meant.
@@ -496,6 +520,36 @@ async function cmdUpload(args) {
 
 // ─── other commands ──────────────────────────────────────────────────────────
 
+/**
+ * Reads credentials from wherever stdin actually is.
+ *
+ * `readline`'s `question` resolves exactly once against a pipe and then never
+ * again, so asking for an email and a password in a loop hung at the second
+ * prompt the moment input wasn't a terminal — which is every scripted or piped
+ * use. A pipe is drained up front and answered line by line instead; a terminal
+ * still gets a real prompt.
+ */
+async function credentialReader() {
+  if (process.stdin.isTTY) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout })
+    const ask = (label) => rl.question(label)
+    ask.close = () => rl.close()
+    return ask
+  }
+
+  const chunks = []
+  for await (const chunk of process.stdin) chunks.push(chunk)
+  const lines = Buffer.concat(chunks).toString().split('\n')
+  const ask = async (label) => {
+    process.stdout.write(label)
+    const line = lines.shift()
+    process.stdout.write('\n')
+    return (line ?? '').trim()
+  }
+  ask.close = () => {}
+  return ask
+}
+
 async function cmdLogin(args) {
   const server = (args[0] ?? '').replace(/\/+$/, '')
   if (!/^https?:\/\//.test(server)) fail('Usage: podo login https://music.example.com')
@@ -504,23 +558,45 @@ async function cmdLogin(args) {
     fail('Refusing to send credentials over plain http. Use https:// (localhost is exempt).')
   }
 
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
-  const email = await rl.question('Email: ')
-  // No TTY masking here: hiding it would need raw mode, and getting that wrong
-  // leaves the terminal broken. Use PODO_PASSWORD to keep it off the screen.
-  const password = process.env.PODO_PASSWORD ?? (await rl.question('Password: '))
-  rl.close()
+  const ask = await credentialReader()
+  // With the password supplied out of band there is nobody at the keyboard to
+  // retype it, so one attempt is all a retry could ever be.
+  const attempts = process.env.PODO_PASSWORD ? 1 : LOGIN_ATTEMPTS
 
-  const response = await fetch(`${server}/api/v1/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
-  if (!response.ok) fail(`Login failed (${response.status})`)
-  const tokens = await response.json()
+  try {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      const email = process.env.PODO_EMAIL ?? (await ask('Email: '))
+      // Not masked: hiding it needs raw mode, and getting that wrong leaves the
+      // terminal in a broken state. PODO_EMAIL/PODO_PASSWORD keep it off screen.
+      const password = process.env.PODO_PASSWORD ?? (await ask('Password: '))
+      if (!email || !password) fail('No credentials given.')
 
-  saveConfig({ server, access_token: tokens.access_token, refresh_token: tokens.refresh_token })
-  console.log(`Logged in to ${server}`)
+      const response = await fetch(`${server}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+
+      if (response.ok) {
+        const tokens = await response.json()
+        saveConfig({ server, access_token: tokens.access_token, refresh_token: tokens.refresh_token })
+        console.log(`Logged in to ${server}`)
+        return
+      }
+
+      // Only a rejected credential is worth another go — a rate limit or an
+      // unreachable server just burns the remaining attempts.
+      const left = attempts - attempt
+      if (response.status !== 401 || left === 0) {
+        fail(response.status === 401
+          ? 'Login failed — wrong email or password.'
+          : `Login failed (${response.status}).`)
+      }
+      console.error(`Wrong email or password — ${left} attempt${left === 1 ? '' : 's'} left.`)
+    }
+  } finally {
+    ask.close()
+  }
 }
 
 async function cmdScan() {
@@ -592,7 +668,8 @@ const USAGE = `podo — command line client for a Podo server
 Upload options:
 ${UPLOAD_OPTIONS}
 
-Config lives in ${CONFIG_PATH}. Set PODO_PASSWORD to log in without a prompt.`
+Config lives in ${CONFIG_PATH}.
+Set PODO_EMAIL and PODO_PASSWORD to log in without prompts.`
 
 const [command, ...rest] = process.argv.slice(2)
 const commands = { login: cmdLogin, upload: cmdUpload, scan: cmdScan, status: cmdStatus }

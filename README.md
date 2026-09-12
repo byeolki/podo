@@ -136,6 +136,11 @@ podo upload rip.flac --title "으르렁" --artist "세라, 윤단" --cover-of EX
 podo upload ~/Music/Rips --metadata tags.csv
 ```
 
+Files over 100MB need a direct route to the server: Cloudflare's free plan
+rejects request bodies larger than that at the edge, before they reach Podo,
+and the error it returns says nothing about why. `podo upload` warns before it
+starts when anything in the queue is over the line.
+
 **Playlists that fill themselves.** Point a playlist at one on YouTube (or
 anywhere else yt-dlp reads) and Podo checks it on a schedule, downloads what's
 new and appends it. One-way and additive on purpose: when a video disappears

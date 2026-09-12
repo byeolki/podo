@@ -478,6 +478,12 @@ export default function Upload() {
         <UploadIcon size={32} className="mx-auto mb-3 text-ink-faint" />
         <p className="text-sm font-medium">Drop files here or click to browse</p>
         <p className="text-xs text-ink-faint mt-1">MP3, M4A, FLAC, AAC, WAV, OGG, OPUS, MP4, MKV — max 500MB each</p>
+        {/* The server's own limit is 500MB, but a proxy in front of it usually
+            has a lower one, and the error it returns explains nothing. */}
+        <p className="text-xs text-ink-faint mt-1">
+          Behind Cloudflare's free plan, anything over 100MB is rejected before it
+          reaches the server — use <code className="text-ink-tertiary">podo upload</code> over a direct connection for those.
+        </p>
       </div>
 
       {role === 'admin' && <AddMusicSection />}

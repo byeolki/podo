@@ -138,11 +138,21 @@ export class SearchService {
       } catch {}
     }
 
+    // FTS only ever sees `tracks.title`: its triggers are on the `tracks` table,
+    // so nothing in the override layer is indexed. That made a renamed track
+    // unfindable by its new name, and made `alternate_titles` — the whole point
+    // of which is finding 米津玄師 by typing "Kenshi Yonezu" — match nothing at
+    // all. This second pass covers the override columns the same way it already
+    // covered the artist ones.
     if (terms.length > 0) {
       const conditions = terms.map(() =>
-        `(lower(COALESCE(ov.artist,'')) LIKE lower(?) OR lower(COALESCE(ov.original_artist,'')) LIKE lower(?) OR lower(COALESCE(t.artist,'')) LIKE lower(?))`,
+        `(lower(COALESCE(ov.artist,'')) LIKE lower(?)
+          OR lower(COALESCE(ov.original_artist,'')) LIKE lower(?)
+          OR lower(COALESCE(t.artist,'')) LIKE lower(?)
+          OR lower(COALESCE(ov.title,'')) LIKE lower(?)
+          OR lower(COALESCE(ov.alternate_titles,'')) LIKE lower(?))`,
       ).join(' OR ');
-      const params: unknown[] = terms.flatMap((t) => [`%${t}%`, `%${t}%`, `%${t}%`]);
+      const params: unknown[] = terms.flatMap((t) => [`%${t}%`, `%${t}%`, `%${t}%`, `%${t}%`, `%${t}%`]);
       params.push(limit);
       try {
         const rows = this.sqlite.prepare(

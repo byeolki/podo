@@ -122,6 +122,10 @@ things a browser upload can't do with a folder of FLACs.
 npm i -g .            # or run it from a checkout: node cli/podo.mjs
 podo login https://music.example.com
 podo upload ~/Music/Albums --jobs 2
+
+# Files whose own names say nothing useful can be tagged as they go in
+podo upload rip.flac --title "으르렁" --artist "세라, 윤단" --cover-of EXO --cover
+podo upload ~/Music/Rips --metadata tags.csv
 ```
 
 **Playlists that fill themselves.** Point a playlist at one on YouTube (or

@@ -5,6 +5,7 @@ import * as schema from '../db/schema';
 import { AiService } from './ai.service';
 import { SearchService } from '../search/search.service';
 import { PlaylistsService } from '../playlists/playlists.service';
+import { TracksService } from '../tracks/tracks.service';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -43,6 +44,8 @@ interface ToolStep {
 /** Bounded so a confused model can't spend the user's quota in a loop. */
 const MAX_TOOL_STEPS = 6;
 const MAX_HISTORY = 12;
+/** One batch can rewrite a lot of rows, so cap what a single call can touch. */
+const MAX_TRACK_UPDATES = 40;
 
 const SYSTEM_PROMPT = `You are the assistant inside Podo, a personal music server. You help someone find, queue and organise the music that is already in their own library.
 
@@ -61,6 +64,7 @@ Tools:
 - create_playlist {"name": string, "track_ids"?: string[]} — make a new playlist.
 - add_to_playlist {"playlist_id": string, "track_ids": string[]} — append to one.
 - get_favorites {"limit"?: number} — tracks the person favourited.
+- update_tracks {"updates": [{"track_id": string, "title"?: string, "artist"?: string, "original_artist"?: string, "is_cover"?: boolean, "track_number"?: number, "alternate_titles"?: string}]} — correct the details of up to 40 tracks in one call. Send every track you are changing in a single call rather than one per step.
 
 Actions (optional, in the final reply):
 - {"type": "play", "track_ids": ["..."], "label": "..."} — start playing these, in this order.
@@ -70,7 +74,9 @@ Rules:
 - Track and playlist ids come only from tool results. If a search finds nothing, say so — never guess an id.
 - The library is heavy on Korean and Japanese music, much of it covers. Search in the script the person used, and try a romanization or the original script as a second query when the first finds nothing.
 - Keep replies short and concrete. Name the tracks you found.
-- Only create or modify a playlist when you were actually asked to.`;
+- Only create or modify a playlist when you were actually asked to.
+- update_tracks overwrites what is there, including corrections the person made by hand. Only send fields you were actually asked to change, and never guess at ones you weren't.
+- "artist" is who performed this recording; "original_artist" is who first released the song, set alongside is_cover=true.`;
 
 /**
  * The chat assistant.
@@ -92,6 +98,7 @@ export class AiChatService {
     private readonly ai: AiService,
     private readonly search: SearchService,
     private readonly playlists: PlaylistsService,
+    private readonly tracks: TracksService,
     @Inject(DB_TOKEN) private readonly db: Db,
   ) {}
 
@@ -164,6 +171,35 @@ export class AiChatService {
       .slice(0, 4);
   }
 
+  /**
+   * Only the fields the override accepts, and only those actually sent — so a
+   * model that echoes the whole track back can't blank out everything it didn't
+   * mention.
+   *
+   * `video_locator` and `volume_db` are deliberately not reachable: one is a
+   * server filesystem path and the other is a playback tweak, neither of which
+   * is something to infer from a sentence.
+   */
+  private metadataPatch(update: Record<string, unknown>): {
+    title?: string;
+    artist?: string;
+    original_artist?: string;
+    is_cover?: boolean;
+    track_number?: number;
+    disc_number?: number;
+    alternate_titles?: string;
+  } {
+    const patch: Record<string, unknown> = {};
+    for (const key of ['title', 'artist', 'original_artist', 'alternate_titles'] as const) {
+      if (typeof update[key] === 'string') patch[key] = update[key];
+    }
+    if (typeof update.is_cover === 'boolean') patch.is_cover = update.is_cover;
+    for (const key of ['track_number', 'disc_number'] as const) {
+      if (typeof update[key] === 'number') patch[key] = update[key];
+    }
+    return patch;
+  }
+
   private async runTool(
     tool: string,
     args: Record<string, unknown>,
@@ -199,6 +235,35 @@ export class AiChatService {
           const trackIds = ids('track_ids');
           await this.playlists.addTracks(str('playlist_id'), trackIds, userId);
           return { ok: true, added: trackIds.length };
+        }
+        case 'update_tracks': {
+          const updates = Array.isArray(args.updates) ? (args.updates as Record<string, unknown>[]) : [];
+          if (!updates.length) return { error: 'no updates given' };
+          // Bounded because this writes over the override layer, which is where
+          // a person's own corrections live — a runaway batch is the one thing
+          // here that loses work.
+          if (updates.length > MAX_TRACK_UPDATES) {
+            return { error: `too many at once (${updates.length}); the limit is ${MAX_TRACK_UPDATES}` };
+          }
+
+          const applied: string[] = [];
+          const failed: { track_id: string; error: string }[] = [];
+          // In parallel: each is an independent row and a batch of forty served
+          // one at a time is a visible pause in the middle of a conversation.
+          await Promise.all(updates.map(async (update) => {
+            const trackId = typeof update.track_id === 'string' ? update.track_id : '';
+            if (!trackId) {
+              failed.push({ track_id: '?', error: 'missing track_id' });
+              return;
+            }
+            try {
+              await this.tracks.applyOverride(trackId, this.metadataPatch(update), userId);
+              applied.push(trackId);
+            } catch (e) {
+              failed.push({ track_id: trackId, error: (e as Error).message });
+            }
+          }));
+          return { updated: applied.length, failed };
         }
         case 'get_favorites': {
           const rows = await this.db

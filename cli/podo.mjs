@@ -186,6 +186,120 @@ function storedName(name) {
   return name.replace(/^\d{10,}_/, '')
 }
 
+/** Fields `PATCH /tracks/:id/metadata` accepts. */
+const META_FIELDS = [
+  'title', 'artist', 'original_artist', 'is_cover',
+  'track_number', 'disc_number', 'alternate_titles',
+]
+
+/** CLI flag -> API field, for the ones where the flag reads better. */
+const META_FLAGS = {
+  '--title': 'title',
+  '--artist': 'artist',
+  '--cover-of': 'original_artist',
+  '--track-number': 'track_number',
+  '--disc-number': 'disc_number',
+  '--alt-titles': 'alternate_titles',
+}
+
+function coerceMeta(raw) {
+  const out = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (!META_FIELDS.includes(key) || value === '' || value === undefined || value === null) continue
+    if (key === 'is_cover') out[key] = value === true || value === 'true' || value === '1' || value === 'yes'
+    else if (key === 'track_number' || key === 'disc_number') {
+      const n = Number(value)
+      if (Number.isFinite(n)) out[key] = n
+    } else out[key] = String(value)
+  }
+  return out
+}
+
+/**
+ * A row per file, so a whole directory can be tagged in one run.
+ *
+ * JSON is an object keyed by filename; CSV needs a `filename` column and uses
+ * the API's own field names as the other headers. Minimal on purpose — this is
+ * a hand-written mapping for files whose own names are useless, not an import
+ * format.
+ */
+function loadMetadataFile(path) {
+  const text = readFileSync(path, 'utf8')
+  if (path.toLowerCase().endsWith('.json')) {
+    const parsed = JSON.parse(text)
+    return new Map(Object.entries(parsed).map(([name, fields]) => [name, coerceMeta(fields)]))
+  }
+
+  const rows = parseCsv(text)
+  const header = rows.shift()
+  if (!header) fail(`${path} is empty`)
+  const nameIdx = header.findIndex((h) => h.trim().toLowerCase() === 'filename')
+  if (nameIdx === -1) fail(`${path} needs a "filename" column`)
+
+  const map = new Map()
+  for (const row of rows) {
+    const name = row[nameIdx]?.trim()
+    if (!name) continue
+    const fields = {}
+    header.forEach((h, i) => {
+      const key = h.trim().toLowerCase()
+      if (key !== 'filename') fields[key] = row[i]?.trim()
+    })
+    map.set(name, coerceMeta(fields))
+  }
+  return map
+}
+
+/** Handles quoted fields and embedded commas; everything else is a plain split. */
+function parseCsv(text) {
+  const rows = []
+  let row = []
+  let field = ''
+  let quoted = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (quoted) {
+      if (c === '"' && text[i + 1] === '"') { field += '"'; i++ }
+      else if (c === '"') quoted = false
+      else field += c
+    } else if (c === '"') quoted = true
+    else if (c === ',') { row.push(field); field = '' }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = '' }
+    else if (c !== '\r') field += c
+  }
+  if (field || row.length) { row.push(field); rows.push(row) }
+  return rows.filter((r) => r.some((f) => f.trim()))
+}
+
+/**
+ * Tags what was just uploaded.
+ *
+ * The upload response only says where the file landed, not which track it
+ * became, so the uploaded-files listing is fetched once at the end and matched
+ * by path — one request for the whole run rather than one per file.
+ */
+async function applyMetadata(config, pending) {
+  if (!pending.length) return
+  const rows = await api(config, '/upload/files')
+  const byPath = new Map((rows ?? []).map((r) => [r.path, r.track_id]))
+
+  let tagged = 0
+  for (const { storedPath, label, fields } of pending) {
+    const trackId = byPath.get(storedPath)
+    if (!trackId) {
+      warn(`uploaded ${label} but couldn't find its track to tag`)
+      continue
+    }
+    try {
+      await api(config, `/tracks/${trackId}/metadata`, { method: 'PATCH', body: fields })
+      tagged++
+    } catch (e) {
+      warn(`couldn't tag ${label} — ${e.message}`)
+    }
+  }
+  if (tagged) console.log(`${tagged} tagged`)
+}
+
 async function collectFiles(paths) {
   const files = []
   for (const path of paths) {
@@ -213,13 +327,34 @@ async function cmdUpload(args) {
   const config = requireAuth()
   const concurrency = Number(flag(args, '--jobs') ?? DEFAULT_CONCURRENCY)
   const force = args.includes('--force')
+
+  // Per-file tags given on the command line.
+  const inlineMeta = coerceMeta({
+    ...Object.fromEntries(
+      Object.entries(META_FLAGS)
+        .map(([f, field]) => [field, flag(args, f)])
+        .filter(([, v]) => v !== undefined),
+    ),
+    ...(args.includes('--cover') ? { is_cover: true } : {}),
+  })
+  const metaFile = flag(args, '--metadata')
+  const metaByName = metaFile ? loadMetadataFile(resolve(metaFile)) : new Map()
+
   // Drop both the flags and the values they take, or `--jobs 1` leaves a stray
   // "1" that gets treated as a path to upload.
-  const paths = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--jobs')
-  if (!paths.length) fail('Usage: podo upload <file-or-directory>... [--jobs N] [--force]')
+  const valueFlags = new Set(['--jobs', '--metadata', ...Object.keys(META_FLAGS)])
+  const paths = args.filter((a, i) => !a.startsWith('--') && !valueFlags.has(args[i - 1]))
+  if (!paths.length) fail('Usage: podo upload <file-or-directory>... [options]\n\n' + UPLOAD_OPTIONS)
 
   const files = await collectFiles(paths)
   if (!files.length) fail('Nothing to upload.')
+
+  // Tags given as flags name one track; with several files there is no way to
+  // say which one they belong to, and silently applying them to all of them is
+  // not a guess worth making.
+  if (Object.keys(inlineMeta).length && files.length > 1) {
+    fail(`--title/--artist/... apply to a single file, but ${files.length} matched. Use --metadata <file.csv> for a batch.`)
+  }
 
   // Re-uploading what the server already has is the most likely way to waste a
   // long run, so ask once and skip by name.
@@ -243,6 +378,7 @@ async function cmdUpload(args) {
 
   let done = 0
   let failed = 0
+  const pendingTags = []
   const started = Date.now()
 
   const worker = async () => {
@@ -255,9 +391,13 @@ async function cmdUpload(args) {
       let lastError
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
-          await uploadFile(config, filePath, (sent, total) => {
+          const entry = await uploadFile(config, filePath, (sent, total) => {
             if (concurrency === 1) progress(label, sent, total)
           })
+          const fields = { ...(metaByName.get(label) ?? {}), ...inlineMeta }
+          if (entry?.path && Object.keys(fields).length) {
+            pendingTags.push({ storedPath: entry.path, label, fields })
+          }
           done++
           line(`  ✓ ${label} (${human(size)})`)
           lastError = null
@@ -277,6 +417,8 @@ async function cmdUpload(args) {
   }
 
   await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker))
+
+  await applyMetadata(config, pendingTags)
 
   const seconds = Math.round((Date.now() - started) / 1000)
   console.log(`\n${done} uploaded, ${failed} failed, in ${seconds}s`)
@@ -361,6 +503,15 @@ function fail(message) {
   process.exit(1)
 }
 
+const UPLOAD_OPTIONS = `  --jobs N            Files in flight at once (default ${DEFAULT_CONCURRENCY}); use 1 for a progress bar
+  --force             Upload even files whose name is already on the server
+
+Tagging (written to the override layer, so no rescan can undo them):
+  --title, --artist, --cover-of, --cover, --track-number, --disc-number, --alt-titles
+                      Tags for a single file
+  --metadata FILE     Tags for many, from a .csv (needs a "filename" column) or
+                      a .json object keyed by filename`
+
 const USAGE = `podo — command line client for a Podo server
 
   podo login <server-url>        Sign in and remember the session
@@ -369,8 +520,7 @@ const USAGE = `podo — command line client for a Podo server
   podo status                    Who and where you're signed in as
 
 Upload options:
-  --jobs N     Files in flight at once (default ${DEFAULT_CONCURRENCY}); use 1 for a progress bar
-  --force      Upload even files whose name is already on the server
+${UPLOAD_OPTIONS}
 
 Config lives in ${CONFIG_PATH}. Set PODO_PASSWORD to log in without a prompt.`
 

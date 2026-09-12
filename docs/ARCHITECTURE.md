@@ -187,6 +187,13 @@ variables the first time they're read — env supplies the *defaults*, a row win
 The model is free text everywhere, deliberately: pointing the server at a newer
 model shouldn't need a release.
 
+**Nothing is chosen implicitly.** An earlier revision defaulted the provider to
+the CLI whenever no OpenAI key was set, which quietly enabled AI for every
+existing deployment on upgrade: the CLI needs no key, so it reports itself
+available, and the scanner would then spend the operator's own subscription on a
+subprocess per imported file. A provider has to be named, a key has to be
+present, or `AI_ENABLED=true`.
+
 `available` can only tell you the provider is installed. An unauthenticated
 Claude Code CLI passes `--version` happily and then answers "Not logged in" on
 the first real call, and proving otherwise would cost a model call per status
@@ -197,9 +204,22 @@ shows it.
 rather than a provider's native function calling, because the two providers don't
 share one — the CLI is driven by a single prompt with no tool API. One protocol
 keeps both providers on the same path and keeps the loop here, where it is
-bounded (`MAX_TOOL_STEPS`) and auditable, instead of inside a vendor SDK. Tools
-are scoped to the calling user and read or write only their own library and
-playlists.
+bounded (`MAX_TOOL_STEPS`) and auditable, instead of inside a vendor SDK.
+
+Tools are scoped to the calling user where the underlying data is. Two are wider
+by the app's own design rather than by accident: `get_playlist` also resolves
+anyone's public playlist, and `update_tracks` writes the shared override table,
+because the library is shared and `PATCH /tracks/:id/metadata` always has been.
+
+**The prompt is hostile input.** It is built from chat text *and* from track
+titles, which come from filenames any uploader controls. That matters most on the
+CLI provider: in print mode its read-side tools need no approval, so injected
+text could have walked it into `.env`, the SQLite file or the JWT secret and
+returned the contents inside `reply`, which goes straight to the caller. The
+subprocess therefore runs with every file and network tool refused
+(`--disallowed-tools`), in a temp directory, with an environment stripped to
+`PATH` and `HOME`, as its own process group so a timeout takes its children too.
+Tool results are fenced and labelled as data in the prompt for the same reason.
 
 Playback is the one thing it can't do: the server has no speaker. So a reply
 carries *actions* the browser performs, which also means the queue visibly

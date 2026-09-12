@@ -104,19 +104,27 @@ fact. The new file replaces the old one *on the same track*, so the playlists,
 favorites and play counts pointing at it survive — the alternative, deleting and
 re-downloading, throws all of that away.
 
-**AI that is optional and yours.** Two providers: an OpenAI API key, or the
-Claude Code CLI bundled in the image — the second so a self-hosted server can
-have these features without its operator provisioning billing for them. Provider,
-model and each feature are changed from Settings → AI at runtime, and the model
-is free text, so a newer one is a settings change rather than an upgrade. It
-fills metadata from filenames on import, and there's an assistant docked at the
-edge of the dashboard that searches your library, queues tracks and builds
-playlists — it only ever acts on ids its own tools returned, so it can't invent
-music you don't have.
+**AI that is off until you ask for it.** Nothing is chosen implicitly: with
+nothing configured there is no AI, and no model is ever contacted. Turn it on
+with an OpenAI key, or with the Claude Code CLI bundled in the image — the second
+so a self-hosted server can have these features without its operator
+provisioning billing for them. Provider, model and each feature are changed from
+Settings → AI at runtime, and the model is free text, so a newer one is a
+settings change rather than an upgrade.
+
+Two things it does. It fills track metadata from filenames on import, which is
+what makes a folder of badly-named rips usable. And an assistant, a separate
+switch again, docked at the edge of the dashboard: it searches your library,
+queues tracks, builds playlists and corrects metadata in batches. It only ever
+acts on ids its own tools returned, so it cannot offer you music you don't have,
+and the tools it is given are the whole of what it can do — the model itself runs
+with every file and network tool refused, in a temp directory, with nothing of
+the server's environment.
 
 **A command line for the big stuff.** `podo upload` streams files straight off
-disk, walks directories, skips what the server already has, and retries — the
-things a browser upload can't do with a folder of FLACs.
+disk, walks directories, skips what the server already has (by name *and* size,
+so two albums with an `01 Intro.mp3` both land), and retries — the things a
+browser upload can't do with a folder of FLACs.
 
 ```bash
 npm i -g .            # or run it from a checkout: node cli/podo.mjs
@@ -168,7 +176,7 @@ radio URLs, and subtitle tracks imported as real synced lyrics.
 | **Metadata** | ID3 tags → optional LLM fill → user override layer that always wins; multi-select AI autofill from the dashboard |
 | **Search** | SQLite FTS5 over titles and albums, plus artist/alternate-title matching and MusicBrainz alias expansion |
 | **Import** | Drag-and-drop upload, `podo upload` from the terminal, or yt-dlp from any supported site by URL, or YouTube search, with progress over websockets |
-| **AI** | Metadata filled from filenames, and an assistant that can search your library, queue tracks and build playlists — via an OpenAI key or the Claude Code CLI |
+| **AI** | Off by default. Metadata filled from filenames, and an assistant that can search, queue, build playlists and fix metadata in batches — via an OpenAI key or the Claude Code CLI |
 | **Re-fetch** | Pull a downloaded track again from its original URL — media, artwork and subtitles — in place, keeping the track and everything attached to it |
 | **Auto-sync** | Subscribe a playlist to a remote playlist URL; new items are downloaded and appended on a schedule you pick |
 | **Sharing** | Invite-only accounts, public playlists, permanent public radio URLs per playlist |
@@ -227,7 +235,11 @@ Everything is environment variables; the full list is in
 | `CORS_ORIGIN` | `*` | Allowed origin(s) |
 | `TRUST_PROXY` | `true` | Set `false` when not behind a reverse proxy |
 | `RATE_LIMIT_MAX` / `AUTH_RATE_LIMIT_MAX` | `1000` / `10` | Requests per minute per IP, globally and on credential endpoints |
-| `OPENAI_API_KEY` / `OPENAI_MODEL` | _(empty)_ / `gpt-4o-mini` | Enables LLM metadata extraction. Entirely optional — everything else works without it |
+| `AI_ENABLED` | `false` | Master switch. Naming a provider or supplying a key also turns it on; with none of them set there is no AI at all |
+| `AI_PROVIDER` | _(auto)_ | `openai` or `claude-code`. Defaults to `openai` when a key is present |
+| `AI_CHAT_ENABLED` | `false` | The assistant, which can create playlists and edit metadata — its own switch |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` | _(empty)_ / `gpt-5.4` | For the `openai` provider |
+| `ANTHROPIC_API_KEY` / `CLAUDE_CODE_PATH` | _(empty)_ / `claude` | For the `claude-code` provider. Needs a key, or an authenticated config mounted at `/root/.claude` |
 | `YTDLP_PATH` | `yt-dlp` | Binary used for downloads and YouTube search |
 | `MUSICBRAINZ_USER_AGENT` | `podo/0.1.0` | Identify your deployment; a generic UA gets rate-limited |
 | `SWAGGER_ENABLED` | _(dev only)_ | Set `true` to expose `/api/docs` in production |

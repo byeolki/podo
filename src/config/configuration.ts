@@ -47,6 +47,13 @@ export default () => ({
   openai_model: process.env.OPENAI_MODEL ?? '',
   claude_code_path: process.env.CLAUDE_CODE_PATH ?? 'claude',
   claude_model: process.env.CLAUDE_MODEL ?? '',
+  /**
+   * HOME for the Claude Code subprocess, i.e. where it looks for `.claude`.
+   * The provider runs with a scrubbed environment, so without this it inherits
+   * whatever HOME the server happens to have — which in the image is `/root`,
+   * and there is no reason a credential mount has to live there.
+   */
+  claude_config_home: process.env.CLAUDE_CONFIG_HOME ?? '',
   ytdlp_path: process.env.YTDLP_PATH ?? 'yt-dlp',
   cors_origin: process.env.CORS_ORIGIN ?? '*',
   rate_limit_max: parseInt(process.env.RATE_LIMIT_MAX ?? '1000', 10),

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Inject, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, and, isNull, desc, asc, inArray, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
@@ -29,7 +29,7 @@ export class TracksService {
 
   constructor(
     @Inject(DB_TOKEN) private readonly db: Db,
-    @Optional() private readonly ai: AiService | null,
+    private readonly ai: AiService,
     private readonly config: ConfigService,
   ) {
     this.artworkDir = config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
@@ -430,12 +430,8 @@ export class TracksService {
   async aiAutofill(trackIds: string[], userId: string): Promise<{ track_id: string; applied: boolean; skipped: boolean; result: Record<string, unknown> | null }[]> {
     // A clean empty success made "no provider configured" identical to "the model
     // had no answer", which is why this looked like a button that did nothing.
-    if (!(await this.ai?.isUsable())) {
-      throw new ServiceUnavailableException(
-        this.ai
-          ? 'No AI provider is available — check Settings → AI'
-          : 'AI is not available in this build',
-      );
+    if (!(await this.ai.isUsable())) {
+      throw new ServiceUnavailableException('No AI provider is available — check Settings → AI');
     }
 
     const [tracks, existingOverrides] = await Promise.all([
@@ -480,7 +476,7 @@ export class TracksService {
       if (!locator) { results.push({ track_id: track.id, applied: false, skipped: false, result: null }); continue; }
 
       const filename = path.basename(locator);
-      const aiResult = await this.ai!.extractMetadata(filename, { title: track.title });
+      const aiResult = await this.ai.extractMetadata(filename, { title: track.title });
 
       if (!aiResult) { results.push({ track_id: track.id, applied: false, skipped: false, result: null }); continue; }
 

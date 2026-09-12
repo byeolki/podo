@@ -90,6 +90,8 @@ export class ClaudeCodeProvider implements AiProvider {
     private readonly binaryPath: string,
     /** Whatever the operator selected — probing a different model proves nothing. */
     private readonly probeModel: string,
+    /** Where the CLI should look for `.claude`; empty means inherit the server's. */
+    private readonly configHome: string,
   ) {}
 
   /**
@@ -191,7 +193,7 @@ export class ClaudeCodeProvider implements AiProvider {
           cwd: tmpdir(),
           env: {
             PATH: process.env.PATH ?? '',
-            HOME: process.env.HOME ?? tmpdir(),
+            HOME: this.configHome || process.env.HOME || tmpdir(),
             ...(process.env.ANTHROPIC_API_KEY ? { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY } : {}),
           },
         });

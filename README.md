@@ -244,7 +244,8 @@ Everything is environment variables; the full list is in
 | `AI_PROVIDER` | _(auto)_ | `openai` or `claude-code`. Defaults to `openai` when a key is present |
 | `AI_CHAT_ENABLED` | `false` | The assistant, which can create playlists and edit metadata — its own switch |
 | `OPENAI_API_KEY` / `OPENAI_MODEL` | _(empty)_ / `gpt-5.4` | For the `openai` provider |
-| `ANTHROPIC_API_KEY` / `CLAUDE_CODE_PATH` | _(empty)_ / `claude` | For the `claude-code` provider. Needs a key, or an authenticated config mounted at `/root/.claude` |
+| `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` | _(empty)_ / `claude-sonnet-5` | For the `claude-code` provider |
+| `CLAUDE_CODE_PATH` / `CLAUDE_CONFIG_HOME` | `claude` / _(server's HOME)_ | Where the CLI lives, and where it looks for `.claude`. The subprocess runs with a scrubbed environment, so point the second at whatever you mounted an authenticated config into |
 | `YTDLP_PATH` | `yt-dlp` | Binary used for downloads and YouTube search |
 | `MUSICBRAINZ_USER_AGENT` | `podo/0.1.0` | Identify your deployment; a generic UA gets rate-limited |
 | `SWAGGER_ENABLED` | _(dev only)_ | Set `true` to expose `/api/docs` in production |

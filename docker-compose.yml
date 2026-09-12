@@ -23,7 +23,7 @@ services:
       # Only needed for the claude-code AI provider, and only if you sign in with
       # `claude` on the host rather than setting ANTHROPIC_API_KEY. Read-only:
       # the container has no reason to write your credentials.
-      # - ~/.claude:/root/.claude:ro
+      # - ~/.claude:/claude-home/.claude:ro   # with CLAUDE_CONFIG_HOME=/claude-home
       - podo-data:/data
       - ${MUSIC_DIR:-./music}:/music:ro
     restart: unless-stopped

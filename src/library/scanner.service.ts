@@ -52,14 +52,8 @@ export class ScannerService {
     private readonly metadata: MetadataService,
     private readonly events: EventsService,
     private readonly config: ConfigService,
-    @Optional() private readonly ai: AiService | null,
+    private readonly ai: AiService,
   ) {
-    // `@Optional()` above means a wiring mistake presents as "AI quietly does
-    // nothing" rather than a boot failure, which is indistinguishable from AI
-    // being switched off. Say which it is, once.
-    if (!this.ai) {
-      this.logger.warn('AiService was not injected — metadata fill is unavailable in this build');
-    }
     this.artworkDir = config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
     fs.mkdirSync(this.artworkDir, { recursive: true });
   }
@@ -276,8 +270,8 @@ export class ScannerService {
     // nothing useful — the filename it reasons from hasn't changed — and the
     // result was being thrown away anyway, so every re-import of a changed file
     // was paying for an LLM call whose answer went nowhere.
-    if (!existing && (await this.ai?.isUsable())) {
-      const aiResult = await this.ai!.extractMetadata(path.basename(filePath), {
+    if (!existing && (await this.ai.isUsable())) {
+      const aiResult = await this.ai.extractMetadata(path.basename(filePath), {
         title: meta.title,
         artist: meta.artist,
         album: meta.album,

@@ -84,7 +84,11 @@ export class AiService {
 
     this.providers = {
       openai: new OpenAiProvider(openAiKey),
-      'claude-code': new ClaudeCodeProvider(claudePath, config.get<string>('claude_model', '') || DEFAULT_MODELS['claude-code']),
+      'claude-code': new ClaudeCodeProvider(
+        claudePath,
+        config.get<string>('claude_model', '') || DEFAULT_MODELS['claude-code'],
+        config.get<string>('claude_config_home', ''),
+      ),
     };
 
     // Environment only supplies the defaults; a row in `app_settings` wins.

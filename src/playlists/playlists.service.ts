@@ -9,6 +9,8 @@ import * as path from 'path';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import { TracksService } from '../tracks/tracks.service';
+import { DownloadService } from '../download/download.service';
+import { YtdlpService } from '../download/ytdlp.service';
 
 const ALLOWED_COVER_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const MAX_COVER_SIZE = 10 * 1024 * 1024;
@@ -21,6 +23,8 @@ export class PlaylistsService {
     @Inject(DB_TOKEN) private readonly db: Db,
     private readonly config: ConfigService,
     private readonly tracks: TracksService,
+    private readonly download: DownloadService,
+    private readonly ytdlp: YtdlpService,
   ) {
     this.artworkDir = config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
     fs.mkdirSync(this.artworkDir, { recursive: true });
@@ -81,6 +85,79 @@ export class PlaylistsService {
       is_public: dto.is_public ?? false,
     });
     return this.db.select().from(schema.playlists).where(eq(schema.playlists.id, id)).get();
+  }
+
+  /**
+   * Downloads a remote playlist and keeps it as one: the tracks land in the
+   * library the way any download does, and a local playlist is created holding
+   * them in the order they arrived.
+   *
+   * Without this, pasting a playlist URL scattered fifty tracks into the library
+   * with nothing recording that they belonged together. This is a one-time
+   * import and nothing more — the playlist is an ordinary playlist afterwards,
+   * with no link back to the source. Subscribing a playlist to keep pulling new
+   * items is a separate, deliberate action (see `PlaylistSyncService`).
+   *
+   * Returns as soon as the job is queued; progress arrives on the usual
+   * `download.*` events, and tracks appear in the playlist as they import.
+   */
+  async createFromUrl(
+    url: string,
+    userId: string,
+    isAdmin: boolean,
+    opts: { audioOnly?: boolean; name?: string } = {},
+  ) {
+    // Same gate as `POST /download` and playlist auto-sync: this spends disk and
+    // bandwidth and reaches out to a third-party site, so it stays an admin
+    // action even though the playlist it produces is an ordinary user playlist.
+    if (!isAdmin) throw new ForbiddenException('Only an admin can download from a URL');
+
+    // Read the playlist before creating anything. A private, deleted or mistyped
+    // URL otherwise left an empty playlist sitting in the library after the
+    // download failed, with nothing to say why.
+    const probe = await this.ytdlp.probePlaylist(url);
+    if (!probe || probe.count === 0) {
+      throw new BadRequestException(
+        "Couldn't read that playlist — check the link is correct and the playlist is public",
+      );
+    }
+
+    const given = opts.name?.trim();
+    const name = given || probe.title || 'Imported playlist';
+    const playlist = await this.create({ name, description: `Imported from ${url}` }, userId);
+    if (!playlist) throw new BadRequestException('Could not create the playlist');
+
+    const job = await this.download.start(url, opts.audioOnly ?? true, {
+      // The URL was chosen *because* it names a collection, so never let the
+      // "is this one item or a list?" heuristic decide here.
+      allowPlaylist: true,
+      // Placed by the item's position in the source playlist, not by when it
+      // finished: imports run concurrently, so appending on arrival shuffled the
+      // order (a three-track list imported as 2, 1, 3). Writing each row at its
+      // own position also lets the playlist fill in visibly while the download
+      // is still running.
+      onTrackImported: async (trackId, _sourceUrl, index) => {
+        await this.placeTrack(playlist.id, trackId, index);
+      },
+    });
+
+    return { playlist_id: playlist.id, name: playlist.name, job_id: job.id };
+  }
+
+  /**
+   * Writes one track at a known position. Only used while importing, where the
+   * positions come from the source playlist and the rows arrive out of order —
+   * `addTracks` appends at the end, which is the wrong shape for that.
+   */
+  private async placeTrack(playlistId: string, trackId: string, position: number) {
+    await this.db
+      .insert(schema.playlist_tracks)
+      .values({ playlist_id: playlistId, track_id: trackId, position })
+      .onConflictDoNothing();
+    await this.db
+      .update(schema.playlists)
+      .set({ updated_at: new Date() })
+      .where(eq(schema.playlists.id, playlistId));
   }
 
   async update(id: string, dto: { name?: string; description?: string; is_public?: boolean; track_ids?: string[] }, userId: string) {

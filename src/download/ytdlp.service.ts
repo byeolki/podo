@@ -78,6 +78,27 @@ export class YtdlpService {
     return entries;
   }
 
+  /**
+   * Reads a playlist's title and size without downloading anything.
+   *
+   * Returns null when yt-dlp couldn't read the URL at all — a private or deleted
+   * playlist, a typo, a site that needs login. Callers use that to refuse the
+   * import up front rather than discovering it after they've created something.
+   */
+  async probePlaylist(url: string): Promise<{ title: string | null; count: number } | null> {
+    const stdout = await this.run(
+      ['--flat-playlist', '--print', '%(playlist_title)s', url],
+      PLAYLIST_TIMEOUT_MS,
+      'playlist probe',
+    );
+    const lines = stdout.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) return null;
+    // Every entry carries the playlist's title; "NA" is what yt-dlp prints for a
+    // field the site doesn't provide.
+    const title = lines[0] === 'NA' ? null : lines[0];
+    return { title, count: lines.length };
+  }
+
   private toSearchResult(obj: Record<string, unknown>): MediaSearchResult {
     const thumbnails = obj.thumbnails as Array<{ url: string }> | undefined;
     return {

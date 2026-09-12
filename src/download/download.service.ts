@@ -49,10 +49,14 @@ export interface DownloadOptions {
   allowPlaylist?: boolean;
   /**
    * Called once per downloaded file, after it has been scanned into the library
-   * and its track resolved. Used by playlist auto-sync to append what it just
-   * pulled; errors are logged and don't fail the job.
+   * and its track resolved. Errors are logged and don't fail the job.
+   *
+   * `index` is the item's position in the source playlist, counted from the
+   * order yt-dlp prints them in. Imports run concurrently and therefore finish
+   * out of order, so a caller that cares about sequence has to place by this
+   * rather than by arrival.
    */
-  onTrackImported?: (trackId: string, sourceUrl: string | undefined) => Promise<void>;
+  onTrackImported?: (trackId: string, sourceUrl: string | undefined, index: number) => Promise<void>;
 }
 
 /**
@@ -202,6 +206,7 @@ export class DownloadService {
       if (!line) return;
       const [filePath, sourceUrl] = line.split('\t');
       if (!filePath || !fs.existsSync(filePath)) return;
+      const index = completedCount;
       completedCount++;
       job.completed_items = completedCount;
       this.events.emit('download.progress', {
@@ -209,7 +214,7 @@ export class DownloadService {
         completed_items: job.completed_items,
         total_items: job.total_items,
       });
-      imports.push(this.importFile(filePath, sourceUrl || undefined, opts));
+      imports.push(this.importFile(filePath, sourceUrl || undefined, opts, index));
     };
 
     try {
@@ -270,7 +275,12 @@ export class DownloadService {
    * became so callers can act on it. The scanner keys sources by absolute path,
    * so the file's own locator is the correlation key.
    */
-  private async importFile(filePath: string, sourceUrl: string | undefined, opts: DownloadOptions): Promise<void> {
+  private async importFile(
+    filePath: string,
+    sourceUrl: string | undefined,
+    opts: DownloadOptions,
+    index: number,
+  ): Promise<void> {
     try {
       // Ahead of the scan: the scanner picks the thumbnail and subtitles up as
       // sidecar files sitting next to the media, so they have to be there first.
@@ -283,7 +293,7 @@ export class DownloadService {
         .from(schema.sources)
         .where(eq(schema.sources.locator, filePath))
         .get();
-      if (source) await opts.onTrackImported(source.track_id, sourceUrl);
+      if (source) await opts.onTrackImported(source.track_id, sourceUrl, index);
     } catch (e) {
       this.logger.warn(`Failed to import ${filePath}: ${(e as Error).message}`);
     }

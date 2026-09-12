@@ -106,3 +106,20 @@ export function removeSubscription(id: string): Promise<void> {
 export function syncSubscriptionNow(id: string): Promise<SyncResult> {
   return api.post(`/playlists/${id}/subscription/sync`, {})
 }
+
+export interface PlaylistImport {
+  playlist_id: string
+  name: string
+  job_id: string
+}
+
+/**
+ * Downloads a remote playlist and keeps it as a playlist here. A one-time
+ * import — the result is an ordinary playlist with no link back to the source.
+ */
+export function importPlaylistFromUrl(
+  url: string,
+  audio_only = true,
+): Promise<PlaylistImport> {
+  return api.post('/playlists/from-url', { url, audio_only })
+}

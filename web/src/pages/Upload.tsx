@@ -11,6 +11,8 @@ import {
 import { formatBytes } from '../api/admin'
 import { startDownload, getDownloads, searchDownload, inspectUrl, type UnifiedSearchResult, type UrlInspection } from '../api/library'
 import { useAuthStore } from '../store/auth'
+import { Link } from 'react-router-dom'
+import { importPlaylistFromUrl } from '../api/playlists'
 
 const URL_PATTERN = /^https?:\/\//i
 
@@ -54,6 +56,20 @@ function AddMusicSection() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['downloads'] }),
   })
 
+  const importMut = useMutation({
+    mutationFn: (url: string) => importPlaylistFromUrl(url, audioOnly),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['downloads'] })
+      qc.invalidateQueries({ queryKey: ['playlists'] })
+    },
+  })
+
+  // Defaults on, because keeping the grouping is what someone pasting a playlist
+  // link is asking for — without it the tracks scatter into the library with
+  // nothing recording that they belonged together.
+  const [keepAsPlaylist, setKeepAsPlaylist] = useState(true)
+  const willCreatePlaylist = !!inspection?.is_playlist && keepAsPlaylist
+
   const isUrl = URL_PATTERN.test(input.trim())
 
   // Ask the server what a pasted link actually is, so the button can say
@@ -79,7 +95,8 @@ function AddMusicSection() {
     if (!trimmed) return
 
     if (URL_PATTERN.test(trimmed)) {
-      downloadMut.mutate(trimmed)
+      if (willCreatePlaylist) importMut.mutate(trimmed)
+      else downloadMut.mutate(trimmed)
       setInput('')
       setSearchResult(null)
       setLastQuery('')
@@ -119,14 +136,16 @@ function AddMusicSection() {
         />
         <button
           type="submit"
-          disabled={!input.trim() || isSearching || downloadMut.isPending}
+          disabled={!input.trim() || isSearching || downloadMut.isPending || importMut.isPending}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
         >
           {isUrl ? <Download size={14} /> : <Search size={14} />}
           {isSearching
             ? 'Searching…'
             : isUrl
-              ? inspection?.is_playlist ? 'Download playlist' : 'Download'
+              ? willCreatePlaylist
+                ? 'Import as playlist'
+                : inspection?.is_playlist ? 'Download playlist' : 'Download'
               : 'Search'}
         </button>
       </form>
@@ -135,6 +154,17 @@ function AddMusicSection() {
           <input type="checkbox" checked={audioOnly} onChange={(e) => setAudioOnly(e.target.checked)} className="accent-accent" />
           Audio only
         </label>
+        {inspection?.is_playlist && (
+          <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={keepAsPlaylist}
+              onChange={(e) => setKeepAsPlaylist(e.target.checked)}
+              className="accent-accent"
+            />
+            Keep as a playlist
+          </label>
+        )}
         {inspection && (
           <span className="text-xs text-ink-faint">
             {inspection.provider_label}
@@ -142,6 +172,16 @@ function AddMusicSection() {
           </span>
         )}
       </div>
+
+      {importMut.data && (
+        <p className="text-xs text-ink-secondary mb-3">
+          Created <Link to={`/playlists/${importMut.data.playlist_id}`} className="text-accent hover:underline">{importMut.data.name}</Link>
+          {' '}— tracks are added to it as they finish downloading.
+        </p>
+      )}
+      {importMut.error && (
+        <p className="text-xs text-red-400 mb-3">{(importMut.error as Error).message}</p>
+      )}
 
       {searchResult && searchResult.local.length > 0 && (
         <div className="mb-3">

@@ -22,6 +22,13 @@ class UpdatePlaylistDto {
   @IsOptional() @IsArray() @IsString({ each: true }) track_ids?: string[];
 }
 
+class ImportPlaylistDto {
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true }) url!: string;
+  @IsOptional() @IsBoolean() audio_only?: boolean;
+  /** Overrides the remote playlist's own title. */
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(200) name?: string;
+}
+
 class SubscriptionDto {
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true }) source_url!: string;
   @IsOptional() @IsInt() @Min(15) @Max(10080) interval_minutes?: number;
@@ -37,6 +44,15 @@ export class PlaylistsController {
     private readonly playlists: PlaylistsService,
     private readonly sync: PlaylistSyncService,
   ) {}
+
+  @Post('from-url')
+  @ApiOperation({ summary: 'Download a remote playlist and keep it as a playlist here' })
+  importFromUrl(@Body() dto: ImportPlaylistDto, @CurrentUser() user: JwtPayload) {
+    return this.playlists.createFromUrl(dto.url, user.sub, user.role === 'admin', {
+      audioOnly: dto.audio_only,
+      name: dto.name,
+    });
+  }
 
   @Get()
   @ApiOperation({ summary: 'List my playlists' })

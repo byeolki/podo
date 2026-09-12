@@ -32,14 +32,26 @@ export default function AiSettingsCard() {
     if (ai && !modelDirty) setModel(ai.model)
   }, [ai, modelDirty])
 
+  const [error, setError] = useState<string | null>(null)
+
   const { mutate, isPending } = useMutation({
     mutationFn: updateAiSettings,
-    onSuccess: (next) => {
+    onSuccess: (next, patch) => {
       qc.setQueryData(['ai-settings'], next)
       qc.invalidateQueries({ queryKey: ['health'] })
-      setModelDirty(false)
-      setModel(next.model)
+      // Whether the assistant is offered is a separate endpoint the launcher
+      // polls; without this it can stay visible (or missing) for five minutes.
+      qc.invalidateQueries({ queryKey: ['ai-chat-status'] })
+      setError(null)
+      // Only when this mutation was about the model. Resetting on every save
+      // meant flipping an unrelated switch silently discarded a model the admin
+      // had typed but not yet saved.
+      if (patch.model !== undefined || patch.provider !== undefined) {
+        setModelDirty(false)
+        setModel(next.model)
+      }
     },
+    onError: (err) => setError((err as Error).message),
   })
 
   if (!ai) return null
@@ -147,8 +159,6 @@ export default function AiSettingsCard() {
             checked={ai.chat_enabled}
             disabled={isPending}
             onChange={(e) => mutate({ chat_enabled: e.target.checked })}
-            // The launcher reads its own endpoint, so refresh that too.
-            onBlur={() => qc.invalidateQueries({ queryKey: ['ai-chat-status'] })}
             className="accent-accent flex-shrink-0"
           />
         </label>
@@ -158,6 +168,12 @@ export default function AiSettingsCard() {
         <p className="flex items-start gap-1.5 text-xs text-ink-tertiary mt-2">
           <AlertCircle size={11} className="flex-shrink-0 mt-0.5" />
           {ai.unavailable_reason}
+        </p>
+      )}
+      {error && (
+        <p className="flex items-start gap-1.5 text-xs text-red-400 mt-2">
+          <AlertCircle size={11} className="flex-shrink-0 mt-0.5" />
+          Couldn't save — {error}
         </p>
       )}
       {ai.last_error && (

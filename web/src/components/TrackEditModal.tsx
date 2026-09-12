@@ -7,7 +7,7 @@ import { getArtworkUrl } from '../api/client'
 import ArtworkImage from './ArtworkImage'
 import TrackSourcePanel from './TrackSourcePanel'
 import { useAuthStore } from '../store/auth'
-import { getHealth } from '../api/admin'
+import { getChatStatus } from '../api/admin'
 
 interface Props {
   track: Track
@@ -92,13 +92,16 @@ export default function TrackEditModal({ track, onClose }: Props) {
   const isAdmin = useAuthStore((s) => s.role === 'admin')
   // The button used to be live regardless: with no API key on the server the
   // request succeeds, changes nothing, and says nothing.
-  const { data: health } = useQuery({
-    queryKey: ['health'],
-    queryFn: getHealth,
-    enabled: isAdmin,
+  // `/ai/status` rather than the admin health endpoint: AI Fill is open to any
+  // signed-in user, so gating on an admin-only query left the button live for
+  // exactly the people who would otherwise press it and see nothing happen.
+  const { data: aiStatus } = useQuery({
+    queryKey: ['ai-chat-status'],
+    queryFn: getChatStatus,
     staleTime: 5 * 60_000,
+    retry: false,
   })
-  const aiEnabled = health?.ai.available ?? true
+  const aiEnabled = aiStatus?.available ?? false
 
   const thumbnailMut = useMutation({
     mutationFn: (file: File) => uploadTrackThumbnail(track.id, file),
@@ -168,7 +171,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
               disabled={aiFilling || !aiEnabled}
               title={aiEnabled
                 ? 'Guess title, artist and cover info from the filename'
-                : health?.ai.unavailable_reason ?? 'Configure a provider in Settings → AI'}
+                : 'No AI provider is configured — see Settings → AI'}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Sparkles size={12} />

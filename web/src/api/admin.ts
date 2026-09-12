@@ -141,7 +141,14 @@ export interface ChatReply {
   used_tools: string[]
 }
 
-export function getChatStatus(): Promise<{ enabled: boolean }> {
+export interface AiFeatureStatus {
+  /// A provider is configured and usable — gates AI Fill, open to all users.
+  available: boolean
+  /// The assistant specifically, which is its own switch.
+  chat_enabled: boolean
+}
+
+export function getChatStatus(): Promise<AiFeatureStatus> {
   return api.get('/ai/status')
 }
 

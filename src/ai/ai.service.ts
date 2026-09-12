@@ -87,13 +87,27 @@ export class AiService {
       'claude-code': new ClaudeCodeProvider(claudePath),
     };
 
-    // Environment only supplies the defaults; a row in `app_settings` wins. An
-    // OpenAI key being present is the signal that that's the intended provider,
-    // otherwise fall back to the CLI, which needs nothing configured.
-    const provider: AiProviderName = (config.get<string>('ai_provider', '') as AiProviderName)
-      || (openAiKey ? 'openai' : 'claude-code');
+    // Environment only supplies the defaults; a row in `app_settings` wins.
+    //
+    // Defaulting to the CLI whenever no key was set would have switched AI *on*
+    // for every existing deployment on upgrade — the CLI needs no key, so it
+    // reports itself available, and the scanner would then spend the operator's
+    // personal Claude subscription on one subprocess per imported file without
+    // anyone asking for it. Nothing is chosen implicitly: a provider has to be
+    // named, or a key has to be present.
+    const configured = config.get<string>('ai_provider', '').trim();
+    const provider: AiProviderName =
+      configured === 'openai' || configured === 'claude-code' ? configured
+      : openAiKey ? 'openai'
+      : 'claude-code';
+    if (configured && configured !== provider) {
+      this.logger.warn(`Ignoring AI_PROVIDER="${configured}" — expected "openai" or "claude-code"`);
+    }
+
     this.envDefaults = {
-      enabled: config.get<boolean>('ai_enabled', true),
+      // Off unless something was actually configured. `AI_ENABLED=true` with a
+      // usable CLI is the deliberate way to turn it on without a key.
+      enabled: config.get<boolean>('ai_enabled', false) || !!configured || !!openAiKey,
       provider,
       model: config.get<string>('openai_model', '') || DEFAULT_MODELS[provider],
       chat_enabled: config.get<boolean>('ai_chat_enabled', false),

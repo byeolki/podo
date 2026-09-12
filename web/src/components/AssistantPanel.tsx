@@ -35,10 +35,12 @@ export default function AssistantPanel() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [turns, setTurns] = useState<Turn[]>([])
+  const [error, setError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const qc = useQueryClient()
   const setQueue = usePlayerStore((s) => s.setQueue)
+  const play = usePlayerStore((s) => s.play)
 
   const { data: status } = useQuery({
     queryKey: ['ai-chat-status'],
@@ -55,11 +57,17 @@ export default function AssistantPanel() {
         ...prev,
         { role: 'assistant', content: reply.reply, actions: reply.actions, usedTools: reply.used_tools },
       ])
-      // It may well have just created or changed one.
+      // Its tools create playlists and rewrite track metadata, so the views
+      // behind the panel are stale the moment it succeeds.
       qc.invalidateQueries({ queryKey: ['playlists'] })
+      qc.invalidateQueries({ queryKey: ['playlist'] })
+      qc.invalidateQueries({ queryKey: ['tracks'] })
+      qc.invalidateQueries({ queryKey: ['search'] })
     },
     onError: (err) => {
-      setTurns((prev) => [...prev, { role: 'assistant', content: (err as Error).message }])
+      // Kept out of `turns`: everything in there is replayed to the model as
+      // conversation, and "Failed to fetch" is not something it said.
+      setError((err as Error).message)
     },
   })
 
@@ -67,30 +75,51 @@ export default function AssistantPanel() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [turns, isPending])
 
-  if (!status?.enabled) return null
+  // Every other overlay here closes on Escape; not doing so made this the one
+  // panel you had to reach for the mouse to dismiss.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  if (!status?.chat_enabled) return null
 
   function submit(text: string) {
     const trimmed = text.trim()
     if (!trimmed || isPending) return
     const next: Turn[] = [...turns, { role: 'user', content: trimmed }]
     setTurns(next)
+    setError(null)
     setInput('')
     mutate(next)
   }
 
   async function run(action: ChatAction) {
-    if (action.type === 'open_playlist' && action.playlist_id) {
-      navigate(`/playlists/${action.playlist_id}`)
-      setOpen(false)
-      return
-    }
-    if (action.type === 'play' && action.track_ids?.length) {
-      // The assistant only knows ids; the player needs whole tracks.
-      const tracks = await getTracksByIds(action.track_ids)
-      // Keep the order the assistant asked for, not the order they came back in.
-      const byId = new Map(tracks.map((t) => [t.id, t]))
-      const ordered = action.track_ids.map((id) => byId.get(id)).filter((t): t is NonNullable<typeof t> => !!t)
-      if (ordered.length) setQueue(ordered, 0)
+    try {
+      if (action.type === 'open_playlist' && action.playlist_id) {
+        navigate(`/playlists/${action.playlist_id}`)
+        setOpen(false)
+        return
+      }
+      if (action.type === 'play' && action.track_ids?.length) {
+        // The assistant only knows ids; the player needs whole tracks.
+        const tracks = await getTracksByIds(action.track_ids)
+        // Keep the order the assistant asked for, not the order they came back in.
+        const byId = new Map(tracks.map((t) => [t.id, t]))
+        const ordered = action.track_ids.map((id) => byId.get(id)).filter((t): t is NonNullable<typeof t> => !!t)
+        if (!ordered.length) {
+          setTurns((prev) => [...prev, { role: 'assistant', content: "Those tracks aren't in the library any more." }])
+          return
+        }
+        setQueue(ordered, 0)
+        // `setQueue` only loads the queue. Without this the button silently does
+        // nothing whenever the player happens to be idle.
+        play()
+      }
+    } catch (e) {
+      setTurns((prev) => [...prev, { role: 'assistant', content: `That didn't work — ${(e as Error).message}` }])
     }
   }
 
@@ -98,7 +127,7 @@ export default function AssistantPanel() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-[90] flex items-center gap-1.5 px-2 py-3 rounded-l-xl bg-surface-2 border border-r-0 border-border text-ink-secondary hover:text-white hover:bg-surface-3 transition-colors shadow-lg"
+        className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex items-center gap-1.5 px-2 py-3 rounded-l-xl bg-surface-2 border border-r-0 border-border text-ink-secondary hover:text-white hover:bg-surface-3 transition-colors shadow-lg"
         title="Assistant"
         aria-label="Open the assistant"
       >
@@ -108,7 +137,9 @@ export default function AssistantPanel() {
   }
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 z-[90] w-full sm:w-[380px] bg-surface-1 border-l border-border flex flex-col shadow-2xl">
+    <div className="fixed right-0 top-0 bottom-20 z-[60] w-full sm:w-[380px] bg-surface-1 border-l border-border flex flex-col shadow-2xl"
+      role="dialog"
+      aria-label="Assistant">
       <div className="flex items-center justify-between px-4 h-14 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2">
           <Sparkles size={15} className="text-accent" />
@@ -119,7 +150,7 @@ export default function AssistantPanel() {
         </button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3" aria-live="polite">
         {turns.length === 0 && (
           <div className="space-y-2">
             <p className="text-xs text-ink-tertiary">
@@ -140,7 +171,7 @@ export default function AssistantPanel() {
         {turns.map((turn, i) => (
           <div key={i} className={turn.role === 'user' ? 'flex justify-end' : ''}>
             <div
-              className={`max-w-[90%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap ${
+              className={`max-w-[90%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
                 turn.role === 'user' ? 'bg-accent/20 text-white' : 'bg-surface-2 text-ink-secondary'
               }`}
             >
@@ -167,6 +198,7 @@ export default function AssistantPanel() {
         ))}
 
         {isPending && <p className="text-xs text-ink-tertiary">Thinking…</p>}
+        {error && <p className="text-xs text-red-400">{error}</p>}
       </div>
 
       <form

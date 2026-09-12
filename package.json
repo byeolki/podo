@@ -56,5 +56,8 @@
   },
   "bin": {
     "podo": "./cli/podo.mjs"
-  }
+  },
+  "files": [
+    "cli/podo.mjs"
+  ]
 }

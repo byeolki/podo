@@ -11,7 +11,12 @@ import { Readable } from 'stream';
 
 const ALLOWED_EXTS = new Set(['.mp3', '.m4a', '.flac', '.aac', '.wav', '.ogg', '.opus', '.mp4', '.m4v', '.mkv']);
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
-const FILENAME_SANITIZE = /[^a-zA-Z0-9._\-\s가-힣ㄱ-ㅎㅏ-ㅣ]/g;
+// Strips path separators and control characters, and keeps letters and digits in
+// any script. The previous allowlist named Hangul explicitly and nothing else, so
+// a Japanese or Chinese filename came out as a row of underscores — "米津玄師 -
+// Lemon.m4a" was stored as "_____ - Lemon.m4a", losing the name and defeating any
+// later attempt to match the file by it.
+const FILENAME_SANITIZE = /[\p{C}\p{Zl}\p{Zp}\\/:*?"<>|]/gu;
 
 export interface FileEntry {
   source_id: string;

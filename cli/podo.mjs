@@ -12,7 +12,7 @@
  * tree along with it.
  */
 
-import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { readdir } from 'node:fs/promises'
 import { createInterface } from 'node:readline/promises'
 import { Readable } from 'node:stream'
@@ -42,9 +42,15 @@ function loadConfig() {
 }
 
 function saveConfig(config) {
-  mkdirSync(CONFIG_DIR, { recursive: true })
-  // Tokens live here, so keep it to the owner.
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { mode: 0o600 })
+  mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
+  // Written aside and renamed: a torn write leaves JSON that `loadConfig`
+  // swallows into `{}`, which shows up as a baffling "not logged in".
+  const tmp = `${CONFIG_PATH}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(config, null, 2), { mode: 0o600 })
+  renameSync(tmp, CONFIG_PATH)
+  // `mode` on writeFileSync only applies when creating, so a config written
+  // before this existed would keep its old, possibly world-readable bits.
+  try { chmodSync(CONFIG_PATH, 0o600) } catch {}
 }
 
 function requireAuth() {
@@ -100,19 +106,35 @@ function tokenLifeLeft(token) {
   }
 }
 
-async function refresh(config) {
+/**
+ * Shared across workers.
+ *
+ * `--jobs 4` had four uploads crossing the expiry threshold in the same tick and
+ * firing four refreshes with the same token: the credential rate limit trips, and
+ * if the server rotates the token only one rotation wins — the last write can
+ * persist an already-invalidated one and log the user out for good.
+ */
+let inflightRefresh = null
+function refresh(config) {
+  if (!inflightRefresh) {
+    inflightRefresh = doRefresh(config).finally(() => { inflightRefresh = null })
+  }
+  return inflightRefresh
+}
+
+async function doRefresh(config) {
   const response = await fetch(`${config.server}/api/v1/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: config.refresh_token }),
   })
+  // Thrown, not `fail()`ed: this is reached from inside the upload loop, where
+  // `process.exit` would kill sibling uploads mid-stream, skip the tagging pass
+  // and lose the summary.
   if (response.status === 429) {
-    // The auth endpoints are rate limited far more tightly than the rest of the
-    // API. Saying "session expired" here sent people to re-login when waiting
-    // was the answer.
-    fail('Rate limited by the server on sign-in. Wait a minute and try again.')
+    throw new Error('Rate limited by the server on sign-in. Wait a minute and try again.')
   }
-  if (!response.ok) fail(`Session expired (${response.status}). Run \`podo login\` again.`)
+  if (!response.ok) throw new Error(`Session expired (${response.status}). Run \`podo login\` again.`)
   const tokens = await response.json()
   config.access_token = tokens.access_token
   if (tokens.refresh_token) config.refresh_token = tokens.refresh_token
@@ -147,9 +169,16 @@ async function uploadFile(config, filePath, onProgress) {
   let sent = 0
 
   async function* body() {
+    // Two headers on purpose. `filename=` is percent-encoded per RFC 7578 so a
+    // quote, CR or LF in a name can't inject extra part headers; `filename*` is
+    // RFC 5987, which is how a parser is told the bytes are UTF-8 — without it a
+    // Japanese or Korean name arrives mojibake'd, which also breaks the
+    // already-uploaded check on every later run.
+    const safe = filename.replace(/["\r\n\\]/g, (c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0').toUpperCase())
+    const encoded = encodeURIComponent(filename)
     yield Buffer.from(
       `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="file"; filename="${filename.replace(/"/g, '')}"\r\n` +
+      `Content-Disposition: form-data; name="file"; filename="${safe}"; filename*=UTF-8''${encoded}\r\n` +
       'Content-Type: application/octet-stream\r\n\r\n',
     )
     for await (const chunk of createReadStream(filePath, { highWaterMark: 1 << 20 })) {
@@ -171,7 +200,13 @@ async function uploadFile(config, filePath, onProgress) {
   })
 
   const entry = result?.uploaded?.[0]
-  if (entry?.error) throw new Error(entry.error)
+  if (entry?.error) {
+    // The server accepted the request and refused the file (unsupported type,
+    // too large). Sending the bytes again changes nothing.
+    const permanent = new Error(entry.error)
+    permanent.permanent = true
+    throw permanent
+  }
   return entry
 }
 
@@ -326,6 +361,9 @@ async function collectFiles(paths) {
 async function cmdUpload(args) {
   const config = requireAuth()
   const concurrency = Number(flag(args, '--jobs') ?? DEFAULT_CONCURRENCY)
+  // `Number('abc')` is NaN, which made `Array.from({length: NaN})` produce zero
+  // workers: "0 uploaded, 0 failed", exit 0, nothing transferred.
+  if (!Number.isInteger(concurrency) || concurrency < 1) fail('--jobs takes a positive whole number')
   const force = args.includes('--force')
 
   // Per-file tags given on the command line.
@@ -358,17 +396,23 @@ async function cmdUpload(args) {
 
   // Re-uploading what the server already has is the most likely way to waste a
   // long run, so ask once and skip by name.
-  let existing = new Set()
+  const existing = new Set()
   if (!force) {
     try {
       const rows = await api(config, '/upload/files')
-      existing = new Set((rows ?? []).map((f) => storedName(f.filename ?? basename(f.path ?? ''))).filter(Boolean))
+      // Keyed by name *and* size. On name alone, two albums that both contain
+      // "01 Intro.mp3" meant the second was reported as already there and never
+      // uploaded — silent data loss, and the likeliest one for a music library.
+      for (const f of rows ?? []) {
+        const name = storedName(f.filename ?? basename(f.path ?? ''))
+        if (name) existing.add(`${name}:${f.file_size ?? '?'}`)
+      }
     } catch {
       warn("couldn't read what's already uploaded — continuing without skipping")
     }
   }
 
-  const queue = files.filter((f) => !existing.has(basename(f)))
+  const queue = files.filter((f) => !existing.has(`${basename(f)}:${statSync(f).size}`))
   const skipped = files.length - queue.length
   console.log(
     `${queue.length} file${queue.length === 1 ? '' : 's'} to upload` +
@@ -386,7 +430,16 @@ async function cmdUpload(args) {
       const filePath = queue.shift()
       if (!filePath) return
       const label = basename(filePath)
-      const size = statSync(filePath).size
+      let size = 0
+      try {
+        size = statSync(filePath).size
+      } catch {
+        // Gone since the directory was walked. One missing file shouldn't take
+        // down every other upload in flight.
+        failed++
+        line(`  ✗ ${label} — disappeared before it could be uploaded`)
+        continue
+      }
 
       let lastError
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -404,9 +457,8 @@ async function cmdUpload(args) {
           break
         } catch (e) {
           lastError = e
-          if (attempt < MAX_ATTEMPTS) {
-            await sleep(1000 * attempt)
-          }
+          if (e.permanent || attempt === MAX_ATTEMPTS) break
+          await sleep(1000 * attempt)
         }
       }
       if (lastError) {
@@ -416,7 +468,7 @@ async function cmdUpload(args) {
     }
   }
 
-  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker))
+  await Promise.all(Array.from({ length: concurrency }, worker))
 
   await applyMetadata(config, pendingTags)
 
@@ -433,7 +485,11 @@ async function cmdUpload(args) {
 
 async function cmdLogin(args) {
   const server = (args[0] ?? '').replace(/\/+$/, '')
-  if (!server.startsWith('http')) fail('Usage: podo login https://music.example.com')
+  if (!/^https?:\/\//.test(server)) fail('Usage: podo login https://music.example.com')
+  // A password and two long-lived tokens cross this connection.
+  if (server.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(server)) {
+    fail('Refusing to send credentials over plain http. Use https:// (localhost is exempt).')
+  }
 
   const rl = createInterface({ input: process.stdin, output: process.stdout })
   const email = await rl.question('Email: ')
@@ -467,10 +523,10 @@ async function cmdScan() {
 async function cmdStatus() {
   const config = requireAuth()
   const me = await api(config, '/auth/me')
-  const tracks = await api(config, '/tracks?limit=1')
+  const health = await api(config, '/admin/health/detail').catch(() => null)
   console.log(`${config.server}`)
   console.log(`  signed in as ${me.email} (${me.role})`)
-  console.log(`  ${Array.isArray(tracks) ? 'reachable' : 'reachable'}`)
+  if (health) console.log(`  ${health.tracks} tracks, ${health.sources} sources, podo ${health.version}`)
 }
 
 // ─── plumbing ────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { spawn } from 'child_process';
+import { tmpdir } from 'os';
 import OpenAI from 'openai';
 
 /**
@@ -15,6 +16,13 @@ export interface AiProvider {
 }
 
 const REQUEST_TIMEOUT_MS = 60_000;
+/** Everything that could read, write or reach the network from the server box. */
+const DISALLOWED_TOOLS = [
+  'Bash', 'Read', 'Write', 'Edit', 'NotebookEdit',
+  'Glob', 'Grep', 'WebFetch', 'WebSearch', 'Task',
+];
+/** A wedged or chatty CLI shouldn't be able to grow the server's heap. */
+const MAX_STDOUT_BYTES = 1 << 20;
 
 function safeParse(stdout: string): { result?: unknown; is_error?: boolean } | null {
   try {
@@ -39,14 +47,20 @@ export class OpenAiProvider implements AiProvider {
 
   async complete(system: string, user: string, model: string): Promise<string | null> {
     if (!this.client) return null;
-    const response = await this.client.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      response_format: { type: 'json_object' },
-    });
+    const response = await this.client.chat.completions.create(
+      {
+        model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        response_format: { type: 'json_object' },
+      },
+      // The SDK defaults to a 600s timeout with two retries, so one slow step
+      // could hold an HTTP request open for half an hour and a whole chat for
+      // hours. Match the CLI path's bound instead.
+      { timeout: REQUEST_TIMEOUT_MS, maxRetries: 1 },
+    );
     return response.choices[0]?.message?.content ?? null;
   }
 }
@@ -77,7 +91,10 @@ export class ClaudeCodeProvider implements AiProvider {
    * last real failure instead, which is what surfaces "Not logged in".
    */
   async unavailableReason(): Promise<string | null> {
-    if (this.cachedAvailability !== undefined) return this.cachedAvailability;
+    // Success is cached for the life of the process; a failure is not. Caching
+    // "missing" forever meant installing or signing into the CLI still reported
+    // unusable until a restart — exactly the confusion this was meant to end.
+    if (this.cachedAvailability === null) return null;
     const result = await this.run(['--version'], 10_000);
     this.cachedAvailability = result.ok
       ? null
@@ -90,7 +107,19 @@ export class ClaudeCodeProvider implements AiProvider {
     // the user's message rather than sent as a separate role.
     const prompt = `${system}\n\n---\n\n${user}`;
     const result = await this.run(
-      ['-p', prompt, '--model', model, '--output-format', 'json'],
+      [
+        '-p', prompt,
+        '--model', model,
+        '--output-format', 'json',
+        // The prompt contains user chat text and track titles taken from
+        // uploaded filenames, so it must be assumed hostile. In print mode the
+        // CLI's read-side tools need no approval, which would let injected text
+        // walk it into .env, the SQLite file or the JWT secret and hand the
+        // contents back inside `reply`. It has no use for any tool here — it is
+        // being asked to turn text into JSON — so all of them are refused.
+        '--disallowed-tools', DISALLOWED_TOOLS.join(','),
+        '--permission-mode', 'default',
+      ],
       REQUEST_TIMEOUT_MS,
     );
 
@@ -126,19 +155,47 @@ export class ClaudeCodeProvider implements AiProvider {
 
       let proc;
       try {
-        proc = spawn(this.binaryPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        proc = spawn(this.binaryPath, args, {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          // Its own process group, so a timeout can take the helpers it spawned
+          // with it instead of orphaning them.
+          detached: true,
+          // Nowhere interesting to look, and nothing worth reading in the
+          // environment — belt and braces behind the refused tools above.
+          cwd: tmpdir(),
+          env: {
+            PATH: process.env.PATH ?? '',
+            HOME: process.env.HOME ?? tmpdir(),
+            ...(process.env.ANTHROPIC_API_KEY ? { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY } : {}),
+          },
+        });
       } catch (e) {
         finish({ ok: false, stdout: '', error: (e as Error).message });
         return;
       }
 
+      const killTree = () => {
+        try {
+          if (proc.pid) process.kill(-proc.pid, 'SIGKILL');
+        } catch {
+          proc.kill('SIGKILL');
+        }
+      };
+
       const timer = setTimeout(() => {
-        proc.kill('SIGKILL');
+        killTree();
         finish({ ok: false, stdout, error: `timed out after ${timeoutMs}ms` });
       }, timeoutMs);
       timer.unref();
 
-      proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+      proc.stdout.on('data', (chunk: Buffer) => {
+        if (stdout.length > MAX_STDOUT_BYTES) {
+          killTree();
+          finish({ ok: false, stdout, error: 'output exceeded 1MB' });
+          return;
+        }
+        stdout += chunk.toString();
+      });
       proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
       proc.on('close', (code) => {
         clearTimeout(timer);

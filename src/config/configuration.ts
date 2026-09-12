@@ -37,7 +37,10 @@ export default () => ({
   migrations_path: process.env.MIGRATIONS_PATH ?? path.join(__dirname, '..', 'db', 'migrations'),
   // AI. These are the *defaults*; an admin can change provider, model and the
   // switches at runtime and those are stored in `app_settings`.
-  ai_enabled: process.env.AI_ENABLED !== 'false',
+  // Opt-in, not opt-out: unset must mean off, or an upgrade silently switches AI
+  // on for every existing deployment. `AiService` also treats naming a provider
+  // or supplying a key as enabling it.
+  ai_enabled: process.env.AI_ENABLED === 'true',
   ai_provider: process.env.AI_PROVIDER ?? '',
   ai_chat_enabled: process.env.AI_CHAT_ENABLED === 'true',
   openai_api_key: process.env.OPENAI_API_KEY ?? '',

@@ -20,7 +20,7 @@ export interface AiSettings {
  * than a code change.
  */
 export const DEFAULT_MODELS: Record<AiProviderName, string> = {
-  openai: 'gpt-5.3',
+  openai: 'gpt-5.4',
   'claude-code': 'claude-sonnet-5',
 };
 

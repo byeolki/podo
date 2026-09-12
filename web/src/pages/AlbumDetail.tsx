@@ -18,7 +18,7 @@ export default function AlbumDetail() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6" aria-busy="true">
+      <div className="p-4 sm:p-6 lg:px-8" aria-busy="true">
         <div className="flex items-start gap-5 mb-6">
           <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-xl bg-surface-2 animate-pulse flex-shrink-0" />
           <div className="flex-1 space-y-3 pt-2">
@@ -40,7 +40,7 @@ export default function AlbumDetail() {
   const coverVersion = album.versions?.find((v) => v.artwork_path) ?? album.versions?.[0]
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 lg:px-8">
       <Link to="/albums" className="flex items-center gap-2 text-sm text-ink-secondary hover:text-white mb-6 transition-colors">
         <ArrowLeft size={16} /> Back to Albums
       </Link>

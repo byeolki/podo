@@ -88,7 +88,7 @@ export default function Library() {
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false)
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 lg:px-8">
       {playlistModalOpen && (
         <AddToPlaylistModal
           trackIds={[...selectedIds]}

@@ -45,8 +45,16 @@ export default function Layout() {
           </div>
         </header>
 
+        {/* Every page is padded but unconstrained, so on a very wide display the
+            content ran the full width: track rows stretched until the title and
+            the duration sat at opposite ends of the screen with nothing between
+            them, and the narrower panels left all their empty space piled on the
+            right. Capping and centring here fixes every page at once, and changes
+            nothing below the cap. */}
         <main className="flex-1 overflow-y-auto pb-24">
-          <Outlet />
+          <div className="mx-auto w-full max-w-[1600px]">
+            <Outlet />
+          </div>
         </main>
         <Player />
       </div>

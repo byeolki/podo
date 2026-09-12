@@ -46,7 +46,7 @@ export default function Radio() {
   }
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 lg:px-8">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Radio</h1>
         <p className="text-sm text-ink-secondary mt-0.5">Auto-generated station based on your library</p>

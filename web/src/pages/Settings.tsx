@@ -664,7 +664,7 @@ export default function Settings() {
 
   if (!isAdmin) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="p-4 sm:p-6 lg:px-8">
         <h1 className="text-2xl font-semibold mb-6">Settings</h1>
         <AccountTab />
       </div>
@@ -681,7 +681,7 @@ export default function Settings() {
   ]
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 lg:px-8">
       <h1 className="text-2xl font-semibold mb-6">Settings</h1>
 
       <div className="flex gap-1 mb-6 bg-surface-2 p-1 rounded-lg w-fit max-w-full overflow-x-auto border border-border">

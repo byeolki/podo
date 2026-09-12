@@ -33,7 +33,7 @@ export default function Search() {
   const hasResults = data && (data.tracks.length + data.artists.length + data.albums.length > 0)
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 lg:px-8">
       <h1 className="text-2xl font-semibold mb-6">Search</h1>
 
       <div className="relative mb-6">

@@ -37,11 +37,25 @@ async function bootstrap() {
 
   const config = app.get(ConfigService);
 
-  if (
-    process.env.NODE_ENV === 'production' &&
-    config.get<string>('jwt_secret') === 'dev-secret-change-in-production'
-  ) {
-    throw new Error('JWT_SECRET must be set in production');
+  // Every placeholder that has ever appeared in this repo, not just the one in
+  // `configuration.ts`: the root compose file defaults to
+  // `change-me-in-production`, which the guard did not know about — so
+  // `docker compose up` with no JWT_SECRET exported started a server signing
+  // tokens with a secret published in the repository.
+  const PUBLISHED_SECRETS = new Set([
+    'dev-secret-change-in-production',
+    'change-me-in-production',
+    'changeme',
+    '',
+  ]);
+  const secret = config.get<string>('jwt_secret', '');
+  if (process.env.NODE_ENV === 'production' && PUBLISHED_SECRETS.has(secret)) {
+    throw new Error(
+      'JWT_SECRET is unset or still a placeholder. Generate one: openssl rand -hex 32',
+    );
+  }
+  if (process.env.NODE_ENV === 'production' && secret.length < 32) {
+    throw new Error('JWT_SECRET is too short — use at least 32 characters');
   }
 
   // Serve the web frontend build (SPA). `wildcard: false` registers one exact

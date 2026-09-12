@@ -217,9 +217,15 @@ export class AdminService {
   }
 
   async getSystemHealth() {
-    const [dbCount, sourceCount, userCount] = await Promise.all([
-      this.db.$count(schema.tracks),
-      this.db.$count(schema.sources),
+    // Counted the way the library counts: soft-deleted rows were included here
+    // but excluded everywhere else, so this number never matched what the
+    // library showed. Sources are split by kind because one track holding both
+    // an audio file and its video is the normal case — a bare total looks like
+    // the track count has doubled.
+    const [tracks, audio, video, users] = await Promise.all([
+      this.db.$count(schema.tracks, isNull(schema.tracks.deleted_at)),
+      this.db.$count(schema.sources, and(eq(schema.sources.media_kind, 'audio'), isNull(schema.sources.deleted_at))),
+      this.db.$count(schema.sources, and(eq(schema.sources.media_kind, 'video'), isNull(schema.sources.deleted_at))),
       this.db.$count(schema.users),
     ]);
 
@@ -228,14 +234,12 @@ export class AdminService {
       version: this.config.get<string>('app_version', '0.0.0'),
       uptime_seconds: process.uptime(),
       memory: process.memoryUsage(),
-      tracks: dbCount,
-      sources: sourceCount,
-      users: userCount,
+      tracks,
+      sources: audio + video,
+      audio_sources: audio,
+      video_sources: video,
+      users,
       node_version: process.version,
-      /// Whether `OPENAI_API_KEY` is set. Without it the metadata fill and the
-      /// "AI Fill" action are silent no-ops, which is indistinguishable from them
-      /// being broken — there was no way to tell from outside which it was.
-      ai: await this.ai.getStatus(),
     };
   }
 

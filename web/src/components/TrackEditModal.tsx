@@ -1,13 +1,13 @@
 import { useState, useRef, KeyboardEvent } from 'react'
-import { X, Sparkles, Camera, Volume2, RotateCcw } from 'lucide-react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { updateTrackMetadata, aiAutofillTracks, uploadTrackThumbnail, removeTrackThumbnail } from '../api/tracks'
+import { X, Camera, Volume2, RotateCcw } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { updateTrackMetadata, uploadTrackThumbnail, removeTrackThumbnail } from '../api/tracks'
 import type { Track, TrackMetadataInput } from '../api/tracks'
 import { getArtworkUrl } from '../api/client'
 import ArtworkImage from './ArtworkImage'
+import AiFillButton from './AiFillButton'
 import TrackSourcePanel from './TrackSourcePanel'
 import { useAuthStore } from '../store/auth'
-import { getChatStatus } from '../api/admin'
 
 interface Props {
   track: Track
@@ -92,16 +92,6 @@ export default function TrackEditModal({ track, onClose }: Props) {
   const isAdmin = useAuthStore((s) => s.role === 'admin')
   // The button used to be live regardless: with no API key on the server the
   // request succeeds, changes nothing, and says nothing.
-  // `/ai/status` rather than the admin health endpoint: AI Fill is open to any
-  // signed-in user, so gating on an admin-only query left the button live for
-  // exactly the people who would otherwise press it and see nothing happen.
-  const { data: aiStatus } = useQuery({
-    queryKey: ['ai-chat-status'],
-    queryFn: getChatStatus,
-    staleTime: 5 * 60_000,
-    retry: false,
-  })
-  const aiEnabled = aiStatus?.available ?? false
 
   const thumbnailMut = useMutation({
     mutationFn: (file: File) => uploadTrackThumbnail(track.id, file),
@@ -125,19 +115,6 @@ export default function TrackEditModal({ track, onClose }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tracks'] })
       onClose()
-    },
-  })
-
-  const { mutate: runAiFill, isPending: aiFilling } = useMutation({
-    mutationFn: () => aiAutofillTracks([track.id]),
-    onSuccess: (results) => {
-      const r = results[0]?.result
-      if (r) {
-        if (r.title) setTitle(r.title as string)
-        if (r.is_cover !== undefined) setIsCover(r.is_cover as boolean)
-        if (r.artist) setCoverByArtists(splitList(r.artist as string))
-        if (r.original_artist) setOrigArtists(splitList(r.original_artist as string))
-      }
     },
   })
 
@@ -165,18 +142,17 @@ export default function TrackEditModal({ track, onClose }: Props) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-sm font-semibold">Edit Track</h2>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => runAiFill()}
-              disabled={aiFilling || !aiEnabled}
-              title={aiEnabled
-                ? 'Guess title, artist and cover info from the filename'
-                : 'No AI provider is configured — see Settings → AI'}
+            <AiFillButton
+              trackIds={[track.id]}
+              iconSize={12}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Sparkles size={12} />
-              {aiFilling ? 'Filling…' : 'AI Fill'}
-            </button>
+              onResult={(r) => {
+                if (r.title) setTitle(r.title as string)
+                if (r.is_cover !== undefined) setIsCover(r.is_cover as boolean)
+                if (r.artist) setCoverByArtists(splitList(r.artist as string))
+                if (r.original_artist) setOrigArtists(splitList(r.original_artist as string))
+              }}
+            />
             <button onClick={onClose} className="text-ink-tertiary hover:text-white transition-colors">
               <X size={16} />
             </button>

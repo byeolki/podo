@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, InternalServerErrorException, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { eq, and, asc, isNull } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
@@ -7,6 +8,7 @@ import { newId } from '../common/id';
 import { spawn, ChildProcess } from 'child_process';
 import { PassThrough, Readable, Transform } from 'stream';
 import * as fs from 'fs';
+import * as path from 'path';
 import * as mime from 'mime-types';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -22,6 +24,13 @@ export interface StreamRequest {
   normalize?: boolean;
 }
 
+/**
+ * Marks a source that isn't a row in `sources` — the synthetic one built from a
+ * `video_locator` override. `stream_sessions.source_id` is a foreign key, so it
+ * must not be written there.
+ */
+const OVERRIDE_SOURCE_ID = 'override';
+
 @Injectable()
 export class StreamingService {
   private readonly logger = new Logger(StreamingService.name);
@@ -34,7 +43,38 @@ export class StreamingService {
   constructor(
     @Inject(DB_TOKEN) private readonly db: Db,
     private readonly cache: TranscodeCacheService,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Whether a path the user supplied points inside somewhere this server is
+   * meant to read from.
+   *
+   * `video_locator` is free text on `PATCH /tracks/:id/metadata`, which any
+   * signed-in user can call, and it was streamed back verbatim as long as the
+   * file existed — a read of anything the process could open, including the
+   * SQLite database holding every password hash. Resolved through symlinks
+   * first, so one can't be used to step outside.
+   */
+  private isInsideManagedDirectory(candidate: string): boolean {
+    let resolved: string;
+    try {
+      resolved = fs.realpathSync(candidate);
+    } catch {
+      return false;
+    }
+    return this.managedRoots().some((root) => resolved === root || resolved.startsWith(root + path.sep));
+  }
+
+  private managedRoots(): string[] {
+    // `library_roots` is already an array in the config; only the env var is a
+    // comma string.
+    const roots = [...this.config.get<string[]>('library_roots', [])];
+    roots.push(this.config.get<string>('upload_dir', path.join(process.cwd(), 'data', 'uploads')));
+    return roots
+      .map((r) => { try { return fs.realpathSync(r); } catch { return ''; } })
+      .filter(Boolean);
+  }
 
   async resolveSource(req: StreamRequest): Promise<typeof schema.sources.$inferSelect> {
     if (req.sourceId) {
@@ -55,9 +95,9 @@ export class StreamingService {
         .from(schema.track_metadata_overrides)
         .where(eq(schema.track_metadata_overrides.track_id, req.trackId))
         .get();
-      if (override?.video_locator && fs.existsSync(override.video_locator)) {
+      if (override?.video_locator && this.isInsideManagedDirectory(override.video_locator)) {
         return {
-          id: `override:${req.trackId}`,
+          id: OVERRIDE_SOURCE_ID,
           track_id: req.trackId,
           media_kind: 'video',
           origin: 'local',
@@ -376,7 +416,10 @@ export class StreamingService {
       id: sessionId,
       user_id: req.userId,
       track_id: req.trackId,
-      source_id: source.id,
+      // Null rather than the synthetic id: `source_id` is a foreign key into
+      // `sources`, and inserting a value with no row there failed the constraint
+      // and 500'd the request — so a manually-mapped video never played at all.
+      source_id: source.id === OVERRIDE_SOURCE_ID ? null : source.id,
       media_kind: source.media_kind,
       format: req.format,
       bitrate: req.bitrate,

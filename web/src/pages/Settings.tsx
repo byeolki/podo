@@ -390,17 +390,13 @@ function HealthTab() {
             {[
               { label: 'Status', value: health.status, accent: health.status === 'ok' },
               { label: 'Tracks', value: health.tracks.toString() },
-              { label: 'Sources', value: health.sources.toString() },
+              { label: 'Audio files', value: health.audio_sources.toString() },
+              { label: 'Videos', value: health.video_sources.toString() },
               { label: 'Users', value: health.users.toString() },
               { label: 'Uptime', value: `${Math.floor(health.uptime_seconds / 3600)}h ${Math.floor((health.uptime_seconds % 3600) / 60)}m` },
               { label: 'Version', value: health.version },
               { label: 'Node', value: health.node_version },
               { label: 'Memory', value: formatBytes(health.memory.heapUsed) },
-              {
-                label: 'AI',
-                value: health.ai.available ? health.ai.model : 'Off',
-                accent: health.ai.available,
-              },
             ].map(({ label, value, accent }) => (
               <div key={label} className="p-3 rounded-lg bg-surface-2 border border-border">
                 <p className="text-xs text-ink-tertiary uppercase tracking-wider mb-1">{label}</p>

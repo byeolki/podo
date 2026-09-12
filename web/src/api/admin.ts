@@ -9,7 +9,10 @@ export interface SystemHealth {
   sources: number
   users: number
   node_version: string
-  ai: AiStatus
+  /// Split by kind: one track commonly holds both an audio file and its video,
+  /// so a bare source total reads like the library has doubled.
+  audio_sources: number
+  video_sources: number
 }
 
 export type AiProviderName = 'openai' | 'claude-code'

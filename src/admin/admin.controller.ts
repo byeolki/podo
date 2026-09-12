@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsBoolean, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsBoolean, IsString, MinLength, MaxLength } from 'class-validator';
 import { AdminService } from './admin.service';
 import { AiService } from '../ai/ai.service';
 import { AiProviderName } from '../ai/ai.config';
@@ -15,7 +15,9 @@ class ReviewMappingDto {
 }
 
 class RenameFileDto {
-  filename!: string;
+  // Undecorated, this was stripped by the global `whitelist: true` pipe, so the
+  // handler always received `undefined` and every rename 500'd.
+  @IsString() @MinLength(1) @MaxLength(255) filename!: string;
 }
 
 class UpdateAiDto {

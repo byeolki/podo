@@ -6,6 +6,7 @@ import { createPlaylist, addTracksToPlaylist } from '../api/playlists'
 import { usePlayerStore } from '../store/player'
 import type { Track } from '../api/tracks'
 import TrackRow from '../components/TrackRow'
+import MyRadioUrls from '../components/MyRadioUrls'
 
 export default function Radio() {
   const qc = useQueryClient()
@@ -47,9 +48,17 @@ export default function Radio() {
 
   return (
     <div className="p-4 sm:p-6 lg:px-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Radio</h1>
-        <p className="text-sm text-ink-secondary mt-0.5">Auto-generated station based on your library</p>
+      <h1 className="text-2xl font-semibold mb-6">Radio</h1>
+
+      {/* Two unrelated things were both called "Radio": a station generated on
+          the fly, and the permanent stream URLs minted per playlist. Only the
+          first was on this page, so the second was reachable only from the admin
+          tab in Settings. */}
+      <MyRadioUrls />
+
+      <div className="mb-4">
+        <h2 className="text-base font-semibold">Station</h2>
+        <p className="text-xs text-ink-tertiary mt-0.5">A shuffled selection from your library, seeded by an artist.</p>
       </div>
 
       <div className="flex gap-3 mb-8 flex-wrap">

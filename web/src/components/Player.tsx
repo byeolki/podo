@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity, Repeat, Repeat1, ListMusic } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity, Repeat, Repeat1, ListMusic, AlertCircle, X } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
 import { getStreamUrl, getArtworkUrl, ensureFreshToken } from '../api/client'
 import { formatDuration, recordPlay, artistLine } from '../api/tracks'
@@ -27,6 +27,7 @@ export default function Player() {
     repeatMode, cycleRepeatMode,
   } = usePlayerStore()
   const [videoOpen, setVideoOpen] = useState(false)
+  const [playbackError, setPlaybackError] = useState<string | null>(null)
   const [queueOpen, setQueueOpen] = useState(false)
   const playRecordedRef = useRef<string | null>(null)
   const recoveryAttemptsRef = useRef(0)
@@ -64,7 +65,20 @@ export default function Player() {
     if (suppressPauseTimerRef.current) clearTimeout(suppressPauseTimerRef.current)
     suppressPauseTimerRef.current = setTimeout(() => { suppressPauseSyncRef.current = false }, 600)
     audio.load()
-    if (autoplay) audio.play().catch(() => {})
+    if (autoplay) audio.play().catch(reportPlaybackFailure)
+  }, [])
+
+  /**
+   * A rejected `play()` fires no `pause` event, so nothing corrected the store:
+   * the button stayed on Pause, the equaliser kept animating, and the only
+   * signal that anything was wrong was silence.
+   */
+  const reportPlaybackFailure = useCallback((e: unknown) => {
+    const message = (e as Error)?.name === 'NotAllowedError'
+      ? 'Your browser blocked playback — press play again.'
+      : `Couldn't play this track — ${(e as Error)?.message ?? 'unknown error'}`
+    setPlaybackError(message)
+    usePlayerStore.getState().pause()
   }, [])
 
   const recover = useCallback(() => {
@@ -106,9 +120,9 @@ export default function Player() {
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
-    if (isPlaying) audio.play().catch(() => {})
+    if (isPlaying) audio.play().catch(reportPlaybackFailure)
     else audio.pause()
-  }, [isPlaying])
+  }, [isPlaying, reportPlaybackFailure])
 
   // Transport shortcuts, the ones every music player has. Suppressed while a
   // text field or contenteditable has focus, so typing in search doesn't
@@ -239,7 +253,18 @@ export default function Player() {
 
   return (
     <>
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-surface-1 border-t border-border flex items-center px-3 sm:px-4 gap-2 sm:gap-4 z-50">
+    {playbackError && (
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[55] w-[min(92vw,560px)] flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-2 border border-danger/40 text-danger text-sm shadow-xl">
+        <AlertCircle size={14} className="flex-shrink-0" />
+        <span className="flex-1 min-w-0 truncate">{playbackError}</span>
+        <button onClick={() => setPlaybackError(null)} className="text-ink-tertiary hover:text-white" aria-label="Dismiss">
+          <X size={14} />
+        </button>
+      </div>
+    )}
+    {/* Floating rather than edge-to-edge: on a wide display a full-width bar put
+        the artwork and the volume slider a metre apart with nothing between. */}
+    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 w-[min(96vw,1100px)] h-20 rounded-2xl bg-surface-1/95 backdrop-blur border border-border shadow-2xl flex items-center px-3 sm:px-4 gap-2 sm:gap-4">
       <audio
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
@@ -248,7 +273,7 @@ export default function Player() {
         onError={recover}
         onStalled={handleWaiting}
         onWaiting={handleWaiting}
-        onPlaying={clearStallTimer}
+        onPlaying={() => { clearStallTimer(); setPlaybackError(null) }}
         onPause={handleNativePause}
         onPlay={handleNativePlay}
         preload="auto"

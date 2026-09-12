@@ -1,12 +1,12 @@
-import {
-  Controller, Get, Patch, Post, Delete, Param, Body, Query, Req, HttpCode, HttpStatus, BadRequestException,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Param, Body, Query, Req, HttpCode, HttpStatus, BadRequestException, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiQuery } from '@nestjs/swagger';
 import { IsString, IsOptional, IsInt, IsBoolean, IsArray, ArrayNotEmpty, IsNumber, Min, Max } from 'class-validator';
 import { FastifyRequest } from 'fastify';
 import { Readable } from 'stream';
 import { TracksService, SortOption, FilterOption } from './tracks.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { AdminOnly } from '../common/decorators/roles.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 
 class TrackMetadataDto {
@@ -146,7 +146,12 @@ export class TracksController {
 
   @Post('delete')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Soft-delete tracks' })
+  @UseGuards(RolesGuard)
+  @AdminOnly()
+  // The library is shared, and this takes a list of ids with no ownership in it:
+  // any signed-in user could empty the whole thing in one request, and there is
+  // no restore path.
+  @ApiOperation({ summary: 'Soft-delete tracks (admin only)' })
   deleteTracks(@Body() dto: DeleteTracksDto) {
     return this.tracks.deleteTracks(dto.track_ids);
   }

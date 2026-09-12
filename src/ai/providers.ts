@@ -23,6 +23,8 @@ const DISALLOWED_TOOLS = [
 ];
 /** A wedged or chatty CLI shouldn't be able to grow the server's heap. */
 const MAX_STDOUT_BYTES = 1 << 20;
+/** How long a *failed* availability probe is trusted before asking again. */
+const AVAILABILITY_RECHECK_MS = 60_000;
 
 function safeParse(stdout: string): { result?: unknown; is_error?: boolean } | null {
   try {
@@ -82,24 +84,48 @@ export class ClaudeCodeProvider implements AiProvider {
   readonly name = 'claude-code';
   private readonly logger = new Logger(ClaudeCodeProvider.name);
   private cachedAvailability: string | null | undefined;
+  private recheckAfter = 0;
 
-  constructor(private readonly binaryPath: string) {}
+  constructor(
+    private readonly binaryPath: string,
+    /** Whatever the operator selected — probing a different model proves nothing. */
+    private readonly probeModel: string,
+  ) {}
 
   /**
-   * Only proves the binary is there and runs. Whether it is *signed in* costs a
-   * real call to find out, so that isn't checked here — `AiService` records the
-   * last real failure instead, which is what surfaces "Not logged in".
+   * Actually asks the CLI a question, rather than only running `--version`.
+   *
+   * `--version` succeeds on an unauthenticated machine, so the status said
+   * "Ready" right up until the first real call answered "Not logged in · Please
+   * run /login" — the one thing an operator needed to know, hidden behind the
+   * one thing that never fails. The probe is a two-token prompt, cached: a
+   * success for the life of the process, a failure for a minute, so fixing the
+   * login shows up without a restart and a broken setup isn't re-probed on every
+   * dashboard poll.
    */
   async unavailableReason(): Promise<string | null> {
-    // Success is cached for the life of the process; a failure is not. Caching
-    // "missing" forever meant installing or signing into the CLI still reported
-    // unusable until a restart — exactly the confusion this was meant to end.
     if (this.cachedAvailability === null) return null;
-    const result = await this.run(['--version'], 10_000);
-    this.cachedAvailability = result.ok
-      ? null
-      : `Claude Code CLI not usable at "${this.binaryPath}" (${result.error ?? 'unknown error'})`;
-    return this.cachedAvailability;
+    if (this.cachedAvailability !== undefined && Date.now() < this.recheckAfter) {
+      return this.cachedAvailability;
+    }
+
+    const version = await this.run(['--version'], 10_000);
+    if (!version.ok) {
+      return this.cache(`Claude Code CLI not usable at "${this.binaryPath}" (${version.error ?? 'unknown error'})`);
+    }
+
+    try {
+      await this.complete('Reply with the single word ok.', 'ping', this.probeModel);
+      return this.cache(null);
+    } catch (e) {
+      return this.cache(`Claude Code CLI: ${(e as Error).message}`);
+    }
+  }
+
+  private cache(reason: string | null): string | null {
+    this.cachedAvailability = reason;
+    this.recheckAfter = Date.now() + AVAILABILITY_RECHECK_MS;
+    return reason;
   }
 
   async complete(system: string, user: string, model: string): Promise<string | null> {

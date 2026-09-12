@@ -50,6 +50,34 @@ export class BroadcastService {
       .orderBy(desc(schema.playlist_radio_tokens.created_at));
   }
 
+  /**
+   * Every radio URL on a playlist the caller owns.
+   *
+   * The per-playlist listing meant the only way to see what you had minted was
+   * to walk your playlists one at a time, so in practice the Radio page could
+   * not show them at all and they were visible only in the admin view.
+   */
+  async listMine(userId: string) {
+    return this.db
+      .select({
+        id: schema.playlist_radio_tokens.id,
+        token: schema.playlist_radio_tokens.token,
+        playlist_id: schema.playlist_radio_tokens.playlist_id,
+        playlist_name: schema.playlists.name,
+        created_at: schema.playlist_radio_tokens.created_at,
+        expires_at: schema.playlist_radio_tokens.expires_at,
+        revoked_at: schema.playlist_radio_tokens.revoked_at,
+        last_played_at: schema.playlist_radio_tokens.last_played_at,
+      })
+      .from(schema.playlist_radio_tokens)
+      .innerJoin(schema.playlists, eq(schema.playlist_radio_tokens.playlist_id, schema.playlists.id))
+      .where(and(
+        eq(schema.playlists.owner_user_id, userId),
+        isNull(schema.playlists.deleted_at),
+      ))
+      .orderBy(desc(schema.playlist_radio_tokens.created_at));
+  }
+
   async listAll() {
     return this.db
       .select({
@@ -90,7 +118,10 @@ export class BroadcastService {
     const tracks = await this.getOrderedTracks(radioToken.playlist_id);
     if (!tracks.length) throw new NotFoundException('Playlist is empty');
 
-    void this.db
+    // Awaited, not `void`ed: a drizzle builder is a lazy thenable, so discarding
+    // it never ran the statement and `last_played_at` stayed null forever — the
+    // admin view always said a URL had never been played.
+    await this.db
       .update(schema.playlist_radio_tokens)
       .set({ last_played_at: new Date() })
       .where(eq(schema.playlist_radio_tokens.id, radioToken.id));

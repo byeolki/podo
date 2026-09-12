@@ -45,6 +45,13 @@ export class BroadcastController {
     return this.broadcast.revoke(id, user.sub, user.role === 'admin');
   }
 
+  @Get('radio-tokens')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Every radio URL on a playlist I own" })
+  listMine(@CurrentUser() user: JwtPayload) {
+    return this.broadcast.listMine(user.sub);
+  }
+
   @Get('admin/radio-tokens')
   @UseGuards(RolesGuard)
   @AdminOnly()

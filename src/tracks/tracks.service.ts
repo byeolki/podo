@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Inject, Logger, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, and, isNull, desc, asc, inArray, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
@@ -415,16 +415,28 @@ export class TracksService {
 
   async deleteTracks(trackIds: string[]) {
     if (!trackIds.length) return { deleted: 0 };
+    const now = new Date();
     await this.db
       .update(schema.tracks)
-      .set({ deleted_at: new Date() })
+      // `updated_at` as well as `deleted_at`: the delta-sync cursor selects on
+      // `updated_at`, so without it a deletion never reached a client and every
+      // native app kept the track forever.
+      .set({ deleted_at: now, updated_at: now })
       .where(inArray(schema.tracks.id, trackIds));
     this.logger.log(`Soft-deleted ${trackIds.length} tracks`);
     return { deleted: trackIds.length };
   }
 
   async aiAutofill(trackIds: string[], userId: string): Promise<{ track_id: string; applied: boolean; skipped: boolean; result: Record<string, unknown> | null }[]> {
-    if (!(await this.ai?.isUsable())) return trackIds.map((id) => ({ track_id: id, applied: false, skipped: false, result: null }));
+    // A clean empty success made "no provider configured" identical to "the model
+    // had no answer", which is why this looked like a button that did nothing.
+    if (!(await this.ai?.isUsable())) {
+      throw new ServiceUnavailableException(
+        this.ai
+          ? 'No AI provider is available — check Settings → AI'
+          : 'AI is not available in this build',
+      );
+    }
 
     const [tracks, existingOverrides] = await Promise.all([
       this.db

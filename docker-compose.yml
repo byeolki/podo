@@ -12,12 +12,18 @@ services:
       MIGRATIONS_PATH: /app/dist/db/migrations
       PORT: 3000
       HOST: 0.0.0.0
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      # No default on purpose — an unset secret must fail loudly, not silently
+      # start a server signing tokens with a value that is in this repository.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET, e.g. export JWT_SECRET=$(openssl rand -hex 32)}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
       LIBRARY_ROOTS: ${LIBRARY_ROOTS:-/music}
       MUSICBRAINZ_USER_AGENT: ${MUSICBRAINZ_USER_AGENT:-podo/0.1.0}
     volumes:
+      # Only needed for the claude-code AI provider, and only if you sign in with
+      # `claude` on the host rather than setting ANTHROPIC_API_KEY. Read-only:
+      # the container has no reason to write your credentials.
+      # - ~/.claude:/root/.claude:ro
       - podo-data:/data
       - ${MUSIC_DIR:-./music}:/music:ro
     restart: unless-stopped

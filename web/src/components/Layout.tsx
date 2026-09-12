@@ -52,7 +52,7 @@ export default function Layout() {
             them, and the narrower panels left all their empty space piled on the
             right. Capping and centring here fixes every page at once, and changes
             nothing below the cap. */}
-        <main className="flex-1 overflow-y-auto pb-24">
+        <main className="flex-1 overflow-y-auto pb-28">
           <div className="mx-auto w-full max-w-[1600px]">
             <Outlet />
           </div>

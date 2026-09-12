@@ -34,6 +34,11 @@ export default {
           soft: '#C098F0',
           muted: '#8850E022',
         },
+        // Status colours were missing from the token set, so every error and
+        // success message in the app reached for a raw palette class instead.
+        danger: '#E5484D',
+        success: '#46A758',
+        warning: '#F5A524',
       },
       boxShadow: {
         glow: '0 0 28px -4px rgba(136, 80, 224, 0.55)',

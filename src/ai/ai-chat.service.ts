@@ -1,5 +1,5 @@
 import { Injectable, Logger, ForbiddenException, Inject } from '@nestjs/common';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { AiService } from './ai.service';

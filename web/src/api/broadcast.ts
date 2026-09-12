@@ -25,6 +25,11 @@ export function revokeRadioToken(playlistId: string, id: string): Promise<void> 
   return api.delete(`/playlists/${playlistId}/radio-tokens/${id}`)
 }
 
+/** Every radio URL on a playlist you own, across all of them. */
+export function getMyRadioTokens(): Promise<RadioToken[]> {
+  return api.get('/radio-tokens')
+}
+
 export function getAllRadioTokens(): Promise<RadioToken[]> {
   return api.get('/admin/radio-tokens')
 }

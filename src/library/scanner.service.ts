@@ -54,6 +54,12 @@ export class ScannerService {
     private readonly config: ConfigService,
     @Optional() private readonly ai: AiService | null,
   ) {
+    // `@Optional()` above means a wiring mistake presents as "AI quietly does
+    // nothing" rather than a boot failure, which is indistinguishable from AI
+    // being switched off. Say which it is, once.
+    if (!this.ai) {
+      this.logger.warn('AiService was not injected — metadata fill is unavailable in this build');
+    }
     this.artworkDir = config.get<string>('artwork_dir', path.join(process.cwd(), 'data', 'artwork'));
     fs.mkdirSync(this.artworkDir, { recursive: true });
   }
@@ -293,7 +299,10 @@ export class ScannerService {
       }
     }
 
-    const title = meta.title ?? path.basename(filePath, path.extname(filePath));
+    // `pairingStem` here too, not just when pairing: an upload is stored as
+    // `<epoch-ms>_<name>`, so a file with no title tag was named after the
+    // storage detail — 109 tracks titled `1789233124120_song`.
+    const title = meta.title ?? pairingStem(path.basename(filePath, path.extname(filePath)));
 
     let albumVersionId: string | null = null;
     if (meta.album) {

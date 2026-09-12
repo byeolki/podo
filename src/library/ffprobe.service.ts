@@ -107,8 +107,15 @@ export class FfprobeService implements OnApplicationBootstrap {
       });
 
       proc.on('error', (err) => {
-        this.available = false;
-        this.logger.error(`ffprobe spawn error: ${err.message}`);
+        // Only a missing binary is permanent. A transient spawn failure — EMFILE
+        // or EAGAIN during a burst — used to latch this off for the rest of the
+        // process, after which every scan silently imported nothing.
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          this.available = false;
+          this.logger.error(`ffprobe not found: ${err.message}`);
+        } else {
+          this.logger.warn(`ffprobe spawn failed for ${filePath}: ${err.message}`);
+        }
         resolve(null);
       });
     });

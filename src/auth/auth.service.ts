@@ -133,6 +133,13 @@ export class AuthService {
       set.password_hash = await bcrypt.hash(dto.new_password, 12);
     }
 
+    // Changing a password is the one action taken to end someone else's access,
+    // and it did nothing to the 30-day refresh tokens already issued — a stolen
+    // one kept minting access tokens afterwards.
+    if (set.password_hash) {
+      await this.db.delete(schema.refresh_tokens).where(eq(schema.refresh_tokens.user_id, userId));
+    }
+
     await this.db.update(schema.users).set(set).where(eq(schema.users.id, userId));
     this.logger.log(`Account updated: ${user.email} (id=${userId})`);
     return this.getMe(userId);

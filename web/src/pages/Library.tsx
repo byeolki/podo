@@ -1,10 +1,11 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Shuffle, Sparkles, X, Trash2, CheckSquare, Square, ListPlus } from 'lucide-react'
-import { getTracks, aiAutofillTracks, deleteTracks } from '../api/tracks'
+import { Play, Shuffle, X, Trash2, CheckSquare, Square, ListPlus } from 'lucide-react'
+import { getTracks, deleteTracks } from '../api/tracks'
 import type { SortOption, FilterOption } from '../api/tracks'
 import { usePlayerStore } from '../store/player'
 import TrackRow from '../components/TrackRow'
+import AiFillButton from '../components/AiFillButton'
 import AddToPlaylistModal from '../components/AddToPlaylistModal'
 import SearchInput from '../components/SearchInput'
 import SortMenu from '../components/SortMenu'
@@ -51,11 +52,6 @@ export default function Library() {
 
   const { setQueue, play } = usePlayerStore()
   const queryClient = useQueryClient()
-
-  const { mutate: runAiFill, isPending: aiFilling } = useMutation({
-    mutationFn: (ids: string[]) => aiAutofillTracks(ids),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tracks'] }),
-  })
 
   const { mutate: runDelete, isPending: deleting } = useMutation({
     mutationFn: (ids: string[]) => deleteTracks(ids),
@@ -144,14 +140,7 @@ export default function Library() {
                 >
                   <ListPlus size={14} /> Add to playlist
                 </button>
-                <button
-                  onClick={() => runAiFill([...selectedIds])}
-                  disabled={aiFilling}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  <Sparkles size={14} />
-                  {aiFilling ? 'Filling…' : 'AI Fill'}
-                </button>
+                <AiFillButton trackIds={[...selectedIds]} />
                 <button
                   onClick={() => {
                     if (confirm(`Delete ${selectedIds.size} track(s) from library?`)) {

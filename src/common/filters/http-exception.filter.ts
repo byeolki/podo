@@ -1,6 +1,16 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
+/**
+ * `?token=` is accepted on every route, because `<audio>` and `<img>` cannot set
+ * an Authorization header. That means the URL carries a live 15-minute access
+ * token — so it must never be logged verbatim or echoed back in an error body,
+ * which is where container logs and browser consoles pick it up.
+ */
+function redact(url: string): string {
+  return url.replace(/([?&]token=)[^&]*/gi, '$1[redacted]');
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger('ExceptionFilter');
@@ -25,7 +35,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       status === HttpStatus.NOT_FOUND &&
       this.spaIndexHtml !== null &&
       (request.method === 'GET' || request.method === 'HEAD') &&
-      !request.url.split('?')[0].startsWith('/api/')
+      !redact(request.url).split('?')[0].startsWith('/api/')
     ) {
       return reply.status(200).type('text/html').send(this.spaIndexHtml);
     }
@@ -38,18 +48,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (status >= 500) {
       this.logger.error(
-        `${request.method} ${request.url} → ${status}`,
+        `${request.method} ${redact(request.url)} → ${status}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
     } else if (status >= 400) {
-      this.logger.warn(`${request.method} ${request.url} → ${status}: ${JSON.stringify(body)}`);
+      this.logger.warn(`${request.method} ${redact(request.url)} → ${status}: ${JSON.stringify(body)}`);
     }
 
     reply.status(status).send({
       statusCode: status,
       ...(typeof body === 'string' ? { message: body } : body),
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path: redact(request.url),
     });
   }
 }

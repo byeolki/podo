@@ -12,6 +12,7 @@ import {
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger';
+import { IsString, MinLength, MaxLength } from 'class-validator';
 import { FastifyRequest } from 'fastify';
 import { UploadService } from './upload.service';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -21,7 +22,9 @@ import { JwtPayload } from '../common/guards/jwt-auth.guard';
 import { Readable } from 'stream';
 
 class RenameFileDto {
-  filename!: string;
+  // Undecorated, this was stripped by the global `whitelist: true` pipe, so the
+  // handler always received `undefined` and every rename 500'd.
+  @IsString() @MinLength(1) @MaxLength(255) filename!: string;
 }
 
 @ApiTags('upload')

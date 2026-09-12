@@ -127,17 +127,20 @@ export default function AssistantPanel() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex items-center gap-1.5 px-2 py-3 rounded-l-xl bg-surface-2 border border-r-0 border-border text-ink-secondary hover:text-white hover:bg-surface-3 transition-colors shadow-lg"
+        // A round button sitting clear of the edge, rather than a slab welded to
+        // it — the half-cut tab read as a rendering artefact.
+        className="group fixed right-4 bottom-28 z-[60] flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 border border-border text-ink-secondary shadow-xl transition-all hover:w-auto hover:gap-2 hover:px-4 hover:text-white hover:border-accent"
         title="Assistant"
         aria-label="Open the assistant"
       >
-        <Sparkles size={15} className="text-accent" />
+        <Sparkles size={16} className="text-accent flex-shrink-0" />
+        <span className="hidden group-hover:inline text-sm font-medium whitespace-nowrap">Assistant</span>
       </button>
     )
   }
 
   return (
-    <div className="fixed right-0 top-0 bottom-20 z-[60] w-full sm:w-[380px] bg-surface-1 border-l border-border flex flex-col shadow-2xl"
+    <div className="fixed right-0 top-0 bottom-28 z-[60] w-full sm:w-[380px] bg-surface-1 border-l border-border flex flex-col shadow-2xl"
       role="dialog"
       aria-label="Assistant">
       <div className="flex items-center justify-between px-4 h-14 border-b border-border flex-shrink-0">
@@ -198,7 +201,7 @@ export default function AssistantPanel() {
         ))}
 
         {isPending && <p className="text-xs text-ink-tertiary">Thinking…</p>}
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
       </div>
 
       <form

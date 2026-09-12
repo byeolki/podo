@@ -84,7 +84,7 @@ export class AiService {
 
     this.providers = {
       openai: new OpenAiProvider(openAiKey),
-      'claude-code': new ClaudeCodeProvider(claudePath),
+      'claude-code': new ClaudeCodeProvider(claudePath, config.get<string>('claude_model', '') || DEFAULT_MODELS['claude-code']),
     };
 
     // Environment only supplies the defaults; a row in `app_settings` wins.
@@ -109,7 +109,12 @@ export class AiService {
       // usable CLI is the deliberate way to turn it on without a key.
       enabled: config.get<boolean>('ai_enabled', false) || !!configured || !!openAiKey,
       provider,
-      model: config.get<string>('openai_model', '') || DEFAULT_MODELS[provider],
+      // Per provider: falling back to `OPENAI_MODEL` regardless meant an operator
+      // who had set it and then switched to the CLI ran `claude --model gpt-…`,
+      // and every call errored.
+      model: (provider === 'openai'
+        ? config.get<string>('openai_model', '')
+        : config.get<string>('claude_model', '')) || DEFAULT_MODELS[provider],
       chat_enabled: config.get<boolean>('ai_chat_enabled', false),
     };
   }

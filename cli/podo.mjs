@@ -280,7 +280,10 @@ async function cmdUpload(args) {
 
   const seconds = Math.round((Date.now() - started) / 1000)
   console.log(`\n${done} uploaded, ${failed} failed, in ${seconds}s`)
-  if (done) console.log('Run `podo scan` if these live under a library root.')
+  // Nothing to run afterwards: the upload endpoint scans each file as it lands,
+  // so the tracks exist by the time this prints. (`podo scan` is for files put
+  // under a library root by other means.)
+  if (done) console.log('They are in the library now.')
   if (failed) process.exitCode = 1
 }
 

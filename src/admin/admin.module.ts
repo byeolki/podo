@@ -4,9 +4,10 @@ import { AdminController } from './admin.controller';
 import { StreamingModule } from '../streaming/streaming.module';
 import { UploadModule } from '../upload/upload.module';
 import { LibraryModule } from '../library/library.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
-  imports: [StreamingModule, UploadModule, LibraryModule],
+  imports: [StreamingModule, UploadModule, LibraryModule, AiModule],
   providers: [AdminService],
   controllers: [AdminController],
   exports: [AdminService],

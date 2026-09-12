@@ -248,7 +248,11 @@ export class ScannerService {
       original_artist?: string;
     } | null = null;
 
-    if (this.ai?.enabled) {
+    // Only for a file we haven't seen before. Re-scanning a known file re-derives
+    // nothing useful — the filename it reasons from hasn't changed — and the
+    // result was being thrown away anyway, so every re-import of a changed file
+    // was paying for an LLM call whose answer went nowhere.
+    if (this.ai?.enabled && !existing) {
       const aiResult = await this.ai.extractMetadata(path.basename(filePath), {
         title: meta.title,
         artist: meta.artist,
@@ -303,6 +307,12 @@ export class ScannerService {
             source_url: sourceUrl,
           })
           .onConflictDoNothing();
+        // The sibling path used to discard this. Uploading the video for a track
+        // that already had its audio meant paying for the metadata guess and
+        // then dropping it. `onConflictDoNothing` keeps it from ever touching an
+        // override a person has already written.
+        if (aiOverride) await this.saveAiOverride(siblingTrackId, aiOverride);
+
         this.events.emit('track.upserted', { track_id: siblingTrackId });
         await this.maybeSetThumbnail(siblingTrackId, filePath, kind, origin, force, probe.duration ?? null);
         await this.maybeSetLyrics(siblingTrackId, filePath, origin);
@@ -394,24 +404,30 @@ export class ScannerService {
       source_url: sourceUrl,
     });
 
-    if (aiOverride) {
-      await this.db
-        .insert(schema.track_metadata_overrides)
-        .values({
-          track_id: trackId,
-          title: aiOverride.title ?? null,
-          artist: aiOverride.artist ?? null,
-          is_cover: aiOverride.is_cover ?? false,
-          original_artist: aiOverride.original_artist ?? null,
-          updated_at: new Date(),
-        })
-        .onConflictDoNothing();
-    }
+    if (aiOverride) await this.saveAiOverride(trackId, aiOverride);
 
     this.events.emit('track.upserted', { track_id: trackId });
     await this.maybeSetThumbnail(trackId, filePath, kind, origin, force, probe.duration ?? null);
     await this.maybeSetLyrics(trackId, filePath, origin);
     return 'added';
+  }
+
+  /** Never overwrites an override that already exists — a person's edit wins. */
+  private async saveAiOverride(
+    trackId: string,
+    aiOverride: { title?: string; artist?: string; is_cover?: boolean; original_artist?: string },
+  ): Promise<void> {
+    await this.db
+      .insert(schema.track_metadata_overrides)
+      .values({
+        track_id: trackId,
+        title: aiOverride.title ?? null,
+        artist: aiOverride.artist ?? null,
+        is_cover: aiOverride.is_cover ?? false,
+        original_artist: aiOverride.original_artist ?? null,
+        updated_at: new Date(),
+      })
+      .onConflictDoNothing();
   }
 
   /**

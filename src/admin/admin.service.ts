@@ -6,6 +6,7 @@ import * as schema from '../db/schema';
 import { StreamingService } from '../streaming/streaming.service';
 import { TranscodeCacheService } from '../streaming/transcode-cache.service';
 import { ScannerService } from '../library/scanner.service';
+import { AiService } from '../ai/ai.service';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
@@ -21,6 +22,7 @@ export class AdminService {
     private readonly cache: TranscodeCacheService,
     private readonly config: ConfigService,
     private readonly scanner: ScannerService,
+    private readonly ai: AiService,
   ) {}
 
   /**
@@ -230,6 +232,11 @@ export class AdminService {
       sources: sourceCount,
       users: userCount,
       node_version: process.version,
+      /// Whether `OPENAI_API_KEY` is set. Without it the metadata fill and the
+      /// "AI Fill" action are silent no-ops, which is indistinguishable from them
+      /// being broken — there was no way to tell from outside which it was.
+      ai_enabled: this.ai.enabled,
+      ai_model: this.ai.enabled ? this.config.get<string>('openai_model', 'gpt-4o-mini') : null,
     };
   }
 

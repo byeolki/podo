@@ -394,6 +394,11 @@ function HealthTab() {
               { label: 'Version', value: health.version },
               { label: 'Node', value: health.node_version },
               { label: 'Memory', value: formatBytes(health.memory.heapUsed) },
+              {
+                label: 'AI metadata',
+                value: health.ai_enabled ? (health.ai_model ?? 'On') : 'Off',
+                accent: health.ai_enabled,
+              },
             ].map(({ label, value, accent }) => (
               <div key={label} className="p-3 rounded-lg bg-surface-2 border border-border">
                 <p className="text-xs text-ink-tertiary uppercase tracking-wider mb-1">{label}</p>

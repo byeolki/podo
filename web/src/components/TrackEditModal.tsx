@@ -1,12 +1,13 @@
 import { useState, useRef, KeyboardEvent } from 'react'
 import { X, Sparkles, Camera, Volume2, RotateCcw } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { updateTrackMetadata, aiAutofillTracks, uploadTrackThumbnail, removeTrackThumbnail } from '../api/tracks'
 import type { Track, TrackMetadataInput } from '../api/tracks'
 import { getArtworkUrl } from '../api/client'
 import ArtworkImage from './ArtworkImage'
 import TrackSourcePanel from './TrackSourcePanel'
 import { useAuthStore } from '../store/auth'
+import { getHealth } from '../api/admin'
 
 interface Props {
   track: Track
@@ -89,6 +90,15 @@ export default function TrackEditModal({ track, onClose }: Props) {
   // Re-fetching rewrites the library file, so it lives behind the same admin
   // gate as the download routes it drives.
   const isAdmin = useAuthStore((s) => s.role === 'admin')
+  // The button used to be live regardless: with no API key on the server the
+  // request succeeds, changes nothing, and says nothing.
+  const { data: health } = useQuery({
+    queryKey: ['health'],
+    queryFn: getHealth,
+    enabled: isAdmin,
+    staleTime: 5 * 60_000,
+  })
+  const aiEnabled = health?.ai_enabled ?? true
 
   const thumbnailMut = useMutation({
     mutationFn: (file: File) => uploadTrackThumbnail(track.id, file),
@@ -155,8 +165,11 @@ export default function TrackEditModal({ track, onClose }: Props) {
             <button
               type="button"
               onClick={() => runAiFill()}
-              disabled={aiFilling}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-white transition-colors disabled:opacity-50"
+              disabled={aiFilling || !aiEnabled}
+              title={aiEnabled
+                ? 'Guess title, artist and cover info from the filename'
+                : 'Set OPENAI_API_KEY on the server to enable this'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Sparkles size={12} />
               {aiFilling ? 'Filling…' : 'AI Fill'}

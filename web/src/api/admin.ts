@@ -9,6 +9,10 @@ export interface SystemHealth {
   sources: number
   users: number
   node_version: string
+  /// False when OPENAI_API_KEY isn't set — the metadata fill and "AI Fill" then
+  /// do nothing at all, silently.
+  ai_enabled: boolean
+  ai_model: string | null
 }
 
 export interface User {

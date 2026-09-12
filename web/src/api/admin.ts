@@ -9,10 +9,31 @@ export interface SystemHealth {
   sources: number
   users: number
   node_version: string
-  /// False when OPENAI_API_KEY isn't set — the metadata fill and "AI Fill" then
-  /// do nothing at all, silently.
-  ai_enabled: boolean
-  ai_model: string | null
+  ai: AiStatus
+}
+
+export type AiProviderName = 'openai' | 'claude-code'
+
+export interface AiStatus {
+  enabled: boolean
+  provider: AiProviderName
+  model: string
+  chat_enabled: boolean
+  /// Whether the selected provider can actually run right now.
+  available: boolean
+  unavailable_reason: string | null
+  /// Most recent real failure; the only thing that reveals e.g. a Claude Code
+  /// CLI that is installed but not signed in.
+  last_error: string | null
+  default_models: Record<AiProviderName, string>
+}
+
+export function getAiSettings(): Promise<AiStatus> {
+  return api.get('/admin/ai')
+}
+
+export function updateAiSettings(patch: Partial<Pick<AiStatus, 'enabled' | 'provider' | 'model' | 'chat_enabled'>>): Promise<AiStatus> {
+  return api.put('/admin/ai', patch)
 }
 
 export interface User {
@@ -104,4 +125,26 @@ export function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+}
+
+export interface ChatAction {
+  type: 'play' | 'open_playlist'
+  track_ids?: string[]
+  playlist_id?: string
+  label?: string
+}
+
+export interface ChatReply {
+  reply: string
+  actions: ChatAction[]
+  /// Tools the assistant ran, in order — shown so an answer is inspectable.
+  used_tools: string[]
+}
+
+export function getChatStatus(): Promise<{ enabled: boolean }> {
+  return api.get('/ai/status')
+}
+
+export function sendChat(messages: { role: 'user' | 'assistant'; content: string }[]): Promise<ChatReply> {
+  return api.post('/ai/chat', { messages })
 }

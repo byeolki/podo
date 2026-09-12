@@ -35,8 +35,14 @@ export default () => ({
   static_dir: process.env.STATIC_DIR ?? path.join(process.cwd(), 'web', 'dist'),
   musicbrainz_user_agent: process.env.MUSICBRAINZ_USER_AGENT ?? 'podo/0.1.0',
   migrations_path: process.env.MIGRATIONS_PATH ?? path.join(__dirname, '..', 'db', 'migrations'),
+  // AI. These are the *defaults*; an admin can change provider, model and the
+  // switches at runtime and those are stored in `app_settings`.
+  ai_enabled: process.env.AI_ENABLED !== 'false',
+  ai_provider: process.env.AI_PROVIDER ?? '',
+  ai_chat_enabled: process.env.AI_CHAT_ENABLED === 'true',
   openai_api_key: process.env.OPENAI_API_KEY ?? '',
-  openai_model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+  openai_model: process.env.OPENAI_MODEL ?? '',
+  claude_code_path: process.env.CLAUDE_CODE_PATH ?? 'claude',
   ytdlp_path: process.env.YTDLP_PATH ?? 'yt-dlp',
   cors_origin: process.env.CORS_ORIGIN ?? '*',
   rate_limit_max: parseInt(process.env.RATE_LIMIT_MAX ?? '1000', 10),

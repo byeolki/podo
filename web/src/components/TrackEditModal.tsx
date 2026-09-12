@@ -98,7 +98,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
     enabled: isAdmin,
     staleTime: 5 * 60_000,
   })
-  const aiEnabled = health?.ai_enabled ?? true
+  const aiEnabled = health?.ai.available ?? true
 
   const thumbnailMut = useMutation({
     mutationFn: (file: File) => uploadTrackThumbnail(track.id, file),
@@ -168,7 +168,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
               disabled={aiFilling || !aiEnabled}
               title={aiEnabled
                 ? 'Guess title, artist and cover info from the filename'
-                : 'Set OPENAI_API_KEY on the server to enable this'}
+                : health?.ai.unavailable_reason ?? 'Configure a provider in Settings → AI'}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Sparkles size={12} />

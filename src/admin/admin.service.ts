@@ -235,8 +235,7 @@ export class AdminService {
       /// Whether `OPENAI_API_KEY` is set. Without it the metadata fill and the
       /// "AI Fill" action are silent no-ops, which is indistinguishable from them
       /// being broken — there was no way to tell from outside which it was.
-      ai_enabled: this.ai.enabled,
-      ai_model: this.ai.enabled ? this.config.get<string>('openai_model', 'gpt-4o-mini') : null,
+      ai: await this.ai.getStatus(),
     };
   }
 

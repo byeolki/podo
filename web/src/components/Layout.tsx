@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import Sidebar, { SidebarContent } from './Sidebar'
 import Player from './Player'
+import AssistantPanel from './AssistantPanel'
 
 export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -58,6 +59,10 @@ export default function Layout() {
         </main>
         <Player />
       </div>
+
+      {/* Rendered here rather than on a page so the conversation survives
+          navigation — it sends you to playlists, which would otherwise reset it. */}
+      <AssistantPanel />
     </div>
   )
 }

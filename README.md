@@ -104,6 +104,26 @@ fact. The new file replaces the old one *on the same track*, so the playlists,
 favorites and play counts pointing at it survive — the alternative, deleting and
 re-downloading, throws all of that away.
 
+**AI that is optional and yours.** Two providers: an OpenAI API key, or the
+Claude Code CLI bundled in the image — the second so a self-hosted server can
+have these features without its operator provisioning billing for them. Provider,
+model and each feature are changed from Settings → AI at runtime, and the model
+is free text, so a newer one is a settings change rather than an upgrade. It
+fills metadata from filenames on import, and there's an assistant docked at the
+edge of the dashboard that searches your library, queues tracks and builds
+playlists — it only ever acts on ids its own tools returned, so it can't invent
+music you don't have.
+
+**A command line for the big stuff.** `podo upload` streams files straight off
+disk, walks directories, skips what the server already has, and retries — the
+things a browser upload can't do with a folder of FLACs.
+
+```bash
+npm i -g .            # or run it from a checkout: node cli/podo.mjs
+podo login https://music.example.com
+podo upload ~/Music/Albums --jobs 2
+```
+
 **Playlists that fill themselves.** Point a playlist at one on YouTube (or
 anywhere else yt-dlp reads) and Podo checks it on a schedule, downloads what's
 new and appends it. One-way and additive on purpose: when a video disappears
@@ -143,7 +163,8 @@ radio URLs, and subtitle tracks imported as real synced lyrics.
 | **Lyrics** | Synced (LRC-style) lyrics per language, imported from yt-dlp subtitle tracks |
 | **Metadata** | ID3 tags → optional LLM fill → user override layer that always wins; multi-select AI autofill from the dashboard |
 | **Search** | SQLite FTS5 over titles and albums, plus artist/alternate-title matching and MusicBrainz alias expansion |
-| **Import** | Drag-and-drop upload, or yt-dlp from any supported site by URL, or YouTube search, with progress over websockets |
+| **Import** | Drag-and-drop upload, `podo upload` from the terminal, or yt-dlp from any supported site by URL, or YouTube search, with progress over websockets |
+| **AI** | Metadata filled from filenames, and an assistant that can search your library, queue tracks and build playlists — via an OpenAI key or the Claude Code CLI |
 | **Re-fetch** | Pull a downloaded track again from its original URL — media, artwork and subtitles — in place, keeping the track and everything attached to it |
 | **Auto-sync** | Subscribe a playlist to a remote playlist URL; new items are downloaded and appended on a schedule you pick |
 | **Sharing** | Invite-only accounts, public playlists, permanent public radio URLs per playlist |
@@ -222,6 +243,9 @@ Full OpenAPI spec at `/api/docs` in development. Base path is `/api/v1`.
 - `GET /download/search?q=` — local library first, then YouTube
 - `GET /download/source/{track_id}` · `POST /download/refresh/{track_id}` — where a
   track came from, and re-fetching it from there
+- `POST /playlists/from-url` — download a remote playlist and keep it as one
+- `GET /ai/status` · `POST /ai/chat` — the assistant
+- `GET /admin/ai` · `PUT /admin/ai` — provider, model and feature switches
 - `GET/POST/PATCH/DELETE /playlists` · `POST /playlists/{id}/tracks`
 - `GET/PUT/DELETE /playlists/{id}/subscription` · `POST /playlists/{id}/subscription/sync` — playlist auto-sync
 - `POST /playlists/{id}/radio-tokens` → `GET /broadcast/{token}` (public stream)

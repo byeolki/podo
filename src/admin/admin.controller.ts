@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Delete, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { IsIn } from 'class-validator';
+import { IsIn, IsOptional, IsBoolean, IsString, MaxLength } from 'class-validator';
 import { AdminService } from './admin.service';
+import { AiService } from '../ai/ai.service';
+import { AiProviderName } from '../ai/ai.config';
 import { UploadService } from '../upload/upload.service';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AdminOnly } from '../common/decorators/roles.decorator';
@@ -16,6 +18,14 @@ class RenameFileDto {
   filename!: string;
 }
 
+class UpdateAiDto {
+  @IsOptional() @IsBoolean() enabled?: boolean;
+  @IsOptional() @IsIn(['openai', 'claude-code']) provider?: AiProviderName;
+  /** Free text on purpose: a newer model shouldn't need a server release. */
+  @IsOptional() @IsString() @MaxLength(100) model?: string;
+  @IsOptional() @IsBoolean() chat_enabled?: boolean;
+}
+
 @ApiTags('admin')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)
@@ -25,7 +35,20 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly upload: UploadService,
+    private readonly ai: AiService,
   ) {}
+
+  @Get('ai')
+  @ApiOperation({ summary: 'AI provider settings and whether the selected one can run' })
+  getAiSettings() {
+    return this.ai.getStatus();
+  }
+
+  @Put('ai')
+  @ApiOperation({ summary: 'Change the AI provider, model, or switches' })
+  updateAiSettings(@Body() dto: UpdateAiDto) {
+    return this.ai.updateSettings(dto);
+  }
 
   @Post('library/verify')
   @ApiOperation({ summary: 'Verify library integrity (check for missing files, orphan metadata)' })

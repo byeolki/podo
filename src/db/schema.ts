@@ -105,6 +105,22 @@ export const track_metadata_overrides = sqliteTable('track_metadata_overrides', 
   updated_by: text('updated_by').references(() => users.id),
 });
 
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+/**
+ * Runtime configuration an admin can change without redeploying, stored as one
+ * JSON document per key.
+ *
+ * Environment variables stay the source of the *defaults*; a row here overrides
+ * one. Things like the AI provider and model belong in this shape because they
+ * are tuned by whoever runs the server, not baked into the deployment.
+ */
+export const app_settings = sqliteTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updated_at: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
+});
+
 // ─── Sources ──────────────────────────────────────────────────────────────────
 
 export const sources = sqliteTable('sources', {

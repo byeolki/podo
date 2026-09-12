@@ -252,8 +252,8 @@ export class ScannerService {
     // nothing useful — the filename it reasons from hasn't changed — and the
     // result was being thrown away anyway, so every re-import of a changed file
     // was paying for an LLM call whose answer went nowhere.
-    if (this.ai?.enabled && !existing) {
-      const aiResult = await this.ai.extractMetadata(path.basename(filePath), {
+    if (!existing && (await this.ai?.isUsable())) {
+      const aiResult = await this.ai!.extractMetadata(path.basename(filePath), {
         title: meta.title,
         artist: meta.artist,
         album: meta.album,

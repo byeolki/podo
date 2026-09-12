@@ -24,6 +24,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
+
+# The second AI provider. Installed here so the feature is available out of the
+# box, but it still needs credentials to do anything: set ANTHROPIC_API_KEY, or
+# mount an authenticated config at /root/.claude. With neither, the server
+# reports the provider as unavailable and every AI feature stays a no-op.
+RUN npm install -g @anthropic-ai/claude-code && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 COPY --from=web-builder /web/dist ./public
 RUN mkdir -p /data/uploads /data/artwork /data/transcode-cache

@@ -13,6 +13,7 @@ import { listAllFiles, adminRenameFile, adminDeleteFile, type UploadedFile } fro
 import { getAllRadioTokens, adminRevokeRadioToken, getRadioStreamUrl, type RadioToken } from '../api/broadcast'
 import { useAuthStore } from '../store/auth'
 import UpdateCard from '../components/UpdateCard'
+import AiSettingsCard from '../components/AiSettingsCard'
 
 type Tab = 'account' | 'library' | 'users' | 'health' | 'files' | 'radio'
 
@@ -348,6 +349,7 @@ function HealthTab() {
   return (
     <div className="space-y-6">
       <UpdateCard />
+      <AiSettingsCard />
 
       <div>
         <div className="flex items-start justify-between gap-4 mb-3">
@@ -395,9 +397,9 @@ function HealthTab() {
               { label: 'Node', value: health.node_version },
               { label: 'Memory', value: formatBytes(health.memory.heapUsed) },
               {
-                label: 'AI metadata',
-                value: health.ai_enabled ? (health.ai_model ?? 'On') : 'Off',
-                accent: health.ai_enabled,
+                label: 'AI',
+                value: health.ai.available ? health.ai.model : 'Off',
+                accent: health.ai.available,
               },
             ].map(({ label, value, accent }) => (
               <div key={label} className="p-3 rounded-lg bg-surface-2 border border-border">

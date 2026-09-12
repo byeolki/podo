@@ -10,5 +10,6 @@ import { SyncModule } from '../sync/sync.module';
   imports: [TracksModule, DownloadModule, SyncModule],
   providers: [PlaylistsService, PlaylistSyncService],
   controllers: [PlaylistsController],
+  exports: [PlaylistsService],
 })
 export class PlaylistsModule {}

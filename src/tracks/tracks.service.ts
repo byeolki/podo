@@ -424,7 +424,7 @@ export class TracksService {
   }
 
   async aiAutofill(trackIds: string[], userId: string): Promise<{ track_id: string; applied: boolean; skipped: boolean; result: Record<string, unknown> | null }[]> {
-    if (!this.ai?.enabled) return trackIds.map((id) => ({ track_id: id, applied: false, skipped: false, result: null }));
+    if (!(await this.ai?.isUsable())) return trackIds.map((id) => ({ track_id: id, applied: false, skipped: false, result: null }));
 
     const [tracks, existingOverrides] = await Promise.all([
       this.db
@@ -468,7 +468,7 @@ export class TracksService {
       if (!locator) { results.push({ track_id: track.id, applied: false, skipped: false, result: null }); continue; }
 
       const filename = path.basename(locator);
-      const aiResult = await this.ai.extractMetadata(filename, { title: track.title });
+      const aiResult = await this.ai!.extractMetadata(filename, { title: track.title });
 
       if (!aiResult) { results.push({ track_id: track.id, applied: false, skipped: false, result: null }); continue; }
 

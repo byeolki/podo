@@ -174,6 +174,56 @@ with `force: true` — an unchanged media file can still come back with a new
 thumbnail or newly-added subtitles, which the normal size+hash skip would
 otherwise step over.
 
+## AI
+
+`src/ai` holds a provider abstraction over two backends: the OpenAI API, and the
+Claude Code CLI run as a subprocess. The second exists so a self-hosted server
+can have these features without its operator provisioning an API key; the cost is
+a process per call, so every path is best-effort and nothing is on the critical
+path of importing or finding music.
+
+Settings live in `app_settings` under the key `ai`, seeded from environment
+variables the first time they're read — env supplies the *defaults*, a row wins.
+The model is free text everywhere, deliberately: pointing the server at a newer
+model shouldn't need a release.
+
+`available` can only tell you the provider is installed. An unauthenticated
+Claude Code CLI passes `--version` happily and then answers "Not logged in" on
+the first real call, and proving otherwise would cost a model call per status
+check — so `AiService` records the last real failure instead and the dashboard
+shows it.
+
+**The assistant** (`ai-chat.service.ts`) uses a JSON protocol in the prompt
+rather than a provider's native function calling, because the two providers don't
+share one — the CLI is driven by a single prompt with no tool API. One protocol
+keeps both providers on the same path and keeps the loop here, where it is
+bounded (`MAX_TOOL_STEPS`) and auditable, instead of inside a vendor SDK. Tools
+are scoped to the calling user and read or write only their own library and
+playlists.
+
+Playback is the one thing it can't do: the server has no speaker. So a reply
+carries *actions* the browser performs, which also means the queue visibly
+changes rather than the assistant claiming it did.
+
+`AiModule` is deliberately importless. The scanner depends on it for the metadata
+fill, so anything imported there ends up upstream of the library — which is how
+the assistant (playlists → downloads → library → ai) first produced a module
+cycle. It lives in `AiChatModule` for that reason.
+
+## Command line client
+
+`cli/podo.mjs` is a dependency-free Node script, exposed as the `podo` bin. It
+exists for the one thing a browser is bad at: a lot of large files. Uploads are
+streamed with a hand-built multipart body rather than `FormData`, because
+`FormData` reads the file into memory to compute its length — exactly what the
+command exists to avoid.
+
+Two things it has to know about the server: uploads are stored with a timestamp
+prefix (`1789223942895_Song.flac`), so skipping what is already there compares
+names with that stripped; and `/auth/refresh` shares the strict credential rate
+limit, so the token is renewed only when it is close to expiring rather than per
+file.
+
 ## Broadcast (radio URLs)
 
 A playlist can be exposed as a permanent public stream. One long-lived ffmpeg

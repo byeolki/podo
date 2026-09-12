@@ -9,7 +9,6 @@ import TrackRow from '../components/TrackRow'
 export default function Search() {
   const [q, setQ] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
-
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 300)
     return () => clearTimeout(t)

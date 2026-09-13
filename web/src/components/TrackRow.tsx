@@ -10,6 +10,17 @@ import TrackEditModal from './TrackEditModal'
 import ArtworkImage from './ArtworkImage'
 import { getArtworkUrl } from '../api/client'
 
+/**
+ * Row actions stay out of the way until the row is hovered — or until something
+ * inside it takes keyboard focus. Without the focus half, tabbing moved through
+ * buttons that were still at `opacity-0`, so a keyboard user was operating
+ * controls they could not see.
+ */
+const REVEAL =
+  'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto ' +
+  'group-focus-within:opacity-100 group-focus-within:pointer-events-auto ' +
+  '[@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto'
+
 interface Props {
   track: Track
   index?: number
@@ -33,9 +44,7 @@ export default function TrackRow({
   const isActivelyPlaying = isActive && isPlaying
   const [videoOpen, setVideoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
-  const [hovered, setHovered] = useState(false)
   const isTouch = useMemo(() => window.matchMedia('(hover: none)').matches, [])
-  const showActions = hovered || isTouch
 
   const queryClient = useQueryClient()
   const { mutate: favMutate } = useMutation({
@@ -66,49 +75,70 @@ export default function TrackRow({
   return (
     <>
       <div
-        className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-          selected ? 'bg-accent/15' : isActive ? 'bg-accent/10' : hovered ? 'bg-white/5' : ''
+        className={`group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors focus-within:bg-white/5 ${
+          selected ? 'bg-accent/15' : isActive ? 'bg-accent/10' : 'hover:bg-white/5'
         }`}
         onClick={() => {
           if (selectionActive) onSelect?.(track.id)
           else if (isTouch) playTrack(track, queue)
         }}
         onDoubleClick={() => { if (!selectionActive) playTrack(track, queue) }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
       >
         {/* Left col: checkbox (selection mode) OR number→play (normal) */}
-        <div className="w-8 flex-shrink-0 flex items-center justify-center">
+        <div className="w-8 flex-shrink-0 grid place-items-center">
           {selectionActive ? (
             <button
+              type="button"
+              role="checkbox"
+              aria-checked={selected}
+              aria-label={`Select ${track.title}`}
               onClick={(e) => { e.stopPropagation(); onSelect?.(track.id) }}
               className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
                 selected ? 'bg-accent border-accent text-white' : 'border-ink-faint'
               }`}
             >
-              {selected && <Check size={11} strokeWidth={3} />}
+              {selected && <Check size={11} strokeWidth={3} aria-hidden="true" />}
             </button>
           ) : (
             <>
+              {/* Number, equalizer and play button share one cell: the first two are
+                  decoration that steps aside for the control. The button is never
+                  `hidden`, because display:none also removes it from the tab order —
+                  which left a keyboard user with no way to play a track at all. */}
               {showNumber && (
-                <span className={`text-sm tabular-nums ${isActive || hovered ? 'hidden' : 'text-ink-faint'}`}>
+                <span
+                  aria-hidden="true"
+                  className={`col-start-1 row-start-1 text-sm tabular-nums text-ink-faint ${
+                    isActive ? 'hidden' : 'group-hover:invisible group-focus-within:invisible'
+                  }`}
+                >
                   {index != null ? index + 1 : ''}
                 </span>
               )}
-              {isActivelyPlaying && !hovered ? (
-                <span className="flex items-end gap-0.5 h-3.5" aria-label="Now playing">
+              {isActivelyPlaying && (
+                <span
+                  aria-hidden="true"
+                  className="col-start-1 row-start-1 flex items-end gap-0.5 h-3.5 group-hover:invisible group-focus-within:invisible"
+                >
                   <span className="eq-bar" style={{ animationDelay: '0ms' }} />
                   <span className="eq-bar" style={{ animationDelay: '180ms' }} />
                   <span className="eq-bar" style={{ animationDelay: '360ms' }} />
                 </span>
-              ) : (
-                <button
-                  onClick={(e) => { e.stopPropagation(); playTrack(track, queue) }}
-                  className={`${showNumber ? (hovered || isActive ? 'flex' : 'hidden') : 'flex'} items-center justify-center text-white hover:text-accent ${isActive ? 'text-accent' : ''}`}
-                >
-                  <Play size={14} fill="currentColor" />
-                </button>
               )}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); playTrack(track, queue) }}
+                aria-label={`Play ${track.title}`}
+                className={`col-start-1 row-start-1 flex items-center justify-center text-white hover:text-accent ${
+                  isActive ? 'text-accent' : ''
+                } ${
+                  showNumber || isActivelyPlaying
+                    ? 'invisible group-hover:visible group-focus-within:visible focus-visible:visible'
+                    : ''
+                }`}
+              >
+                <Play size={14} fill="currentColor" aria-hidden="true" />
+              </button>
             </>
           )}
         </div>
@@ -152,30 +182,32 @@ export default function TrackRow({
           {!selectionActive && (
             <>
               <button
+                type="button"
                 onClick={(e) => { e.stopPropagation(); favMutate() }}
                 className={`p-1 transition-colors ${
-                  track.is_favorited
-                    ? 'text-red-400'
-                    : showActions ? 'text-ink-faint hover:text-red-400' : 'opacity-0 pointer-events-none'
+                  track.is_favorited ? 'text-red-400' : `text-ink-faint hover:text-red-400 ${REVEAL}`
                 }`}
-                title={track.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
+                aria-label={track.is_favorited ? `Remove ${track.title} from favorites` : `Add ${track.title} to favorites`}
+                aria-pressed={track.is_favorited}
               >
-                <Heart size={12} fill={track.is_favorited ? 'currentColor' : 'none'} />
+                <Heart size={12} fill={track.is_favorited ? 'currentColor' : 'none'} aria-hidden="true" />
               </button>
               <button
+                type="button"
                 onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
-                className={`p-1 text-ink-faint hover:text-white transition-colors ${showActions ? '' : 'opacity-0 pointer-events-none'}`}
-                title="Edit"
+                className={`p-1 text-ink-faint hover:text-white transition-colors ${REVEAL}`}
+                aria-label={`Edit ${track.title}`}
               >
-                <Pencil size={12} />
+                <Pencil size={12} aria-hidden="true" />
               </button>
               {track.has_video && (
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }}
-                  className={`p-1 text-ink-faint hover:text-accent transition-colors ${showActions ? '' : 'opacity-0 pointer-events-none'}`}
-                  title="Music video"
+                  className={`p-1 text-ink-faint hover:text-accent transition-colors ${REVEAL}`}
+                  aria-label={`Play the music video for ${track.title}`}
                 >
-                  <Video size={13} />
+                  <Video size={13} aria-hidden="true" />
                 </button>
               )}
             </>

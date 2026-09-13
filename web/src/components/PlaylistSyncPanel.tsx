@@ -90,8 +90,9 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
 
         <div className="p-4 space-y-3">
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1.5">Playlist URL</label>
+            <label htmlFor="playlistSyncPanel-playlist-url" className="block text-xs text-ink-tertiary mb-1.5">Playlist URL</label>
             <input
+              id="playlistSyncPanel-playlist-url"
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -101,8 +102,9 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1.5">Check for new items</label>
+            <label htmlFor="playlistSyncPanel-check-for-new-items" className="block text-xs text-ink-tertiary mb-1.5">Check for new items</label>
             <select
+              id="playlistSyncPanel-check-for-new-items"
               value={interval}
               onChange={(e) => setIntervalMinutes(Number(e.target.value))}
               className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"

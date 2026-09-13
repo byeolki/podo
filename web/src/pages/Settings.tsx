@@ -71,8 +71,9 @@ function AccountTab() {
           className="space-y-3"
         >
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1.5">Name</label>
+            <label htmlFor="settings-name" className="block text-xs text-ink-tertiary mb-1.5">Name</label>
             <input
+              id="settings-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -80,8 +81,9 @@ function AccountTab() {
             />
           </div>
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1.5">Email</label>
+            <label htmlFor="settings-email" className="block text-xs text-ink-tertiary mb-1.5">Email</label>
             <input
+              id="settings-email"
               type="email"
               value={me?.email ?? ''}
               disabled
@@ -103,8 +105,9 @@ function AccountTab() {
         <h3 className="text-base font-semibold mb-3">Change Password</h3>
         <form onSubmit={handlePasswordSubmit} className="space-y-3">
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1.5">Current password</label>
+            <label htmlFor="settings-current-password" className="block text-xs text-ink-tertiary mb-1.5">Current password</label>
             <input
+              id="settings-current-password"
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
@@ -112,8 +115,9 @@ function AccountTab() {
             />
           </div>
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1.5">New password</label>
+            <label htmlFor="settings-new-password" className="block text-xs text-ink-tertiary mb-1.5">New password</label>
             <input
+              id="settings-new-password"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -121,8 +125,9 @@ function AccountTab() {
             />
           </div>
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1.5">Confirm new password</label>
+            <label htmlFor="settings-confirm-new-password" className="block text-xs text-ink-tertiary mb-1.5">Confirm new password</label>
             <input
+              id="settings-confirm-new-password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

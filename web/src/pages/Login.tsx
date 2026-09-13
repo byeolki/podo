@@ -58,9 +58,11 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="bg-surface-2 rounded-2xl p-6 border border-border space-y-4">
           {mode === 'bootstrap' && (
             <div>
-              <label className="block text-xs font-medium text-ink-secondary mb-1.5">Name</label>
+              <label htmlFor="login-name" className="block text-xs font-medium text-ink-secondary mb-1.5">Name</label>
               <input
+                id="login-name"
                 type="text"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -70,9 +72,11 @@ export default function Login() {
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1.5">Email</label>
+            <label htmlFor="login-email" className="block text-xs font-medium text-ink-secondary mb-1.5">Email</label>
             <input
+              id="login-email"
               type="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -81,9 +85,11 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1.5">Password</label>
+            <label htmlFor="login-password" className="block text-xs font-medium text-ink-secondary mb-1.5">Password</label>
             <input
+              id="login-password"
               type="password"
+              autoComplete={mode === 'bootstrap' ? 'new-password' : 'current-password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -94,7 +100,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <p className="text-xs text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>
+            <p role="alert" className="text-xs text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
           )}
 
           <button
@@ -110,14 +116,14 @@ export default function Login() {
           {mode === 'login' ? (
             <>
               First time?{' '}
-              <button onClick={() => setMode('bootstrap')} className="text-accent hover:underline">
+              <button type="button" onClick={() => setMode('bootstrap')} className="text-accent hover:underline">
                 Set up server
               </button>
             </>
           ) : (
             <>
               Already set up?{' '}
-              <button onClick={() => setMode('login')} className="text-accent hover:underline">
+              <button type="button" onClick={() => setMode('login')} className="text-accent hover:underline">
                 Sign in
               </button>
             </>

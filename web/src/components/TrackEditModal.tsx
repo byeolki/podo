@@ -208,8 +208,9 @@ export default function TrackEditModal({ track, onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1.5">Title</label>
+            <label htmlFor="trackEditModal-title" className="block text-xs text-ink-tertiary mb-1.5">Title</label>
             <input
+              id="trackEditModal-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}

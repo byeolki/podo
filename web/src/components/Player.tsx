@@ -299,32 +299,41 @@ export default function Player() {
       <div className="flex flex-col items-center flex-1 gap-1.5">
         <div className="flex items-center gap-4">
           <button
+            type="button"
             onClick={prev}
             disabled={!track}
-            className="text-ink-secondary hover:text-white disabled:opacity-30 transition-colors"
+            aria-label="Previous track"
+            className="p-1.5 text-ink-secondary hover:text-white disabled:opacity-30 transition-colors"
           >
-            <SkipBack size={18} aria-label="Previous track" />
+            <SkipBack size={18} aria-hidden="true" />
           </button>
           <button
+            type="button"
             onClick={toggle}
             disabled={!track}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
             className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center hover:bg-accent-hover disabled:opacity-30 transition-colors"
           >
-            {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
+            {isPlaying
+              ? <Pause size={16} fill="currentColor" aria-hidden="true" />
+              : <Play size={16} fill="currentColor" className="ml-0.5" aria-hidden="true" />}
           </button>
           <button
+            type="button"
             onClick={next}
             disabled={!track || (currentIndex >= queue.length - 1 && repeatMode !== 'all')}
-            className="text-ink-secondary hover:text-white disabled:opacity-30 transition-colors"
+            aria-label="Next track"
+            className="p-1.5 text-ink-secondary hover:text-white disabled:opacity-30 transition-colors"
           >
-            <SkipForward size={18} aria-label="Next track" />
+            <SkipForward size={18} aria-hidden="true" />
           </button>
           <button
+            type="button"
             onClick={cycleRepeatMode}
-            title={repeatMode === 'off' ? 'Repeat: off' : repeatMode === 'all' ? 'Repeat: all' : 'Repeat: one'}
-            className={`transition-colors ${repeatMode !== 'off' ? 'text-accent' : 'text-ink-tertiary hover:text-ink-secondary'}`}
+            aria-label={repeatMode === 'off' ? 'Repeat: off' : repeatMode === 'all' ? 'Repeat: all' : 'Repeat: one'}
+            className={`p-1.5 transition-colors ${repeatMode !== 'off' ? 'text-accent' : 'text-ink-tertiary hover:text-ink-secondary'}`}
           >
-            {repeatMode === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}
+            {repeatMode === 'one' ? <Repeat1 size={16} aria-hidden="true" /> : <Repeat size={16} aria-hidden="true" />}
           </button>
         </div>
 

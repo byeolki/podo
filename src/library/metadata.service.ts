@@ -1,12 +1,9 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { eq, and, isNull, inArray } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
 import { ProbeResult } from './ffprobe.service';
-import PQueue from 'p-queue';
-import * as https from 'https';
 
 interface ParsedMeta {
   title: string | null;
@@ -22,15 +19,8 @@ interface ParsedMeta {
 @Injectable()
 export class MetadataService {
   private readonly logger = new Logger(MetadataService.name);
-  private readonly mbQueue = new PQueue({ interval: 1000, intervalCap: 1 });
-  private readonly userAgent: string;
 
-  constructor(
-    @Inject(DB_TOKEN) private readonly db: Db,
-    private readonly config: ConfigService,
-  ) {
-    this.userAgent = config.get('musicbrainz_user_agent', 'podo/0.1.0');
-  }
+  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   parseTags(probe: ProbeResult): ParsedMeta {
     const t = probe.tags;
@@ -108,51 +98,4 @@ export class MetadataService {
     return existing.map((r) => r.id);
   }
 
-  async fetchMusicBrainz(artist: string, title: string): Promise<Record<string, unknown> | null> {
-    const cacheKey = `mb:${artist}:${title}`;
-    const cached = await this.db
-      .select()
-      .from(schema.mb_cache)
-      .where(eq(schema.mb_cache.key, cacheKey))
-      .get();
-
-    if (cached) return cached.data as Record<string, unknown>;
-
-    const result = await this.mbQueue.add(async () => {
-      const query = encodeURIComponent(`recording:"${title}" AND artist:"${artist}"`);
-      const url = `https://musicbrainz.org/ws/2/recording/?query=${query}&limit=1&fmt=json`;
-
-      try {
-        const data = await this.httpGet(url, { 'User-Agent': this.userAgent });
-        await this.db
-          .insert(schema.mb_cache)
-          .values({ key: cacheKey, data: data as Record<string, unknown> })
-          .onConflictDoUpdate({ target: schema.mb_cache.key, set: { data: data as Record<string, unknown>, fetched_at: new Date() } });
-        return data as Record<string, unknown>;
-      } catch (e) {
-        this.logger.warn(`MusicBrainz fetch failed: ${e}`);
-        return null;
-      }
-    });
-    return result ?? null;
-  }
-
-  private httpGet(url: string, headers: Record<string, string>): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-      const req = https.get(url, { headers }, (res) => {
-        if ((res.statusCode ?? 0) >= 300) {
-          res.resume();
-          reject(new Error(`HTTP ${res.statusCode} from ${url}`));
-          return;
-        }
-        let body = '';
-        res.on('data', (d: Buffer) => { body += d.toString(); });
-        res.on('end', () => {
-          try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
-        });
-      });
-      req.on('error', reject);
-      req.setTimeout(10000, () => { req.destroy(); reject(new Error('MusicBrainz request timeout')); });
-    });
-  }
 }

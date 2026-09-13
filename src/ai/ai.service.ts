@@ -11,6 +11,7 @@ import {
   normalizeSettings,
 } from './ai.config';
 import { AiProvider, ClaudeCodeProvider, OpenAiProvider, parseJsonObject } from './providers';
+import { MusicBrainzService, RecordingCandidate } from '../musicbrainz/musicbrainz.service';
 
 export interface AiMetaResult {
   title: string | null;
@@ -20,6 +21,8 @@ export interface AiMetaResult {
   genres: string[];
   is_cover: boolean;
   original_artist: string | null;
+  /** Set when MusicBrainz, not the model alone, is the source of `original_artist`. */
+  original_artist_verified: boolean;
 }
 
 export interface AiStatus extends AiSettings {
@@ -54,6 +57,13 @@ Respond ONLY with valid JSON matching this schema:
 - Return null for other fields you cannot determine with reasonable confidence
 - genres should be an empty array if unknown`;
 
+const ATTRIBUTION_PROMPT = `You identify who a song belongs to — the artist whose song it originally is, not whoever performed the recording at hand.
+You are given a song title and a list of real MusicBrainz recordings carrying exactly that title, each with its artist and earliest release date.
+Respond ONLY with valid JSON: {"original_artist": string | null}
+- Choose the artist whose release is the original, using the release dates as evidence and your own knowledge of the song to break ties. Many titles are shared by unrelated songs, so the earliest date is NOT automatically the answer.
+- Copy the artist name exactly as it appears in the list.
+- If none of the listed recordings is the song in question, answer null. Never invent an artist that is not in the list.`;
+
 /**
  * The AI features, behind a provider the operator chooses.
  *
@@ -78,6 +88,7 @@ export class AiService {
   constructor(
     private readonly config: ConfigService,
     @Inject(DB_TOKEN) private readonly db: Db,
+    private readonly musicbrainz: MusicBrainzService,
   ) {
     const openAiKey = config.get<string>('openai_api_key', '');
     const claudePath = config.get<string>('claude_code_path', 'claude');
@@ -207,7 +218,7 @@ export class AiService {
     );
     if (!parsed) return null;
 
-    return {
+    const result: AiMetaResult = {
       title: typeof parsed.title === 'string' ? parsed.title : null,
       artist: typeof parsed.artist === 'string' ? parsed.artist : null,
       album: typeof parsed.album === 'string' ? parsed.album : null,
@@ -215,7 +226,64 @@ export class AiService {
       genres: Array.isArray(parsed.genres) ? parsed.genres.filter((g) => typeof g === 'string') : [],
       is_cover: parsed.is_cover === true,
       original_artist: typeof parsed.original_artist === 'string' ? parsed.original_artist : null,
+      original_artist_verified: false,
     };
+
+    return this.attribute(result);
+  }
+
+  /**
+   * Settles who the song belongs to against MusicBrainz, for the one field the
+   * model is worst at: a filename says who performed a cover, almost never who
+   * wrote or first released it, so the model was answering from memory alone and
+   * confidently naming the wrong artist.
+   *
+   * Neither source is trusted by itself. MusicBrainz matches titles fuzzily enough
+   * that a bare search for "Creep" ranks a band called Flexx G above Radiohead, so
+   * it supplies a shortlist rather than an answer; the model picks from that
+   * shortlist rather than from memory, and may pick nothing. Only a name that came
+   * back through this is marked verified.
+   *
+   * Costs at most one extra model call and is skipped entirely for a track whose
+   * attribution is already settled and confirmable.
+   */
+  private async attribute(result: AiMetaResult): Promise<AiMetaResult> {
+    if (!result.title) return result;
+
+    // A non-cover is its performer's own song; there is nothing to attribute.
+    if (!result.is_cover) return result;
+
+    if (result.original_artist) {
+      const confirmed = await this.musicbrainz.verify(result.title, result.original_artist);
+      if (confirmed) {
+        return { ...result, original_artist: confirmed.artist, original_artist_verified: true };
+      }
+    }
+
+    // Wide on purpose: MusicBrainz ranks a title-only search by fuzzy relevance,
+    // and Radiohead sits below two unrelated bands called Creep until the list is
+    // deep enough to reach them. One request either way.
+    const candidates = await this.musicbrainz.findCandidates(result.title, null, 25);
+    // Exclude the performer of this recording: they are who we already know it
+    // isn't, and leaving them in invites the model to answer with the coverer.
+    const others = dedupeArtists(candidates).filter((c) => !sameArtist(c.artist, result.artist));
+    if (!others.length) return result;
+
+    const chosen = await this.askJson<{ original_artist?: unknown }>(
+      ATTRIBUTION_PROMPT,
+      [
+        `Title: ${result.title}`,
+        result.artist ? `Performed on this recording by: ${result.artist}` : null,
+        'MusicBrainz recordings with this exact title:',
+        ...others.map((c) => `- ${c.artist} (${c.first_release_date ?? 'date unknown'})`),
+      ].filter(Boolean).join('\n'),
+    );
+
+    const name = typeof chosen?.original_artist === 'string' ? chosen.original_artist.trim() : '';
+    const match = others.find((c) => sameArtist(c.artist, name));
+    if (!match) return result;
+
+    return { ...result, original_artist: match.artist, original_artist_verified: true };
   }
 
   /**
@@ -247,4 +315,22 @@ export class AiService {
       return null;
     }
   }
+}
+
+function sameArtist(a: string | null, b: string | null): boolean {
+  if (!a || !b) return false;
+  return a.normalize('NFKC').toLowerCase().trim() === b.normalize('NFKC').toLowerCase().trim();
+}
+
+/** One row per artist — MusicBrainz lists every reissue of the same recording. */
+function dedupeArtists(candidates: RecordingCandidate[]): RecordingCandidate[] {
+  const byArtist = new Map<string, RecordingCandidate>();
+  for (const c of candidates) {
+    const key = c.artist.normalize('NFKC').toLowerCase();
+    const seen = byArtist.get(key);
+    if (!seen || (c.first_release_date ?? '9999') < (seen.first_release_date ?? '9999')) {
+      byArtist.set(key, c);
+    }
+  }
+  return [...byArtist.values()];
 }

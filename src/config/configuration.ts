@@ -33,7 +33,10 @@ export default () => ({
   artwork_dir: process.env.ARTWORK_DIR ?? path.join(process.cwd(), 'data', 'artwork'),
   transcode_cache_dir: process.env.TRANSCODE_CACHE_DIR ?? path.join(process.cwd(), 'data', 'transcode-cache'),
   static_dir: process.env.STATIC_DIR ?? path.join(process.cwd(), 'web', 'dist'),
-  musicbrainz_user_agent: process.env.MUSICBRAINZ_USER_AGENT ?? 'podo/0.1.0',
+  // MusicBrainz requires a contact in the User-Agent and throttles clients that
+  // omit one, so the default carries the project URL rather than a bare name.
+  musicbrainz_user_agent:
+    process.env.MUSICBRAINZ_USER_AGENT ?? 'podo/0.1.0 ( https://github.com/byeolki/podo )',
   migrations_path: process.env.MIGRATIONS_PATH ?? path.join(__dirname, '..', 'db', 'migrations'),
   // AI. These are the *defaults*; an admin can change provider, model and the
   // switches at runtime and those are stored in `app_settings`.

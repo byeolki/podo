@@ -323,7 +323,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
             />
           )}
 
-          <div className="text-xs text-ink-tertiary pt-1 border-t border-border flex justify-between">
+          <div className="flex justify-between pt-5 text-xs text-ink-faint">
             <span>Added {new Date(track.added_at).toLocaleDateString()}</span>
             {ov?.updated_at && <span>Last edited {new Date(ov.updated_at).toLocaleDateString()}</span>}
           </div>

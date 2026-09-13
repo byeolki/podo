@@ -66,7 +66,7 @@ export default function TrackSourcePanel({ trackId, onRefreshed }: Props) {
   const failed = finished?.status === 'failed'
 
   return (
-    <div className="pt-3 border-t border-border space-y-2">
+    <div className="pt-5 space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs text-ink-tertiary mb-0.5">

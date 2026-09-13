@@ -44,14 +44,19 @@ function TagInput({ tags, onChange, placeholder }: { tags: string[]; onChange: (
 
   return (
     <div
-      className="flex flex-wrap gap-1.5 w-full bg-surface-1 border border-border-strong rounded-lg px-2 py-1.5 cursor-text focus-within:border-accent transition-colors min-h-[38px]"
+      className="focus-ring-container flex flex-wrap gap-1.5 w-full bg-surface-1 border border-border-strong rounded-lg px-2 py-1.5 cursor-text transition-colors min-h-[38px]"
       onClick={() => inputRef.current?.focus()}
     >
       {tags.map((tag) => (
         <span key={tag} className="flex items-center gap-1 bg-surface-3 text-sm px-2 py-0.5 rounded-md">
           {tag}
-          <button type="button" onClick={() => remove(tag)} className="text-ink-faint hover:text-ink-primary transition-colors">
-            <X size={10} />
+          <button
+            type="button"
+            onClick={() => remove(tag)}
+            aria-label={`Remove ${tag}`}
+            className="-mr-1 p-1 text-ink-faint hover:text-ink-primary transition-colors"
+          >
+            <X size={11} aria-hidden="true" />
           </button>
         </span>
       ))}
@@ -62,7 +67,7 @@ function TagInput({ tags, onChange, placeholder }: { tags: string[]; onChange: (
         onKeyDown={handleKey}
         onBlur={commit}
         placeholder={tags.length === 0 ? placeholder : ''}
-        className="flex-1 min-w-[80px] bg-transparent text-sm outline-none placeholder:text-ink-faint"
+        className="focus-ring-none flex-1 min-w-[80px] bg-transparent text-sm placeholder:text-ink-faint"
       />
     </div>
   )

@@ -93,27 +93,27 @@ export default function Library() {
       )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-semibold">Library</h1>
-          <p className="text-sm text-ink-secondary mt-0.5">{filteredTracks.length}{q ? ` / ${tracks.length}` : ''} tracks</p>
+          <h1 className="text-display font-semibold">Library</h1>
+          <p className="text-meta text-ink-tertiary mt-1">{filteredTracks.length}{q ? ` / ${tracks.length}` : ''} tracks</p>
         </div>
 
         {!selectionMode && tracks.length > 0 && (
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectionMode(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm font-medium transition-colors"
+              className="press flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 hover:border-border-strong text-sm font-medium transition-[scale,background-color,border-color] duration-150"
             >
               <CheckSquare size={14} /> Select
             </button>
             <button
               onClick={() => { setQueue(filteredTracks, 0); play() }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
+              className="press flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium shadow-raised transition-[scale,background-color] duration-150"
             >
               <Play size={14} fill="currentColor" /> Play all
             </button>
             <button
               onClick={() => { const s = [...filteredTracks].sort(() => Math.random() - 0.5); setQueue(s, 0); play() }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm font-medium transition-colors"
+              className="press flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 hover:border-border-strong text-sm font-medium transition-[scale,background-color,border-color] duration-150"
             >
               <Shuffle size={14} /> Shuffle
             </button>
@@ -124,13 +124,13 @@ export default function Library() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={allSelected ? deselectAll : selectAllVisible}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm transition-colors"
+              className="press flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 text-sm transition-[scale,background-color] duration-150"
             >
               {allSelected ? <Square size={14} /> : <CheckSquare size={14} />}
               {allSelected ? 'Deselect all' : 'Select all'}
             </button>
 
-            <span className="text-sm text-ink-faint">{hasSelection ? `${selectedIds.size} selected` : 'None'}</span>
+            <span className="text-sm text-ink-tertiary">{hasSelection ? `${selectedIds.size} selected` : 'None'}</span>
 
             {hasSelection && (
               <>
@@ -148,7 +148,7 @@ export default function Library() {
                     }
                   }}
                   disabled={deleting}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-danger text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <Trash2 size={14} />
                   {deleting ? 'Deleting…' : 'Delete'}
@@ -158,7 +158,7 @@ export default function Library() {
 
             <button
               onClick={exitSelection}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm transition-colors"
+              className="press flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 text-sm transition-[scale,background-color] duration-150"
             >
               <X size={14} /> Cancel
             </button>
@@ -190,18 +190,18 @@ export default function Library() {
       {isLoading ? (
         <div className="space-y-1">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="h-12 rounded-lg bg-surface-2 animate-pulse" />
+            <div key={i} className="h-[60px] rounded-lg bg-surface-2 animate-pulse" />
           ))}
         </div>
       ) : tracks.length === 0 ? (
         <div className="text-center py-20 text-ink-tertiary">
-          <p className="text-lg font-medium">No tracks</p>
+          <p className="text-lg font-medium text-ink-secondary">No tracks</p>
           <p className="text-sm mt-1">
             {filter === 'favorites' ? "You haven't favorited any tracks yet" : filter === 'mine' ? 'No tracks added by you' : 'Add a library root in Admin to get started'}
           </p>
         </div>
       ) : (
-        <div className="space-y-0.5">
+        <div className="-mx-3 space-y-0.5">
           {filteredTracks.map((track, i) => (
             <TrackRow
               key={track.id}

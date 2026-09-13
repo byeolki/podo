@@ -75,7 +75,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
               >
                 <ListMusic size={14} className="text-ink-faint flex-shrink-0" />
                 <span className="text-sm truncate flex-1">{pl.name}</span>
-                {doneId === pl.id && <Check size={14} className="text-green-400 flex-shrink-0" />}
+                {doneId === pl.id && <Check size={14} className="text-success flex-shrink-0" />}
               </button>
             ))
           )}
@@ -89,7 +89,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Playlist name"
-                className="flex-1 bg-surface-1 border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+                className="flex-1 bg-surface-1 border border-border rounded-lg px-3 py-1.5 text-sm focus:border-accent"
               />
               <button
                 type="submit"

@@ -75,8 +75,8 @@ export default function TrackRow({
   return (
     <>
       <div
-        className={`group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors focus-within:bg-white/5 ${
-          selected ? 'bg-accent/15' : isActive ? 'bg-accent/10' : 'hover:bg-white/5'
+        className={`group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors duration-150 focus-within:bg-white/[0.06] ${
+          selected ? 'bg-accent/15' : isActive ? 'bg-accent/10' : 'hover:bg-white/[0.06]'
         }`}
         onClick={() => {
           if (selectionActive) onSelect?.(track.id)
@@ -85,7 +85,7 @@ export default function TrackRow({
         onDoubleClick={() => { if (!selectionActive) playTrack(track, queue) }}
       >
         {/* Left col: checkbox (selection mode) OR number→play (normal) */}
-        <div className="w-8 flex-shrink-0 grid place-items-center">
+        <div className="w-8 flex-shrink-0 grid items-center justify-items-start">
           {selectionActive ? (
             <button
               type="button"
@@ -108,7 +108,7 @@ export default function TrackRow({
               {showNumber && (
                 <span
                   aria-hidden="true"
-                  className={`col-start-1 row-start-1 text-sm tabular-nums text-ink-faint ${
+                  className={`col-start-1 row-start-1 text-meta tabular-nums text-ink-faint ${
                     isActive ? 'hidden' : 'group-hover:invisible group-focus-within:invisible'
                   }`}
                 >
@@ -129,8 +129,8 @@ export default function TrackRow({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); playTrack(track, queue) }}
                 aria-label={`Play ${track.title}`}
-                className={`col-start-1 row-start-1 flex items-center justify-center text-white hover:text-accent ${
-                  isActive ? 'text-accent' : ''
+                className={`press col-start-1 row-start-1 flex items-center justify-center text-white transition-[scale,color] duration-150 hover:text-accent-text ${
+                  isActive ? 'text-accent-text' : ''
                 } ${
                   showNumber || isActivelyPlaying
                     ? 'invisible group-hover:visible group-focus-within:visible focus-visible:visible'
@@ -149,27 +149,27 @@ export default function TrackRow({
           src={getArtworkUrl(track.album_version_id)}
           fallbackSrc={track.thumbnail_path ? getArtworkUrl(track.id) : null}
           alt=""
-          className="w-10 h-10 rounded object-cover flex-shrink-0 bg-surface-2"
+          className="w-11 h-11 rounded-md object-cover flex-shrink-0 bg-surface-2"
         />
 
         {/* Center: title + subtitle */}
         <div className="flex-1 min-w-0">
-          <p className={`text-sm font-medium truncate leading-tight ${isActive ? 'text-accent' : ''}`}>
+          <p className={`text-title font-medium truncate ${isActive ? 'text-accent-text' : ''}`}>
             {track.title}
           </p>
           {(showArtist || isCover) && (
-            <p className="text-xs text-ink-tertiary truncate leading-tight mt-0.5">
+            <p className="text-meta text-ink-secondary truncate mt-0.5">
               {lead}
               {isCover && (
                 <span className="text-ink-tertiary">
                   {lead ? ' · ' : ''}
                   {coverPerformers ? (
                     <>
-                      <span className="text-accent">{lead ? 'covered by' : 'Cover by'}</span>
+                      <span className="text-accent-text">{lead ? 'covered by' : 'Cover by'}</span>
                       {` ${coverPerformers}`}
                     </>
                   ) : (
-                    <span className="text-accent">cover</span>
+                    <span className="text-accent-text">cover</span>
                   )}
                 </span>
               )}
@@ -185,12 +185,12 @@ export default function TrackRow({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); favMutate() }}
                 className={`p-1 transition-colors ${
-                  track.is_favorited ? 'text-red-400' : `text-ink-faint hover:text-red-400 ${REVEAL}`
+                  track.is_favorited ? 'text-danger' : `text-ink-faint hover:text-danger ${REVEAL}`
                 }`}
                 aria-label={track.is_favorited ? `Remove ${track.title} from favorites` : `Add ${track.title} to favorites`}
                 aria-pressed={track.is_favorited}
               >
-                <Heart size={12} fill={track.is_favorited ? 'currentColor' : 'none'} aria-hidden="true" />
+                <Heart size={14} strokeWidth={1.5} fill={track.is_favorited ? 'currentColor' : 'none'} aria-hidden="true" />
               </button>
               <button
                 type="button"
@@ -198,21 +198,21 @@ export default function TrackRow({
                 className={`p-1 text-ink-faint hover:text-white transition-colors ${REVEAL}`}
                 aria-label={`Edit ${track.title}`}
               >
-                <Pencil size={12} aria-hidden="true" />
+                <Pencil size={14} strokeWidth={1.5} aria-hidden="true" />
               </button>
               {track.has_video && (
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }}
-                  className={`p-1 text-ink-faint hover:text-accent transition-colors ${REVEAL}`}
+                  className={`p-1 text-ink-faint hover:text-accent-text transition-colors ${REVEAL}`}
                   aria-label={`Play the music video for ${track.title}`}
                 >
-                  <Video size={13} aria-hidden="true" />
+                  <Video size={14} strokeWidth={1.5} aria-hidden="true" />
                 </button>
               )}
             </>
           )}
-          <span className="text-xs text-ink-faint tabular-nums w-10 text-right">
+          <span className="text-meta text-ink-tertiary tabular-nums w-10 text-right">
             {formatDuration(track.duration)}
           </span>
         </div>

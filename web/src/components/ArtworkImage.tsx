@@ -25,8 +25,8 @@ export default function ArtworkImage({ src, fallbackSrc, alt, className = '' }: 
 
   if (!current) {
     return (
-      <div className={`${className} flex items-center justify-center bg-surface-2`}>
-        <Music size={20} className="text-ink-faint" />
+      <div className={`${className} artwork-edge flex items-center justify-center bg-surface-2`}>
+        <Music size={20} strokeWidth={1.5} className="text-ink-faint" aria-hidden="true" />
       </div>
     )
   }
@@ -36,7 +36,7 @@ export default function ArtworkImage({ src, fallbackSrc, alt, className = '' }: 
       key={current}
       src={current}
       alt={alt ?? ''}
-      className={className}
+      className={`${className} artwork-edge`}
       onError={() => setFailed((prev) => (prev.includes(current) ? prev : [...prev, current]))}
     />
   )

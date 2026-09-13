@@ -49,13 +49,13 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <img src="/podo_lg.png" alt="Podo" className="w-20 h-20 object-contain mb-4 mx-auto" />
-          <h1 className="text-2xl font-semibold">Podo</h1>
+          <h1 className="text-display font-semibold">Podo</h1>
           <p className="text-sm text-ink-secondary mt-1">
             {mode === 'bootstrap' ? 'Create your admin account' : 'Sign in to your library'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-surface-2 rounded-2xl p-6 border border-border space-y-4">
+        <form onSubmit={handleSubmit} className="bg-surface-1 rounded-2xl p-6 border border-border shadow-overlay space-y-4">
           {mode === 'bootstrap' && (
             <div>
               <label htmlFor="login-name" className="block text-xs font-medium text-ink-secondary mb-1.5">Name</label>
@@ -66,7 +66,7 @@ export default function Login() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors"
+                className="w-full bg-canvas border border-border-strong rounded-lg px-3 py-2.5 text-sm text-base sm:text-sm focus:border-accent transition-colors"
                 placeholder="Your name"
               />
             </div>
@@ -80,7 +80,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors"
+              className="w-full bg-canvas border border-border-strong rounded-lg px-3 py-2.5 text-sm text-base sm:text-sm focus:border-accent transition-colors"
               placeholder="you@example.com"
             />
           </div>
@@ -94,7 +94,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent transition-colors"
+              className="w-full bg-canvas border border-border-strong rounded-lg px-3 py-2.5 text-sm text-base sm:text-sm focus:border-accent transition-colors"
               placeholder="Min. 8 characters"
             />
           </div>
@@ -106,7 +106,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-white font-medium text-sm transition-colors disabled:opacity-50"
+            className="press w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-white font-medium text-sm transition-[scale,background-color] duration-150 disabled:opacity-50"
           >
             {loading ? 'Please wait...' : mode === 'bootstrap' ? 'Create account' : 'Sign in'}
           </button>
@@ -116,14 +116,14 @@ export default function Login() {
           {mode === 'login' ? (
             <>
               First time?{' '}
-              <button type="button" onClick={() => setMode('bootstrap')} className="text-accent hover:underline">
+              <button type="button" onClick={() => setMode('bootstrap')} className="text-accent-text hover:underline">
                 Set up server
               </button>
             </>
           ) : (
             <>
               Already set up?{' '}
-              <button type="button" onClick={() => setMode('login')} className="text-accent hover:underline">
+              <button type="button" onClick={() => setMode('login')} className="text-accent-text hover:underline">
                 Sign in
               </button>
             </>

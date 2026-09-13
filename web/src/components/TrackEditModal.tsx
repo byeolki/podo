@@ -198,7 +198,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
                     type="button"
                     onClick={() => removeThumbnailMut.mutate()}
                     disabled={removeThumbnailMut.isPending}
-                    className="self-start text-red-400 hover:underline disabled:opacity-50"
+                    className="self-start text-danger hover:underline disabled:opacity-50"
                   >
                     {removeThumbnailMut.isPending ? 'Removing…' : 'Remove custom thumbnail'}
                   </button>
@@ -214,7 +214,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
             />
           </div>
 
@@ -302,7 +302,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
             {ov?.updated_at && <span>Last edited {new Date(ov.updated_at).toLocaleDateString()}</span>}
           </div>
 
-          {error && <p className="text-xs text-red-400">{(error as Error).message}</p>}
+          {error && <p className="text-xs text-danger">{(error as Error).message}</p>}
 
           <div className="flex gap-2 pt-1">
             <button

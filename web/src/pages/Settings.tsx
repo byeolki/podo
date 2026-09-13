@@ -77,7 +77,7 @@ function AccountTab() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
             />
           </div>
           <div>
@@ -97,7 +97,7 @@ function AccountTab() {
           >
             {nameMut.isPending ? 'Saving…' : 'Save name'}
           </button>
-          {nameMut.error && <p className="text-xs text-red-400">{(nameMut.error as Error).message}</p>}
+          {nameMut.error && <p className="text-xs text-danger">{(nameMut.error as Error).message}</p>}
         </form>
       </div>
 
@@ -111,7 +111,7 @@ function AccountTab() {
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
             />
           </div>
           <div>
@@ -121,7 +121,7 @@ function AccountTab() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
             />
           </div>
           <div>
@@ -131,7 +131,7 @@ function AccountTab() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
             />
           </div>
           <button
@@ -141,9 +141,9 @@ function AccountTab() {
           >
             {passwordMut.isPending ? 'Saving…' : 'Change password'}
           </button>
-          {passwordError && <p className="text-xs text-red-400">{passwordError}</p>}
-          {passwordMut.error && <p className="text-xs text-red-400">{(passwordMut.error as Error).message}</p>}
-          {passwordMut.isSuccess && <p className="text-xs text-green-400">Password updated</p>}
+          {passwordError && <p className="text-xs text-danger">{passwordError}</p>}
+          {passwordMut.error && <p className="text-xs text-danger">{(passwordMut.error as Error).message}</p>}
+          {passwordMut.isSuccess && <p className="text-xs text-success">Password updated</p>}
         </form>
       </div>
 
@@ -158,11 +158,11 @@ function AccountTab() {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    completed: 'text-green-400 bg-green-400/10',
-    running: 'text-blue-400 bg-blue-400/10',
-    failed: 'text-red-400 bg-red-400/10',
-    pending: 'text-yellow-400 bg-yellow-400/10',
-    done: 'text-green-400 bg-green-400/10',
+    completed: 'text-success bg-green-400/10',
+    running: 'text-accent-text bg-blue-400/10',
+    failed: 'text-danger bg-danger/10',
+    pending: 'text-warning bg-yellow-400/10',
+    done: 'text-success bg-green-400/10',
   }
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${map[status] ?? 'text-ink-tertiary bg-surface-2'}`}>
@@ -202,7 +202,7 @@ function LibraryTab() {
             value={newPath}
             onChange={(e) => setNewPath(e.target.value)}
             placeholder="/path/to/music"
-            className="flex-1 bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+            className="flex-1 bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
             onKeyDown={(e) => e.key === 'Enter' && newPath && addMut.mutate()}
           />
           <button
@@ -233,7 +233,7 @@ function LibraryTab() {
               </button>
               <button
                 onClick={() => removeMut.mutate(root.id)}
-                className="text-ink-tertiary hover:text-red-400 transition-colors"
+                className="text-ink-tertiary hover:text-danger transition-colors"
               >
                 <Trash2 size={14} />
               </button>
@@ -258,7 +258,7 @@ function LibraryTab() {
         </div>
         {verifyMut.data && (
           <div className="p-3 rounded-lg bg-surface-2 border border-border text-sm">
-            <p className={verifyMut.data.missing_count > 0 ? 'text-red-400' : 'text-green-400'}>
+            <p className={verifyMut.data.missing_count > 0 ? 'text-danger' : 'text-success'}>
               {verifyMut.data.missing_count === 0 ? 'All files OK' : `${verifyMut.data.missing_count} files missing`}
             </p>
           </div>
@@ -278,7 +278,7 @@ function LibraryTab() {
                 <p className="text-xs text-ink-secondary">
                   {scan.processed_files}/{scan.total_files} files · +{scan.added} added · +{scan.updated} updated
                 </p>
-                {scan.error && <p className="text-xs text-red-400 mt-0.5 truncate">{scan.error}</p>}
+                {scan.error && <p className="text-xs text-danger mt-0.5 truncate">{scan.error}</p>}
               </div>
             </div>
           ))}
@@ -308,13 +308,13 @@ function UsersTab() {
       {inviteMut.data && (
         <div className="p-3 rounded-lg bg-accent/10 border border-accent/30">
           <p className="text-xs text-ink-secondary mb-1">Invite token (share with new user):</p>
-          <p className="text-sm font-mono break-all text-accent">{inviteMut.data.invite_token}</p>
+          <p className="text-sm font-mono break-all text-accent-text">{inviteMut.data.invite_token}</p>
         </div>
       )}
 
       {inviteMut.error && (
         <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
-          <p className="text-xs text-red-400">{(inviteMut.error as Error).message}</p>
+          <p className="text-xs text-danger">{(inviteMut.error as Error).message}</p>
         </div>
       )}
 
@@ -328,7 +328,7 @@ function UsersTab() {
               <p className="text-sm font-medium">{user.name}</p>
               <p className="text-xs text-ink-tertiary">{user.email}</p>
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${user.role === 'admin' ? 'bg-accent/10 text-accent' : 'bg-surface-2 text-ink-tertiary'}`}>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${user.role === 'admin' ? 'bg-accent/10 text-accent-text' : 'bg-surface-2 text-ink-tertiary'}`}>
               {user.role}
             </span>
           </div>
@@ -405,7 +405,7 @@ function HealthTab() {
             ].map(({ label, value, accent }) => (
               <div key={label} className="p-3 rounded-lg bg-surface-2 border border-border">
                 <p className="text-xs text-ink-tertiary uppercase tracking-wider mb-1">{label}</p>
-                <p className={`text-lg font-semibold ${accent ? 'text-green-400' : ''}`}>{value}</p>
+                <p className={`text-lg font-semibold ${accent ? 'text-success' : ''}`}>{value}</p>
               </div>
             ))}
           </div>
@@ -499,10 +499,10 @@ function AdminFileRow({ file, onRename, onDelete }: {
                 if (e.key === 'Enter') handleRename()
                 if (e.key === 'Escape') setEditing(false)
               }}
-              className="flex-1 bg-surface-1 border border-accent rounded px-2 py-0.5 text-sm focus:outline-none"
+              className="flex-1 bg-surface-1 border border-accent rounded px-2 py-0.5 text-sm"
             />
             <span className="text-sm text-ink-faint">{ext}</span>
-            <button onClick={handleRename} className="p-1 text-green-400 hover:text-green-300"><Check size={13} /></button>
+            <button onClick={handleRename} className="p-1 text-success hover:text-success"><Check size={13} /></button>
             <button onClick={() => setEditing(false)} className="p-1 text-ink-faint hover:text-white"><X size={13} /></button>
           </div>
         ) : (
@@ -517,7 +517,7 @@ function AdminFileRow({ file, onRename, onDelete }: {
         {!editing && (
           <div className="flex items-center gap-1">
             <button onClick={() => setEditing(true)} className="p-1 text-ink-faint hover:text-white transition-colors" title="Rename"><Pencil size={13} /></button>
-            <button onClick={() => onDelete(file.source_id)} className="p-1 text-ink-faint hover:text-red-400 transition-colors" title="Delete"><Trash2 size={13} /></button>
+            <button onClick={() => onDelete(file.source_id)} className="p-1 text-ink-faint hover:text-danger transition-colors" title="Delete"><Trash2 size={13} /></button>
           </div>
         )}
       </div>
@@ -588,9 +588,9 @@ function FilesTab() {
 }
 
 function radioStatus(t: RadioToken): { label: string; className: string } {
-  if (t.revoked_at) return { label: 'Closed', className: 'text-red-400 bg-red-400/10' }
+  if (t.revoked_at) return { label: 'Closed', className: 'text-danger bg-danger/10' }
   if (new Date(t.expires_at).getTime() < Date.now()) return { label: 'Expired', className: 'text-ink-tertiary bg-surface-2' }
-  return { label: 'Active', className: 'text-green-400 bg-green-400/10' }
+  return { label: 'Active', className: 'text-success bg-green-400/10' }
 }
 
 function RadioTab() {
@@ -650,7 +650,7 @@ function RadioTab() {
                 {!t.revoked_at && (
                   <button
                     onClick={() => revokeMut.mutate(t.id)}
-                    className="p-1.5 text-ink-faint hover:text-red-400 transition-colors flex-shrink-0"
+                    className="p-1.5 text-ink-faint hover:text-danger transition-colors flex-shrink-0"
                     title="Close this radio stream"
                   >
                     <Trash2 size={14} />

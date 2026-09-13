@@ -63,7 +63,7 @@ export default function SleepTimerMenu() {
         title={active ? `Sleep timer: ${label}` : 'Sleep timer'}
         aria-label="Sleep timer"
         className={`flex items-center gap-1 transition-colors ${
-          active ? 'text-accent' : 'text-ink-tertiary hover:text-ink-secondary'
+          active ? 'text-accent-text' : 'text-ink-tertiary hover:text-ink-secondary'
         }`}
       >
         <Moon size={15} />
@@ -88,7 +88,7 @@ export default function SleepTimerMenu() {
             onClick={() => choose({ kind: 'endOfTrack' })}
             className={`w-full text-left px-3 py-2 text-xs transition-colors ${
               sleepTimer?.kind === 'endOfTrack'
-                ? 'text-accent bg-accent/10'
+                ? 'text-accent-text bg-accent/10'
                 : 'text-ink-secondary hover:text-white hover:bg-white/5'
             }`}
           >
@@ -97,7 +97,7 @@ export default function SleepTimerMenu() {
           {active && (
             <button
               onClick={() => choose(null)}
-              className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition-colors border-t border-border"
+              className="w-full text-left px-3 py-2 text-xs text-danger hover:bg-white/5 transition-colors border-t border-border"
             >
               Cancel timer
             </button>

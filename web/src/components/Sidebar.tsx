@@ -36,14 +36,14 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             to={to}
             onClick={onNavigate}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              `relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
                 isActive
-                  ? 'bg-accent/10 text-accent'
-                  : 'text-ink-secondary hover:text-white hover:bg-white/5'
+                  ? 'bg-accent/10 text-accent-text before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-accent'
+                  : 'text-ink-secondary hover:text-ink-primary hover:bg-white/[0.06]'
               }`
             }
           >
-            <Icon size={16} aria-hidden="true" />
+            <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
             {label}
           </NavLink>
         ))}
@@ -53,9 +53,9 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <button
           type="button"
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm text-ink-secondary hover:text-white hover:bg-white/5 transition-colors"
+          className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm text-ink-secondary hover:text-ink-primary hover:bg-white/[0.06] transition-colors duration-150"
         >
-          <LogOut size={16} aria-hidden="true" />
+          <LogOut size={16} strokeWidth={1.5} aria-hidden="true" />
           Sign out
         </button>
       </div>

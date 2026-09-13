@@ -22,11 +22,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333333;
+  background: #3a3a38;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #52524c;
+  background: #6a6a64;
 }
 
 /* Every interactive element in the app sets `focus:outline-none` to kill the
@@ -53,6 +53,27 @@ body {
     animation: none;
     transform: scaleY(0.7);
   }
+}
+
+/* Every cover in the app sits on a dark surface with no edge of its own, so a
+   pale album and the page behind it ran together. A white hairline at 10% is the
+   one outline that never tints the artwork it borders. */
+.artwork-edge {
+  outline: 1px solid rgb(255 255 255 / 0.1);
+  outline-offset: -1px;
+}
+
+/* Tactile feedback on press, at the one value that reads as a press rather than
+   as a bounce. Paired with `transition-[scale]` so it stays interruptible. */
+.press:active:not(:disabled) {
+  scale: 0.96;
+}
+
+/* Placeholders were inheriting the browser default, which renders brighter than
+   the field's own label — the hint outshouted the thing it was hinting at. */
+::placeholder {
+  color: #85857f;
+  opacity: 1;
 }
 
 input[type="range"] {

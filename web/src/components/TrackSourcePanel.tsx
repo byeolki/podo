@@ -77,7 +77,7 @@ export default function TrackSourcePanel({ trackId, onRefreshed }: Props) {
               href={source.source_url}
               target="_blank"
               rel="noreferrer noopener"
-              className="flex items-center gap-1 text-xs text-accent hover:underline truncate"
+              className="flex items-center gap-1 text-xs text-accent-text hover:underline truncate"
               title={source.source_url}
             >
               <span className="truncate">{source.source_url}</span>
@@ -110,13 +110,13 @@ export default function TrackSourcePanel({ trackId, onRefreshed }: Props) {
       )}
 
       {finished?.status === 'done' && (
-        <p className="flex items-center gap-1 text-xs text-accent">
+        <p className="flex items-center gap-1 text-xs text-accent-text">
           <Check size={11} /> Re-fetched. Reopen the track to see the new artwork and lyrics.
         </p>
       )}
 
       {(failed || error) && (
-        <p className="flex items-start gap-1 text-xs text-red-400">
+        <p className="flex items-start gap-1 text-xs text-danger">
           <AlertCircle size={11} className="flex-shrink-0 mt-0.5" />
           <span>{finished?.error ?? (error as Error)?.message}</span>
         </p>

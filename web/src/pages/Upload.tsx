@@ -17,10 +17,10 @@ import { importPlaylistFromUrl } from '../api/playlists'
 const URL_PATTERN = /^https?:\/\//i
 
 const DOWNLOAD_STATUS_STYLE: Record<string, string> = {
-  done: 'text-green-400 bg-green-400/10',
-  running: 'text-blue-400 bg-blue-400/10',
-  failed: 'text-red-400 bg-red-400/10',
-  pending: 'text-yellow-400 bg-yellow-400/10',
+  done: 'text-success bg-green-400/10',
+  running: 'text-accent-text bg-blue-400/10',
+  failed: 'text-danger bg-danger/10',
+  pending: 'text-warning bg-yellow-400/10',
 }
 
 function formatYtDuration(seconds: number | null): string {
@@ -132,7 +132,7 @@ function AddMusicSection() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Paste a link, or search by title/artist..."
-          className="flex-1 bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+          className="flex-1 bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm focus:border-accent"
         />
         <button
           type="submit"
@@ -175,12 +175,12 @@ function AddMusicSection() {
 
       {importMut.data && (
         <p className="text-xs text-ink-secondary mb-3">
-          Created <Link to={`/playlists/${importMut.data.playlist_id}`} className="text-accent hover:underline">{importMut.data.name}</Link>
+          Created <Link to={`/playlists/${importMut.data.playlist_id}`} className="text-accent-text hover:underline">{importMut.data.name}</Link>
           {' '}— tracks are added to it as they finish downloading.
         </p>
       )}
       {importMut.error && (
-        <p className="text-xs text-red-400 mb-3">{(importMut.error as Error).message}</p>
+        <p className="text-xs text-danger mb-3">{(importMut.error as Error).message}</p>
       )}
 
       {searchResult && searchResult.local.length > 0 && (
@@ -256,7 +256,7 @@ function AddMusicSection() {
                 )}
               </div>
               <p className="text-xs font-mono text-ink-tertiary truncate">{job.url}</p>
-              {job.error && <p className="text-xs text-red-400 mt-0.5">{job.error}</p>}
+              {job.error && <p className="text-xs text-danger mt-0.5">{job.error}</p>}
               {job.status === 'running' && (
                 <div className="mt-2 h-1 bg-border-strong rounded-full overflow-hidden">
                   <div
@@ -311,10 +311,10 @@ function FileRow({ file, onRename, onDelete }: {
                 if (e.key === 'Enter') handleRename()
                 if (e.key === 'Escape') { setEditing(false); setName(file.filename.slice(0, file.filename.lastIndexOf('.'))) }
               }}
-              className="flex-1 bg-surface-1 border border-accent rounded px-2 py-0.5 text-sm focus:outline-none"
+              className="flex-1 bg-surface-1 border border-accent rounded px-2 py-0.5 text-sm"
             />
             <span className="text-sm text-ink-faint">{ext}</span>
-            <button onClick={handleRename} className="p-1 text-green-400 hover:text-green-300 transition-colors">
+            <button onClick={handleRename} className="p-1 text-success hover:text-success transition-colors">
               <Check size={13} />
             </button>
             <button onClick={() => setEditing(false)} className="p-1 text-ink-faint hover:text-white transition-colors">
@@ -355,7 +355,7 @@ function FileRow({ file, onRename, onDelete }: {
             </button>
             <button
               onClick={() => onDelete(file.source_id)}
-              className="p-1 text-ink-faint hover:text-red-400 transition-colors"
+              className="p-1 text-ink-faint hover:text-danger transition-colors"
               title="Delete"
             >
               <Trash2 size={13} />
@@ -501,8 +501,8 @@ export default function Upload() {
               <div key={item.id} className="p-3 rounded-lg bg-surface-2 border border-border">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-sm truncate flex-1">{item.file.name}</span>
-                  {item.status === 'done' && <Check size={14} className="text-green-400 flex-shrink-0" />}
-                  {item.status === 'error' && <X size={14} className="text-red-400 flex-shrink-0" />}
+                  {item.status === 'done' && <Check size={14} className="text-success flex-shrink-0" />}
+                  {item.status === 'error' && <X size={14} className="text-danger flex-shrink-0" />}
                   {(item.status === 'pending' || item.status === 'uploading') && (
                     <span className="text-xs text-ink-faint">{item.progress}%</span>
                   )}
@@ -516,7 +516,7 @@ export default function Upload() {
                   </div>
                 )}
                 {item.status === 'error' && (
-                  <p className="text-xs text-red-400">{item.error}</p>
+                  <p className="text-xs text-danger">{item.error}</p>
                 )}
               </div>
             ))}

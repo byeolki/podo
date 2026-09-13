@@ -63,9 +63,9 @@ export default function AiSettingsCard() {
     <div>
       <div className="flex items-center justify-between mb-3">
         <h3 className="flex items-center gap-2 text-base font-semibold">
-          <Sparkles size={15} className="text-accent" /> AI
+          <Sparkles size={15} className="text-accent-text" /> AI
         </h3>
-        <span className={`flex items-center gap-1.5 text-xs ${ai.available ? 'text-accent' : 'text-ink-tertiary'}`}>
+        <span className={`flex items-center gap-1.5 text-xs ${ai.available ? 'text-accent-text' : 'text-ink-tertiary'}`}>
           {ai.available ? <Check size={12} /> : <AlertCircle size={12} />}
           {ai.available ? 'Ready' : 'Not available'}
         </span>
@@ -130,7 +130,7 @@ export default function AiSettingsCard() {
               value={model}
               onChange={(e) => { setModel(e.target.value); setModelDirty(true) }}
               placeholder={defaultModel}
-              className="flex-1 bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="flex-1 bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
             />
             <button
               type="button"
@@ -171,13 +171,13 @@ export default function AiSettingsCard() {
         </p>
       )}
       {error && (
-        <p className="flex items-start gap-1.5 text-xs text-red-400 mt-2">
+        <p className="flex items-start gap-1.5 text-xs text-danger mt-2">
           <AlertCircle size={11} className="flex-shrink-0 mt-0.5" />
           Couldn't save — {error}
         </p>
       )}
       {ai.last_error && (
-        <p className="flex items-start gap-1.5 text-xs text-red-400 mt-2">
+        <p className="flex items-start gap-1.5 text-xs text-danger mt-2">
           <AlertCircle size={11} className="flex-shrink-0 mt-0.5" />
           Last attempt failed — {ai.last_error}
         </p>

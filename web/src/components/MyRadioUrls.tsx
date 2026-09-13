@@ -9,7 +9,7 @@ const FORMATS = ['mp3', 'aac', 'opus'] as const
 type Format = (typeof FORMATS)[number]
 
 function status(token: RadioToken): { label: string; className: string } | null {
-  if (token.revoked_at) return { label: 'Revoked', className: 'text-red-400' }
+  if (token.revoked_at) return { label: 'Revoked', className: 'text-danger' }
   if (new Date(token.expires_at) < new Date()) return { label: 'Expired', className: 'text-ink-tertiary' }
   return null
 }
@@ -75,7 +75,7 @@ export default function MyRadioUrls() {
         <div className="h-16 rounded-xl bg-surface-2 animate-pulse" />
       ) : tokens.length === 0 ? (
         <p className="text-sm text-ink-tertiary bg-surface-2 border border-border rounded-xl px-4 py-3">
-          None yet — open a <Link to="/playlists" className="text-accent hover:underline">playlist</Link> and
+          None yet — open a <Link to="/playlists" className="text-accent-text hover:underline">playlist</Link> and
           create one there.
         </p>
       ) : (
@@ -84,7 +84,7 @@ export default function MyRadioUrls() {
             const state = status(token)
             return (
               <div key={token.id} className="flex items-center gap-3 px-4 py-3">
-                <RadioIcon size={14} className={state ? 'text-ink-faint' : 'text-accent'} />
+                <RadioIcon size={14} className={state ? 'text-ink-faint' : 'text-accent-text'} />
                 <div className="min-w-0 flex-1">
                   <Link
                     to={`/playlists/${token.playlist_id}`}
@@ -104,13 +104,13 @@ export default function MyRadioUrls() {
                     className="p-1.5 text-ink-tertiary hover:text-white transition-colors"
                     title="Copy URL"
                   >
-                    {copied === token.id ? <Check size={13} className="text-accent" /> : <Copy size={13} />}
+                    {copied === token.id ? <Check size={13} className="text-accent-text" /> : <Copy size={13} />}
                   </button>
                 )}
                 <button
                   onClick={() => revoke(token)}
                   disabled={!!token.revoked_at}
-                  className="p-1.5 text-ink-tertiary hover:text-red-400 transition-colors disabled:opacity-30"
+                  className="p-1.5 text-ink-tertiary hover:text-danger transition-colors disabled:opacity-30"
                   title="Revoke"
                 >
                   <Trash2 size={13} />

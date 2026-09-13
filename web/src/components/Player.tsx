@@ -265,7 +265,7 @@ export default function Player() {
     )}
     {/* Floating rather than edge-to-edge: on a wide display a full-width bar put
         the artwork and the volume slider a metre apart with nothing between. */}
-    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 w-[min(96vw,1100px)] h-20 rounded-2xl bg-surface-1/95 backdrop-blur border border-border shadow-2xl flex items-center px-3 sm:px-4 gap-2 sm:gap-4">
+    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 w-[min(96vw,1100px)] h-20 rounded-2xl bg-surface-1/95 backdrop-blur border border-border shadow-overlay flex items-center px-3 sm:px-4 gap-2 sm:gap-4">
       <audio
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
@@ -286,12 +286,12 @@ export default function Player() {
           src={getArtworkUrl(track?.album_version_id)}
           fallbackSrc={track?.thumbnail_path ? getArtworkUrl(track.id) : null}
           alt={track?.title}
-          className={`w-10 h-10 sm:w-12 sm:h-12 rounded object-cover flex-shrink-0 bg-surface-2 transition-shadow ${isPlaying ? 'shadow-glow' : ''}`}
+          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-md object-cover flex-shrink-0 bg-surface-2 transition-shadow ${isPlaying ? 'shadow-glow' : ''}`}
         />
         <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{track?.title ?? 'Not playing'}</p>
+          <p className="text-title font-medium truncate">{track?.title ?? 'Not playing'}</p>
           {/* Same split as the track rows and the native client — see artistLine. */}
-          <p className="text-xs text-ink-secondary truncate">{nowPlayingArtist}</p>
+          <p className="text-meta text-ink-secondary truncate">{nowPlayingArtist}</p>
         </div>
       </div>
 
@@ -312,7 +312,7 @@ export default function Player() {
             onClick={toggle}
             disabled={!track}
             aria-label={isPlaying ? 'Pause' : 'Play'}
-            className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center hover:bg-accent-hover disabled:opacity-30 transition-colors"
+            className="press w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center hover:bg-accent-hover disabled:opacity-30 shadow-raised transition-[scale,background-color] duration-150"
           >
             {isPlaying
               ? <Pause size={16} fill="currentColor" aria-hidden="true" />
@@ -331,7 +331,7 @@ export default function Player() {
             type="button"
             onClick={cycleRepeatMode}
             aria-label={repeatMode === 'off' ? 'Repeat: off' : repeatMode === 'all' ? 'Repeat: all' : 'Repeat: one'}
-            className={`p-1.5 transition-colors ${repeatMode !== 'off' ? 'text-accent' : 'text-ink-tertiary hover:text-ink-secondary'}`}
+            className={`p-1.5 transition-colors ${repeatMode !== 'off' ? 'text-accent-text' : 'text-ink-tertiary hover:text-ink-secondary'}`}
           >
             {repeatMode === 'one' ? <Repeat1 size={16} aria-hidden="true" /> : <Repeat size={16} aria-hidden="true" />}
           </button>
@@ -353,7 +353,7 @@ export default function Player() {
             }}
             className="flex-1"
             style={{
-              background: `linear-gradient(to right, #8850E0 ${(currentTime / (duration || 1)) * 100}%, #333333 0%)`,
+              background: `linear-gradient(to right, #8850E0 ${(currentTime / (duration || 1)) * 100}%, #3a3a38 0%)`,
             }}
           />
           <span className="hidden sm:inline text-xs text-ink-tertiary w-9 tabular-nums">
@@ -367,31 +367,31 @@ export default function Player() {
         {track?.has_video && (
           <button
             onClick={() => setVideoOpen(true)}
-            className="text-ink-tertiary hover:text-accent transition-colors"
+            className="p-1.5 text-ink-tertiary hover:text-accent-text transition-colors"
             title="Music video"
           >
-            <Video size={15} />
+            <Video size={16} strokeWidth={1.5} aria-hidden="true" />
           </button>
         )}
         <button
           onClick={() => setQueueOpen(true)}
-          className="text-ink-tertiary hover:text-white transition-colors"
+          className="p-1.5 text-ink-tertiary hover:text-ink-primary transition-colors"
           title="Queue (q)"
           aria-label="Show queue"
         >
-          <ListMusic size={15} />
+          <ListMusic size={16} strokeWidth={1.5} aria-hidden="true" />
         </button>
         <SleepTimerMenu />
         <button
           onClick={() => setNormalize(!normalize)}
-          className={`hidden sm:block transition-colors ${normalize ? 'text-accent' : 'text-ink-tertiary hover:text-ink-secondary'}`}
+          className={`hidden sm:block transition-colors ${normalize ? 'text-accent-text' : 'text-ink-tertiary hover:text-ink-secondary'}`}
           title={normalize ? 'Normalize: on' : 'Normalize: off'}
         >
-          <Activity size={15} />
+          <Activity size={16} strokeWidth={1.5} aria-hidden="true" />
         </button>
         <button
           onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
-          className="hidden sm:block text-ink-tertiary hover:text-white transition-colors"
+          className="hidden sm:block p-1.5 text-ink-tertiary hover:text-ink-primary transition-colors"
         >
           {volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
         </button>

@@ -131,7 +131,7 @@ export default function AssistantPanel() {
         title="Assistant"
         aria-label="Open the assistant"
       >
-        <Sparkles size={17} className="text-accent flex-shrink-0" />
+        <Sparkles size={17} className="text-accent-text flex-shrink-0" />
         <span className="hidden group-hover:inline text-sm font-medium whitespace-nowrap">Assistant</span>
       </button>
     )
@@ -151,7 +151,7 @@ export default function AssistantPanel() {
     >
       <div className="flex items-center justify-between px-4 h-14 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles size={15} className="text-accent" />
+          <Sparkles size={15} className="text-accent-text" />
           <span className="text-sm font-semibold">Assistant</span>
         </div>
         <button onClick={() => setOpen(false)} className="text-ink-tertiary hover:text-white transition-colors" aria-label="Close">
@@ -218,7 +218,7 @@ export default function AssistantPanel() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask for something to play…"
-          className="flex-1 bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+          className="flex-1 bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
         />
         <button
           type="submit"

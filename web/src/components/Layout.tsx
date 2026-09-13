@@ -83,9 +83,11 @@ export default function Layout() {
             the duration sat at opposite ends of the screen with nothing between
             them, and the narrower panels left all their empty space piled on the
             right. Capping and centring here fixes every page at once, and changes
-            nothing below the cap. */}
+            nothing below the cap. 1280 rather than something wider because the
+            row is the unit that has to stay readable, and a row wider than this
+            is mostly the gap in its middle. */}
         <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto pb-28">
-          <div className="mx-auto w-full max-w-[1600px]">
+          <div className="mx-auto w-full max-w-[1280px]">
             <Outlet />
           </div>
         </main>

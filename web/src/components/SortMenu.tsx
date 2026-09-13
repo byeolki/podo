@@ -56,7 +56,7 @@ export default function SortMenu<T extends string>({
               key={key}
               onClick={() => { onChange(key); setOpen(false) }}
               className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                value === key ? 'text-accent bg-accent/10' : 'text-ink-secondary hover:text-white hover:bg-white/5'
+                value === key ? 'text-accent-text bg-accent/10' : 'text-ink-secondary hover:text-white hover:bg-white/5'
               }`}
             >
               {options[key]}

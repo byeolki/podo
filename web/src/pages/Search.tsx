@@ -43,7 +43,7 @@ export default function Search() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search tracks, artists, albums..."
-          className="w-full max-w-lg bg-surface-2 border border-border-strong rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none focus:border-accent transition-colors"
+          className="w-full max-w-lg bg-surface-2 border border-border-strong rounded-xl pl-9 pr-4 py-3 text-sm focus:border-accent transition-colors"
         />
       </div>
 

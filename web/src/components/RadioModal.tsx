@@ -37,9 +37,9 @@ function TokenRow({ token, onRevoke }: { token: RadioToken; onRevoke: () => void
           onFocus={(e) => e.target.select()}
         />
         <button onClick={handleCopy} className="p-1.5 text-ink-faint hover:text-white transition-colors flex-shrink-0" title="Copy URL">
-          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+          {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
         </button>
-        <button onClick={onRevoke} className="p-1.5 text-ink-faint hover:text-red-400 transition-colors flex-shrink-0" title="Close this radio stream">
+        <button onClick={onRevoke} className="p-1.5 text-ink-faint hover:text-danger transition-colors flex-shrink-0" title="Close this radio stream">
           <Trash2 size={14} />
         </button>
       </div>
@@ -51,7 +51,7 @@ function TokenRow({ token, onRevoke }: { token: RadioToken; onRevoke: () => void
                 key={f}
                 onClick={() => setFormat(f)}
                 className={`px-2 py-0.5 rounded text-[10px] uppercase font-medium transition-colors ${
-                  format === f ? 'bg-accent/20 text-accent' : 'bg-surface-2 text-ink-tertiary hover:text-white'
+                  format === f ? 'bg-accent/20 text-accent-text' : 'bg-surface-2 text-ink-tertiary hover:text-white'
                 }`}
               >
                 {f}
@@ -62,7 +62,7 @@ function TokenRow({ token, onRevoke }: { token: RadioToken; onRevoke: () => void
             onClick={() => setShuffle((v) => !v)}
             title="Shuffle playback"
             className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
-              shuffle ? 'bg-accent/20 text-accent' : 'bg-surface-2 text-ink-tertiary hover:text-white'
+              shuffle ? 'bg-accent/20 text-accent-text' : 'bg-surface-2 text-ink-tertiary hover:text-white'
             }`}
           >
             <Shuffle size={10} /> Shuffle
@@ -104,7 +104,7 @@ export default function RadioModal({ playlistId, onClose }: Props) {
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
           <span className="flex items-center gap-2 text-sm font-semibold">
-            <Radio size={15} className="text-accent" /> Radio URLs
+            <Radio size={15} className="text-accent-text" /> Radio URLs
           </span>
           <button onClick={onClose} className="text-ink-faint hover:text-white transition-colors">
             <X size={15} />

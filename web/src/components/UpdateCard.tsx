@@ -34,9 +34,9 @@ export default function UpdateCard() {
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 mt-0.5">
           {available ? (
-            <ArrowUpCircle size={18} className="text-accent" />
+            <ArrowUpCircle size={18} className="text-accent-text" />
           ) : data.enabled ? (
-            <CheckCircle2 size={18} className="text-green-400" />
+            <CheckCircle2 size={18} className="text-success" />
           ) : (
             <CloudOff size={18} className="text-ink-faint" />
           )}

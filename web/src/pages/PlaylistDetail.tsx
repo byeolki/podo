@@ -142,7 +142,7 @@ export default function PlaylistDetail() {
                   autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="bg-surface-2 border border-border-strong rounded-lg px-3 py-1 text-2xl font-bold focus:outline-none focus:border-accent"
+                  className="bg-surface-2 border border-border-strong rounded-lg px-3 py-1 text-2xl font-bold focus:border-accent"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') updateMut.mutate({ name })
                     if (e.key === 'Escape') setEditing(false)
@@ -168,7 +168,7 @@ export default function PlaylistDetail() {
                 onClick={() => setFavoritesOnly((v) => !v)}
                 title={favoritesOnly ? 'Show every track' : 'Play only tracks you favorited'}
                 className={`flex items-center gap-1 transition-colors ${
-                  favoritesOnly ? 'text-red-400' : 'hover:text-white'
+                  favoritesOnly ? 'text-danger' : 'hover:text-white'
                 }`}
               >
                 <Heart size={12} fill={favoritesOnly ? 'currentColor' : 'none'} />

@@ -97,7 +97,7 @@ export default function Playlists() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Playlist name"
-              className="flex-1 bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="flex-1 bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
               onKeyDown={(e) => e.key === 'Enter' && newName && createMut.mutate()}
             />
             <button
@@ -166,7 +166,7 @@ export default function Playlists() {
                   </div>
                 )}
                 <Link to={`/playlists/${pl.id}`} className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate hover:text-accent transition-colors">{pl.name}</p>
+                  <p className="text-sm font-medium truncate hover:text-accent-text transition-colors">{pl.name}</p>
                   <p className="text-xs text-ink-tertiary flex items-center gap-1">
                     {pl.is_public ? <Globe size={10} /> : <Lock size={10} />}
                     {pl.is_public ? 'Public' : 'Private'}
@@ -176,7 +176,7 @@ export default function Playlists() {
                 {isOwner && (
                   <button
                     onClick={() => deleteMut.mutate(pl.id)}
-                    className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 text-ink-tertiary hover:text-red-400 transition-all"
+                    className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 text-ink-tertiary hover:text-danger transition-all"
                   >
                     <Trash2 size={14} />
                   </button>

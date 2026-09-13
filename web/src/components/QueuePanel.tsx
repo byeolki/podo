@@ -42,7 +42,7 @@ export default function QueuePanel({ onClose }: Props) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
           <div>
             <span className="flex items-center gap-2 text-sm font-semibold">
-              <ListMusic size={15} className="text-accent" /> Queue
+              <ListMusic size={15} className="text-accent-text" /> Queue
             </span>
             <p className="text-xs text-ink-tertiary mt-0.5">
               {queue.length} track{queue.length === 1 ? '' : 's'}
@@ -77,7 +77,7 @@ export default function QueuePanel({ onClose }: Props) {
                     className="w-9 h-9 rounded object-cover flex-shrink-0 bg-surface-2"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className={`text-sm truncate ${isCurrent ? 'text-accent font-medium' : ''}`}>{track.title}</p>
+                    <p className={`text-sm truncate ${isCurrent ? 'text-accent-text font-medium' : ''}`}>{track.title}</p>
                     <p className="text-xs text-ink-tertiary truncate">
                       {track.artists?.map((a) => a.name).join(', ') || 'Unknown Artist'}
                     </p>

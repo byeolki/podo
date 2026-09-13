@@ -79,7 +79,7 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
       >
         <div className="px-4 py-3 border-b border-border">
           <span className="flex items-center gap-2 text-sm font-semibold">
-            <Link2 size={15} className="text-accent" /> Auto-sync
+            <Link2 size={15} className="text-accent-text" /> Auto-sync
           </span>
           <p className="text-xs text-ink-tertiary mt-1">
             Keep this playlist in step with a playlist on YouTube, SoundCloud,
@@ -97,7 +97,7 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://www.youtube.com/playlist?list=..."
-              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
             />
           </div>
 
@@ -107,7 +107,7 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
               id="playlistSyncPanel-check-for-new-items"
               value={interval}
               onChange={(e) => setIntervalMinutes(Number(e.target.value))}
-              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
             >
               {INTERVALS.map((option) => (
                 <option key={option.minutes} value={option.minutes}>{option.label}</option>
@@ -131,9 +131,9 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
             <div className="p-3 rounded-lg bg-surface-1 border border-border text-xs space-y-1">
               <div className="flex items-center gap-1.5">
                 {subscription.last_status === 'failed' ? (
-                  <AlertCircle size={12} className="text-red-400 flex-shrink-0" />
+                  <AlertCircle size={12} className="text-danger flex-shrink-0" />
                 ) : (
-                  <CheckCircle2 size={12} className="text-green-400 flex-shrink-0" />
+                  <CheckCircle2 size={12} className="text-success flex-shrink-0" />
                 )}
                 <span className="text-ink-secondary">
                   {subscription.last_status === 'running'
@@ -145,18 +145,18 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
               </div>
               <p className="text-ink-faint">{subscription.added_count} tracks added so far</p>
               {subscription.last_error && (
-                <p className="text-red-400 break-words">{subscription.last_error}</p>
+                <p className="text-danger break-words">{subscription.last_error}</p>
               )}
             </div>
           ) : null}
 
           {syncMut.data && (
-            <p className="text-xs text-green-400">
+            <p className="text-xs text-success">
               +{syncMut.data.added} added · {syncMut.data.skipped} already here
               {syncMut.data.failed > 0 ? ` · ${syncMut.data.failed} failed` : ''}
             </p>
           )}
-          {error && <p className="text-xs text-red-400">{error.message}</p>}
+          {error && <p className="text-xs text-danger">{error.message}</p>}
         </div>
 
         <div className="border-t border-border px-4 py-3 flex gap-2">
@@ -181,7 +181,7 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
                 onClick={() => unlinkMut.mutate()}
                 disabled={unlinkMut.isPending}
                 title="Stop syncing"
-                className="px-3 py-2 rounded-lg bg-surface-1 hover:bg-surface-3 text-ink-secondary hover:text-red-400 disabled:opacity-50 transition-colors"
+                className="px-3 py-2 rounded-lg bg-surface-1 hover:bg-surface-3 text-ink-secondary hover:text-danger disabled:opacity-50 transition-colors"
               >
                 <Unlink size={14} />
               </button>

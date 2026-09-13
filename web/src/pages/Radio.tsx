@@ -67,7 +67,7 @@ export default function Radio() {
           value={seedArtist}
           onChange={(e) => setSeedArtist(e.target.value)}
           placeholder="Artist name (blank = whole library)"
-          className="bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent w-60"
+          className="bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent w-60"
           onKeyDown={(e) => e.key === 'Enter' && stationMut.mutate()}
         />
         <button
@@ -92,7 +92,7 @@ export default function Radio() {
                 value={mixName}
                 onChange={(e) => setMixName(e.target.value)}
                 placeholder="Mix name (optional)"
-                className="bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent w-48"
+                className="bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent w-48"
               />
               <button
                 onClick={() => mixMut.mutate()}
@@ -115,7 +115,7 @@ export default function Radio() {
       )}
 
       {mixMut.isError && (
-        <p className="text-sm text-red-400 mb-4">{(mixMut.error as Error).message}</p>
+        <p className="text-sm text-danger mb-4">{(mixMut.error as Error).message}</p>
       )}
 
       {tracks.length > 0 && (

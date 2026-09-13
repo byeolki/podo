@@ -23,8 +23,11 @@ import { UpdateModule } from './update/update.module';
 import { HealthController } from './health/health.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
+import { TelemetryModule } from './telemetry/telemetry.module';
+
 @Module({
   imports: [
+    TelemetryModule,
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     DatabaseModule,
     AuthModule,

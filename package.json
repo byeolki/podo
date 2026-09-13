@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "build:web": "cd web && npm run build",
-    "build:all": "npm run build:web && npm run build"
+    "build:all": "npm run build:web && npm run build",
+    "api:sweep": "npm run build && node scripts/api-sweep.mjs"
   },
   "dependencies": {
     "@fastify/compress": "^9.2.0",

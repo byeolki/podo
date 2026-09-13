@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, OnApplicationBootstrap, Inject } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, OnApplicationBootstrap, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
@@ -6,6 +6,7 @@ import * as schema from '../db/schema';
 import { newId } from '../common/id';
 import { ScannerService } from './scanner.service';
 import { WatcherService } from './watcher.service';
+import * as fs from 'fs';
 
 @Injectable()
 export class LibraryService implements OnApplicationBootstrap {
@@ -38,11 +39,33 @@ export class LibraryService implements OnApplicationBootstrap {
     }
   }
 
+  /** Throws unless the path exists, is a directory, and this process can read it. */
+  private assertUsableRoot(rootPath: string): void {
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(rootPath);
+    } catch {
+      throw new BadRequestException(`No such directory: ${rootPath}`);
+    }
+    if (!stat.isDirectory()) throw new BadRequestException(`Not a directory: ${rootPath}`);
+    try {
+      fs.accessSync(rootPath, fs.constants.R_OK);
+    } catch {
+      throw new BadRequestException(`Not readable by the server: ${rootPath}`);
+    }
+  }
+
   async listRoots() {
     return this.db.select().from(schema.library_roots);
   }
 
   async addRoot(rootPath: string, triggerScan = true) {
+    // Checked before it is stored, because nothing downstream ever complains: the
+    // watcher silently watches nothing, the scan finds no files and reports a
+    // clean run, and the settings page lists a root that will never produce a
+    // track. A typo used to look exactly like an empty folder.
+    this.assertUsableRoot(rootPath);
+
     const existing = await this.db
       .select()
       .from(schema.library_roots)

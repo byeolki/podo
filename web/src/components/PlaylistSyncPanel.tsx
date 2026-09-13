@@ -74,7 +74,7 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="bg-surface-2 border border-border rounded-xl w-full max-w-md shadow-2xl"
+        className="bg-surface-2 border border-border rounded-xl w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto overscroll-contain shadow-overlay"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 py-3 border-b border-border">

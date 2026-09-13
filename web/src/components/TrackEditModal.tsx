@@ -136,10 +136,13 @@ export default function TrackEditModal({ track, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-surface-2 border border-border rounded-xl w-full max-w-md"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit track"
+        className="bg-surface-2 border border-border rounded-xl w-full max-w-md max-h-[min(90vh,820px)] flex flex-col shadow-overlay"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex-shrink-0 flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-sm font-semibold">Edit Track</h2>
           <div className="flex items-center gap-2">
             <AiFillButton
@@ -153,13 +156,14 @@ export default function TrackEditModal({ track, onClose }: Props) {
                 if (r.original_artist) setOriginalArtists(splitList(r.original_artist as string))
               }}
             />
-            <button onClick={onClose} className="text-ink-tertiary hover:text-white transition-colors">
-              <X size={16} />
+            <button type="button" onClick={onClose} aria-label="Close" className="p-1.5 text-ink-tertiary hover:text-ink-primary transition-colors">
+              <X size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
           <div>
             <label className="block text-xs text-ink-tertiary mb-1.5">Thumbnail</label>
             <div className="flex items-center gap-3">
@@ -302,20 +306,21 @@ export default function TrackEditModal({ track, onClose }: Props) {
             {ov?.updated_at && <span>Last edited {new Date(ov.updated_at).toLocaleDateString()}</span>}
           </div>
 
-          {error && <p className="text-xs text-danger">{(error as Error).message}</p>}
+          {error && <p role="alert" className="text-xs text-danger">{(error as Error).message}</p>}
+          </div>
 
-          <div className="flex gap-2 pt-1">
+          <div className="flex-shrink-0 flex gap-2 border-t border-border px-5 py-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm transition-colors"
+              className="press flex-1 px-4 py-2 rounded-lg bg-surface-3 hover:bg-border-strong text-sm transition-[scale,background-color] duration-150"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50"
+              className="press flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium shadow-raised transition-[scale,background-color] duration-150 disabled:opacity-50"
             >
               {isPending ? 'Saving…' : 'Save'}
             </button>

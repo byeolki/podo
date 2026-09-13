@@ -84,6 +84,9 @@ export const tracks = sqliteTable('tracks', {
 }, (t) => [
   index('idx_tracks_album_version').on(t.album_version_id),
   index('idx_tracks_updated_at').on(t.updated_at),
+  // Every list orders by this, and every query anywhere filters the soft-delete.
+  index('idx_tracks_added_at').on(t.added_at),
+  index('idx_tracks_deleted_at').on(t.deleted_at),
 ]);
 
 export const track_metadata_overrides = sqliteTable('track_metadata_overrides', {
@@ -150,6 +153,8 @@ export const sources = sqliteTable('sources', {
   index('idx_sources_track').on(t.track_id),
   uniqueIndex('idx_sources_locator').on(t.locator),
   index('idx_sources_available').on(t.available),
+  // Auto-sync asks "do I already have this URL?" once per remote entry.
+  index('idx_sources_source_url').on(t.source_url),
 ]);
 
 // ─── Lyrics ───────────────────────────────────────────────────────────────────
@@ -279,6 +284,11 @@ export const playlist_tracks = sqliteTable('playlist_tracks', {
   added_at: integer('added_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
 }, (t) => [
   primaryKey({ columns: [t.playlist_id, t.position] }),
+  index('idx_playlist_tracks_track').on(t.track_id),
+  // What `onConflictDoNothing` on an insert was always assumed to enforce. The
+  // primary key is on the position, so without this the same track appended to
+  // a playlist twice simply landed twice.
+  uniqueIndex('idx_playlist_tracks_unique').on(t.playlist_id, t.track_id),
 ]);
 
 // ─── Playlist radio tokens ──────────────────────────────────────────────────────
@@ -328,6 +338,9 @@ export const favorites = sqliteTable('favorites', {
   created_at: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(sql`(unixepoch('now') * 1000)`),
 }, (t) => [
   primaryKey({ columns: [t.user_id, t.track_id] }),
+  // The primary key covers user_id, but every list render also asks the reverse
+  // question — who favourited these tracks — which had nothing to walk.
+  index('idx_favorites_track').on(t.track_id),
 ]);
 
 // ─── Play history ─────────────────────────────────────────────────────────────

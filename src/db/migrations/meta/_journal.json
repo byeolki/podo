@@ -127,6 +127,13 @@
       "when": 1789222845511,
       "tag": "0017_app_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1789320000000,
+      "tag": "0018_hot_path_indexes",
+      "breakpoints": true
     }
   ]
 }

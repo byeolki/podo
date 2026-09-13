@@ -31,6 +31,15 @@ export interface StreamRequest {
  */
 const OVERRIDE_SOURCE_ID = 'override';
 
+/** What audio codec a container name implies, for the "do I need to re-encode?" check. */
+const CONTAINER_CODEC: Record<string, string> = {
+  m4a: 'aac', mp4: 'aac', aac: 'aac', adts: 'aac',
+  mp3: 'mp3', mpeg: 'mp3',
+  ogg: 'opus', opus: 'opus',
+  flac: 'flac',
+  wav: 'pcm',
+};
+
 @Injectable()
 export class StreamingService {
   private readonly logger = new Logger(StreamingService.name);
@@ -119,7 +128,18 @@ export class StreamingService {
       .where(and(eq(schema.sources.track_id, req.trackId), eq(schema.sources.media_kind, kind), eq(schema.sources.available, true), isNull(schema.sources.deleted_at)))
       .orderBy(asc(schema.sources.priority));
 
-    if (sources.length === 0 && !req.mediaKind) {
+    // Asking for audio and getting none means falling back to whatever else the
+    // track has, because a video file contains the audio — that is what the
+    // extraction path downstream is for. The fallback used to apply only when the
+    // caller said nothing at all, so a client that named `media_kind=audio`
+    // explicitly got a 404 on every cover uploaded as a single .mp4. The web
+    // client omits the parameter and worked; the native client sends it and could
+    // not play most of the library.
+    //
+    // An explicit request for video stays strict: an audio-only source cannot
+    // satisfy it, and silently sending audio where video was asked for is worse
+    // than saying no.
+    if (sources.length === 0 && kind === 'audio') {
       sources = await this.db
         .select()
         .from(schema.sources)
@@ -488,7 +508,14 @@ export class StreamingService {
 
   private needsTranscode(source: typeof schema.sources.$inferSelect, targetFormat?: string, targetBitrate?: number): boolean {
     if (!targetFormat && !targetBitrate) return false;
-    const fmtMismatch = targetFormat && source.format && !source.format.includes(targetFormat);
+    // Compare codecs, not container names. An .m4a holds AAC, so a client asking
+    // for AAC already has what it wants — but "m4a".includes("aac") is false, so
+    // every such request was re-encoding a file into the format it was already
+    // in. That cost a transcode per play and, worse, answered with a chunked body
+    // carrying no Content-Length, which AVPlayer cannot play at all.
+    const sourceCodec = (source.codec || CONTAINER_CODEC[source.format ?? ''] || '').toLowerCase();
+    const wanted = CONTAINER_CODEC[targetFormat ?? ''] ?? targetFormat;
+    const fmtMismatch = targetFormat && sourceCodec && wanted && sourceCodec !== wanted;
     const bitrateTooHigh = targetBitrate && source.bitrate && source.bitrate > targetBitrate * 1.1;
     return Boolean(fmtMismatch || bitrateTooHigh);
   }

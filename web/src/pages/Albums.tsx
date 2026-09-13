@@ -43,7 +43,7 @@ export default function Albums() {
     <div className="p-4 sm:p-6 lg:px-8">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-semibold">Albums</h1>
+          <h1 className="text-display font-semibold">Albums</h1>
           <p className="text-sm text-ink-secondary mt-0.5">{visible.length}{q ? ` / ${albums.length}` : ''} albums</p>
         </div>
       </div>

@@ -454,7 +454,7 @@ export default function Upload() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Upload</h1>
+        <h1 className="text-display font-semibold">Upload</h1>
         <p className="text-sm text-ink-secondary mt-0.5">Add music and video files to your library</p>
       </div>
 

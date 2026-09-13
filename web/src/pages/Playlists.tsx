@@ -76,7 +76,7 @@ export default function Playlists() {
     <div className="p-4 sm:p-6 lg:px-8">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-semibold">Playlists</h1>
+          <h1 className="text-display font-semibold">Playlists</h1>
           <p className="text-sm text-ink-secondary mt-0.5">{visible.length}{q ? ` / ${source.length}` : ''} playlists</p>
         </div>
         <button

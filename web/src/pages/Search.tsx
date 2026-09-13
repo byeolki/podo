@@ -33,7 +33,7 @@ export default function Search() {
 
   return (
     <div className="p-4 sm:p-6 lg:px-8">
-      <h1 className="text-2xl font-semibold mb-6">Search</h1>
+      <h1 className="text-display font-semibold mb-6">Search</h1>
 
       <div className="relative mb-6">
         <SearchIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-tertiary" />

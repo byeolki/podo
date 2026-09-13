@@ -10,6 +10,12 @@ import TrackEditModal from './TrackEditModal'
 import ArtworkImage from './ArtworkImage'
 import { getArtworkUrl } from '../api/client'
 
+function formatAdded(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
 /**
  * Row actions stay out of the way until the row is hovered — or until something
  * inside it takes keyboard focus. Without the focus half, tabbing moved through
@@ -21,6 +27,33 @@ const REVEAL =
   'group-focus-within:opacity-100 group-focus-within:pointer-events-auto ' +
   '[@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto'
 
+/**
+ * The row's right-hand columns, shared with `TrackListHeader` so the two can't
+ * drift apart. A list only reads as a list when the values under a heading line
+ * up with it — before this the duration simply floated at the far right of
+ * whatever width the row happened to be.
+ */
+const COL_ADDED = 'hidden lg:block w-28 flex-shrink-0 text-right text-meta text-ink-tertiary tabular-nums'
+const COL_ACTIONS = 'w-[5.5rem] flex-shrink-0 flex items-center justify-end gap-1'
+const COL_TIME = 'w-12 flex-shrink-0 text-right text-meta text-ink-tertiary tabular-nums'
+
+/**
+ * Column headings for a list of `TrackRow`s. Rendered by the page rather than by
+ * the row, because one heading serves the whole list.
+ */
+export function TrackListHeader({ showAdded = true }: { showAdded?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 px-3 pb-2 border-b border-border text-[0.6875rem] font-medium uppercase tracking-wider text-ink-faint">
+      <span className="w-8 flex-shrink-0">#</span>
+      <span className="w-12 flex-shrink-0" aria-hidden="true" />
+      <span className="flex-1 min-w-0">Title</span>
+      <span className={showAdded ? 'hidden lg:block w-28 flex-shrink-0 text-right' : 'hidden'}>Added</span>
+      <span className="w-[5.5rem] flex-shrink-0" aria-hidden="true" />
+      <span className="w-12 flex-shrink-0 text-right">Time</span>
+    </div>
+  )
+}
+
 interface Props {
   track: Track
   index?: number
@@ -30,12 +63,15 @@ interface Props {
   selected?: boolean
   selectionActive?: boolean
   onSelect?: (id: string) => void
+  /** Off for compact lists (search results) that carry no column headings. */
+  showAdded?: boolean
 }
 
 export default function TrackRow({
   track, index, queue,
   showArtist = true, showNumber = false,
   selected = false, selectionActive = false, onSelect,
+  showAdded = false,
 }: Props) {
   const playTrack = usePlayerStore((s) => s.playTrack)
   const currentTrack = usePlayerStore((s) => s.queue[s.currentIndex])
@@ -149,7 +185,7 @@ export default function TrackRow({
           src={getArtworkUrl(track.album_version_id)}
           fallbackSrc={track.thumbnail_path ? getArtworkUrl(track.id) : null}
           alt=""
-          className="w-11 h-11 rounded-md object-cover flex-shrink-0 bg-surface-2"
+          className="w-12 h-12 rounded-md object-cover flex-shrink-0 bg-surface-2"
         />
 
         {/* Center: title + subtitle */}
@@ -177,8 +213,12 @@ export default function TrackRow({
           )}
         </div>
 
-        {/* Right: actions + duration */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        {showAdded && (
+          <span className={COL_ADDED}>{formatAdded(track.added_at)}</span>
+        )}
+
+        {/* Right: actions and duration, each in a fixed column */}
+        <div className={COL_ACTIONS}>
           {!selectionActive && (
             <>
               <button
@@ -212,10 +252,9 @@ export default function TrackRow({
               )}
             </>
           )}
-          <span className="text-meta text-ink-tertiary tabular-nums w-10 text-right">
-            {formatDuration(track.duration)}
-          </span>
         </div>
+
+        <span className={COL_TIME}>{formatDuration(track.duration)}</span>
       </div>
 
       {videoOpen && <VideoModal track={track} onClose={() => setVideoOpen(false)} />}

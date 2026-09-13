@@ -4,7 +4,7 @@ import { Play, Shuffle, X, Trash2, CheckSquare, Square, ListPlus } from 'lucide-
 import { getTracks, deleteTracks } from '../api/tracks'
 import type { SortOption, FilterOption } from '../api/tracks'
 import { usePlayerStore } from '../store/player'
-import TrackRow from '../components/TrackRow'
+import TrackRow, { TrackListHeader } from '../components/TrackRow'
 import AiFillButton from '../components/AiFillButton'
 import AddToPlaylistModal from '../components/AddToPlaylistModal'
 import SearchInput from '../components/SearchInput'
@@ -166,17 +166,16 @@ export default function Library() {
         )}
       </div>
 
-      <SearchInput value={q} onChange={setQ} placeholder="Search tracks..." className="mb-3" />
-
-      {/* Filter + Sort bar */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-1 bg-surface-2 rounded-lg p-0.5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+        <SearchInput value={q} onChange={setQ} placeholder="Search tracks..." className="flex-1 sm:max-w-sm" />
+        <div className="flex items-center gap-2 sm:ml-auto">
+        <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-lg p-0.5">
           {(Object.keys(FILTER_LABELS) as FilterOption[]).map((f) => (
             <button
               key={f}
               onClick={() => { setFilter(f); setSelectedIds(new Set()) }}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                filter === f ? 'bg-surface-3 text-white' : 'text-ink-tertiary hover:text-white'
+                filter === f ? 'bg-surface-3 text-ink-primary shadow-raised' : 'text-ink-tertiary hover:text-ink-primary'
               }`}
             >
               {FILTER_LABELS[f]}
@@ -185,12 +184,13 @@ export default function Library() {
         </div>
 
         <SortMenu value={sort} options={SORT_LABELS} onChange={setSort} menuWidthClass="w-40" />
+        </div>
       </div>
 
       {isLoading ? (
         <div className="space-y-1">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="h-[60px] rounded-lg bg-surface-2 animate-pulse" />
+            <div key={i} className="h-16 rounded-lg bg-surface-2 animate-pulse" />
           ))}
         </div>
       ) : tracks.length === 0 ? (
@@ -201,7 +201,9 @@ export default function Library() {
           </p>
         </div>
       ) : (
-        <div className="-mx-3 space-y-0.5">
+        <div className="-mx-3">
+          <TrackListHeader />
+          <div className="mt-1 space-y-0.5">
           {filteredTracks.map((track, i) => (
             <TrackRow
               key={track.id}
@@ -212,8 +214,10 @@ export default function Library() {
               selected={selectedIds.has(track.id)}
               onSelect={toggleSelect}
               selectionActive={selectionMode}
+              showAdded
             />
           ))}
+          </div>
         </div>
       )}
     </div>

@@ -4,7 +4,7 @@ import { ArrowLeft, Play } from 'lucide-react'
 import { getAlbum } from '../api/albums'
 import { getArtworkUrl } from '../api/client'
 import { usePlayerStore } from '../store/player'
-import TrackRow from '../components/TrackRow'
+import TrackRow, { TrackListHeader } from '../components/TrackRow'
 import ArtworkImage from '../components/ArtworkImage'
 
 export default function AlbumDetail() {
@@ -54,7 +54,7 @@ export default function AlbumDetail() {
         />
         <div>
           <p className="text-xs text-ink-tertiary uppercase tracking-wider mb-1">Album</p>
-          <h1 className="text-3xl font-bold">{album.title}</h1>
+          <h1 className="text-display font-semibold">{album.title}</h1>
           {coverVersion?.release_year && <p className="text-sm text-ink-secondary mt-1">{coverVersion.release_year}</p>}
           <p className="text-sm text-ink-secondary">{allTracks.length} tracks</p>
           {allTracks.length > 0 && (
@@ -68,10 +68,13 @@ export default function AlbumDetail() {
         </div>
       </div>
 
-      <div className="space-y-0.5">
-        {allTracks.map((track, i) => (
-          <TrackRow key={track.id} track={track} index={i} queue={allTracks} showNumber showArtist />
-        ))}
+      <div className="-mx-3">
+        <TrackListHeader showAdded={false} />
+        <div className="mt-1 space-y-0.5">
+          {allTracks.map((track, i) => (
+            <TrackRow key={track.id} track={track} index={i} queue={allTracks} showNumber showArtist />
+          ))}
+        </div>
       </div>
     </div>
   )

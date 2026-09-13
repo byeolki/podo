@@ -29,7 +29,7 @@ export default function History() {
 
   return (
     <div className="p-4 sm:p-6 lg:px-8">
-      <h1 className="text-2xl font-semibold mb-6">History</h1>
+      <h1 className="text-display font-semibold mb-6">History</h1>
 
       {stats && (
         <div className="grid grid-cols-2 gap-4 mb-8">

@@ -7,7 +7,7 @@ import { getArtworkUrl } from '../api/client'
 import { usePlayerStore } from '../store/player'
 import { useAuthStore } from '../store/auth'
 import ArtworkImage from '../components/ArtworkImage'
-import TrackRow from '../components/TrackRow'
+import TrackRow, { TrackListHeader } from '../components/TrackRow'
 import RadioModal from '../components/RadioModal'
 import PlaylistSyncPanel from '../components/PlaylistSyncPanel'
 
@@ -153,7 +153,7 @@ export default function PlaylistDetail() {
               </div>
             ) : (
               <>
-                <h1 className="text-3xl font-bold">{playlist.name}</h1>
+                <h1 className="text-display font-semibold">{playlist.name}</h1>
                 <button onClick={() => { setName(playlist.name); setEditing(true) }} className="mt-2 text-ink-tertiary hover:text-white">
                   <Pencil size={16} />
                 </button>
@@ -222,10 +222,13 @@ export default function PlaylistDetail() {
         </div>
       </div>
 
-      <div className="space-y-0.5">
+      <div className="-mx-3">
+        <TrackListHeader />
+        <div className="mt-1 space-y-0.5">
         {tracks.map((track, i) => (
-          <TrackRow key={track.id} track={track} index={i} queue={tracks} showNumber showArtist />
+          <TrackRow key={track.id} track={track} index={i} queue={tracks} showNumber showArtist showAdded />
         ))}
+        </div>
         {tracks.length === 0 && (
           <p className="text-center py-12 text-ink-tertiary">
             {favoritesOnly ? 'No favorited tracks in this playlist' : 'This playlist is empty'}

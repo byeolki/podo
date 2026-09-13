@@ -5,7 +5,7 @@ import { getStation } from '../api/radio'
 import { createPlaylist, addTracksToPlaylist } from '../api/playlists'
 import { usePlayerStore } from '../store/player'
 import type { Track } from '../api/tracks'
-import TrackRow from '../components/TrackRow'
+import TrackRow, { TrackListHeader } from '../components/TrackRow'
 import MyRadioUrls from '../components/MyRadioUrls'
 
 export default function Radio() {
@@ -48,7 +48,7 @@ export default function Radio() {
 
   return (
     <div className="p-4 sm:p-6 lg:px-8">
-      <h1 className="text-2xl font-semibold mb-6">Radio</h1>
+      <h1 className="text-display font-semibold mb-6">Radio</h1>
 
       {/* Two unrelated things were both called "Radio": a station generated on
           the fly, and the permanent stream URLs minted per playlist. Only the
@@ -121,10 +121,13 @@ export default function Radio() {
       {tracks.length > 0 && (
         <div>
           <p className="text-sm text-ink-secondary mb-3">{tracks.length} tracks</p>
-          <div className="space-y-0.5">
-            {tracks.map((track, i) => (
-              <TrackRow key={track.id} track={track} index={i} queue={tracks} showNumber showArtist />
-            ))}
+          <div className="-mx-3">
+            <TrackListHeader showAdded={false} />
+            <div className="mt-1 space-y-0.5">
+              {tracks.map((track, i) => (
+                <TrackRow key={track.id} track={track} index={i} queue={tracks} showNumber showArtist />
+              ))}
+            </div>
           </div>
         </div>
       )}

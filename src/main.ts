@@ -16,6 +16,9 @@ import * as fs from 'fs';
 
 const logger = new Logger('Bootstrap');
 
+/** How long a redeploy waits for in-flight responses before exiting regardless. */
+const SHUTDOWN_GRACE_MS = 12_000;
+
 process.on('unhandledRejection', (reason) => {
   logger.error(
     `Unhandled promise rejection: ${reason instanceof Error ? reason.message : String(reason)}`,
@@ -161,6 +164,29 @@ async function bootstrap() {
 
   const port = config.get<number>('port', 3000);
   const host = config.get<string>('host', '0.0.0.0');
+
+  // Without this a redeploy kills every request mid-flight: Node's default
+  // SIGTERM handling ends the process immediately, so an audio response in
+  // progress is cut off rather than finished. Browsers fetch audio in ranges, so
+  // a short grace period is enough for almost all of them to complete — and the
+  // player then re-requests the next range against whatever is serving by then.
+  // Bounded, because a request that never ends must not hold the deploy open.
+  const shutdown = async (signal: string) => {
+    logger.log(`${signal} received — finishing in-flight requests`);
+    const forced = setTimeout(() => {
+      logger.warn('Grace period elapsed with requests still open; exiting anyway');
+      process.exit(0);
+    }, SHUTDOWN_GRACE_MS);
+    forced.unref();
+    try {
+      await app.close();
+    } finally {
+      clearTimeout(forced);
+      process.exit(0);
+    }
+  };
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
 
   await app.listen(port, host);
   logger.log(`Server running at http://${host}:${port}`);

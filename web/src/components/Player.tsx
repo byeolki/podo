@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity, Repeat, Repeat1, ListMusic, AlertCircle, X } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity, Repeat, Repeat1, ListMusic, AlertCircle, Loader2, X } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
 import { getStreamUrl, getArtworkUrl, ensureFreshToken } from '../api/client'
 import { formatDuration, recordPlay, artistLine } from '../api/tracks'
@@ -8,7 +8,18 @@ import VideoModal from './VideoModal'
 import SleepTimerMenu from './SleepTimerMenu'
 import QueuePanel from './QueuePanel'
 
-const MAX_RECOVERY_ATTEMPTS = 4
+/**
+ * How long to keep trying to get a track playing again after the stream dies.
+ *
+ * The old budget was four attempts backing off 1-2-4-8 seconds: it gave up after
+ * fifteen. A server restart — a redeploy, a crash, an OOM kill — takes longer
+ * than that to come back, so the one interruption that happens regularly was
+ * also the one the player was guaranteed to lose. Ninety seconds covers a
+ * container coming back up; the attempt cap only stops a tight loop.
+ */
+const RECOVERY_WINDOW_MS = 90_000
+const MAX_RECOVERY_ATTEMPTS = 30
+const MAX_RECOVERY_DELAY_MS = 4_000
 const STALL_TIMEOUT_MS = 12_000
 
 export default function Player() {
@@ -32,6 +43,8 @@ export default function Player() {
   const [queueOpen, setQueueOpen] = useState(false)
   const playRecordedRef = useRef<string | null>(null)
   const recoveryAttemptsRef = useRef(0)
+  const recoverySinceRef = useRef<number | null>(null)
+  const [reconnecting, setReconnecting] = useState(false)
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadSeqRef = useRef(0)
@@ -84,13 +97,23 @@ export default function Player() {
 
   const recover = useCallback(() => {
     if (recoveryTimerRef.current) return
-    if (recoveryAttemptsRef.current >= MAX_RECOVERY_ATTEMPTS) return
+    if (!usePlayerStore.getState().isPlaying) return
+    if (recoverySinceRef.current === null) recoverySinceRef.current = Date.now()
+    const elapsed = Date.now() - recoverySinceRef.current
+    if (elapsed > RECOVERY_WINDOW_MS || recoveryAttemptsRef.current >= MAX_RECOVERY_ATTEMPTS) {
+      setPlaybackError("Lost the connection to the server and couldn't get it back. Press play to try again.")
+      usePlayerStore.getState().pause()
+      return
+    }
     const attempt = ++recoveryAttemptsRef.current
-    const delay = Math.min(1000 * 2 ** (attempt - 1), 8000)
+    const delay = Math.min(1000 * 2 ** (attempt - 1), MAX_RECOVERY_DELAY_MS)
+    setReconnecting(true)
     recoveryTimerRef.current = setTimeout(async () => {
       recoveryTimerRef.current = null
       const audio = audioRef.current
       if (!audio) return
+      // Resuming from the position rather than the start is what makes a restart
+      // survivable; it only works because the stream is a seekable file.
       const pos = audio.currentTime || usePlayerStore.getState().currentTime
       const wasPlaying = usePlayerStore.getState().isPlaying
       await loadSource(pos, wasPlaying)
@@ -109,6 +132,8 @@ export default function Player() {
   useEffect(() => {
     if (!track) return
     recoveryAttemptsRef.current = 0
+    recoverySinceRef.current = null
+    setReconnecting(false)
     clearStallTimer()
     const sameTrack = prevTrackIdRef.current === track.id
     prevTrackIdRef.current = track.id
@@ -189,6 +214,8 @@ export default function Player() {
   function handleTimeUpdate(e: React.SyntheticEvent<HTMLAudioElement>) {
     const t = e.currentTarget.currentTime
     recoveryAttemptsRef.current = 0
+    recoverySinceRef.current = null
+    setReconnecting(false)
     clearStallTimer()
     setCurrentTime(t)
     if (track && t > 30 && playRecordedRef.current !== track.id) {
@@ -254,8 +281,21 @@ export default function Player() {
 
   return (
     <>
+    {/* A restart used to look like the track simply stopping. Saying so — and
+        saying it is still trying — is the difference between "broken" and
+        "wait a moment". */}
+    {reconnecting && !playbackError && (
+      <div
+        role="status"
+        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[55] flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-2 border border-border text-ink-secondary text-sm shadow-overlay"
+      >
+        <Loader2 size={14} className="flex-shrink-0 animate-spin" aria-hidden="true" />
+        Reconnecting…
+      </div>
+    )}
     {playbackError && (
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[55] w-[min(92vw,560px)] flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-2 border border-danger/40 text-danger text-sm shadow-xl">
+      <div role="alert"
+        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[55] w-[min(92vw,560px)] flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-2 border border-danger/40 text-danger text-sm shadow-overlay">
         <AlertCircle size={14} className="flex-shrink-0" />
         <span className="flex-1 min-w-0 truncate">{playbackError}</span>
         <button onClick={() => setPlaybackError(null)} className="text-ink-tertiary hover:text-ink-primary" aria-label="Dismiss">
@@ -274,7 +314,13 @@ export default function Player() {
         onError={recover}
         onStalled={handleWaiting}
         onWaiting={handleWaiting}
-        onPlaying={() => { clearStallTimer(); setPlaybackError(null) }}
+        onPlaying={() => {
+          clearStallTimer()
+          setPlaybackError(null)
+          setReconnecting(false)
+          recoveryAttemptsRef.current = 0
+          recoverySinceRef.current = null
+        }}
         onPause={handleNativePause}
         onPlay={handleNativePlay}
         preload="auto"

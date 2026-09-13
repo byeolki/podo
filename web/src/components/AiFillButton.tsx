@@ -34,9 +34,16 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
   const [done, setDone] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
+  /** Momentary "Filled" on the button; a success has nothing to keep saying. */
+  const [flash, setFlash] = useState(false)
 
   const total = trackIds.length
   const running = done !== null
+  // Editing one track, the filled-in fields are the feedback — they are right
+  // there, changing as it works. A line of text saying "1 filled" on top of them
+  // reports what you can already see, and there is nowhere in that header to put
+  // it that isn't clipped. So the single-track case answers in the button.
+  const single = total === 1
   // Everything the server considered already complete. Offering a forced re-run
   // is the whole point: the button previously reported nothing in this case, so
   // a press that skipped every track was indistinguishable from a broken button.
@@ -44,6 +51,8 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
 
   async function run(force: boolean) {
     if (!available || running || !total) return
+    setOutcome(null)
+    setFlash(false)
     setError(null)
     setOutcome(null)
     setDone(0)
@@ -61,6 +70,10 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
         setDone(Math.min(i + batch.length, total))
       }
       setOutcome(tally)
+      if (tally.filled) {
+        setFlash(true)
+        setTimeout(() => setFlash(false), 2_000)
+      }
       qc.invalidateQueries({ queryKey: ['tracks'] })
     } catch (e) {
       setError((e as Error).message)
@@ -88,6 +101,8 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
         <Sparkles size={iconSize} aria-hidden="true" />
         {running
           ? (total > 1 ? `Filling ${done} / ${total}` : 'Filling…')
+          : single && flash ? 'Filled'
+          : single && outcome?.failed ? 'Nothing to go on'
           : canForce ? 'Fill again' : 'AI Fill'}
       </button>
 
@@ -100,7 +115,7 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
             />
           </div>
         )}
-        {outcome && !running && (
+        {outcome && !running && !single && (
           <p role="status" className="text-xs text-ink-tertiary whitespace-nowrap">
             {summarize(outcome)}
           </p>
@@ -114,9 +129,8 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
 function summarize({ filled, skipped, failed }: Outcome): string {
   const parts: string[] = []
   if (filled) parts.push(`${filled} filled`)
-  if (skipped) parts.push(`${skipped} already complete`)
-  if (failed) parts.push(`${failed} with nothing to go on`)
+  if (skipped) parts.push(`${skipped} already done`)
+  if (failed) parts.push(`${failed} skipped`)
   if (!parts.length) return 'Nothing to fill'
-  const tail = skipped ? ' — press again to redo them' : ''
-  return parts.join(' · ') + tail
+  return parts.join(' · ')
 }

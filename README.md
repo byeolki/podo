@@ -107,8 +107,10 @@ re-downloading, throws all of that away.
 **AI that is off until you ask for it.** Nothing is chosen implicitly: with
 nothing configured there is no AI, and no model is ever contacted. Turn it on
 with an OpenAI key, or with the Claude Code CLI bundled in the image — the second
-so a self-hosted server can have these features without its operator
-provisioning billing for them. Provider, model and each feature are changed from
+runs on a Claude **subscription** rather than usage billing, which is the point
+of it being there. `claude setup-token` on a machine where you're signed in gives
+you a long-lived token for `CLAUDE_CODE_OAUTH_TOKEN`; nothing is mounted and the
+server never shares a session with your own machine. Provider, model and each feature are changed from
 Settings → AI at runtime, and the model is free text, so a newer one is a
 settings change rather than an upgrade.
 
@@ -244,8 +246,9 @@ Everything is environment variables; the full list is in
 | `AI_PROVIDER` | _(auto)_ | `openai` or `claude-code`. Defaults to `openai` when a key is present |
 | `AI_CHAT_ENABLED` | `false` | The assistant, which can create playlists and edit metadata — its own switch |
 | `OPENAI_API_KEY` / `OPENAI_MODEL` | _(empty)_ / `gpt-5.4` | For the `openai` provider |
-| `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` | _(empty)_ / `claude-sonnet-5` | For the `claude-code` provider |
-| `CLAUDE_CODE_PATH` / `CLAUDE_CONFIG_HOME` | `claude` / _(server's HOME)_ | Where the CLI lives, and where it looks for `.claude`. Credentials are copied into a private HOME, so the container never writes back into the mount — but don't share a session with a machine you use yourself: an OAuth refresh rotates the token and logs the other side out. `ANTHROPIC_API_KEY` avoids that entirely |
+| `CLAUDE_CODE_OAUTH_TOKEN` | _(empty)_ | Authenticates the `claude-code` provider against your **subscription**. Run `claude setup-token` where you're signed in and paste the result — it's long-lived and its own credential, so the server never touches the session on your own machine |
+| `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` | _(empty)_ / `claude-sonnet-5` | Usage-billed alternative, and the model to use |
+| `CLAUDE_CODE_PATH` / `CLAUDE_CONFIG_HOME` | `claude` / _(server's HOME)_ | Where the CLI lives, and — only if you mount a signed-in `.claude` instead of using a token — where it looks for it |
 | `YTDLP_PATH` | `yt-dlp` | Binary used for downloads and YouTube search |
 | `MUSICBRAINZ_USER_AGENT` | `podo/0.1.0` | Identify your deployment; a generic UA gets rate-limited |
 | `SWAGGER_ENABLED` | _(dev only)_ | Set `true` to expose `/api/docs` in production |

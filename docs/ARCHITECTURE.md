@@ -225,14 +225,20 @@ Playback is the one thing it can't do: the server has no speaker. So a reply
 carries *actions* the browser performs, which also means the queue visibly
 changes rather than the assistant claiming it did.
 
-The CLI provider copies whatever credentials it is pointed at into a private
-HOME before running, because the CLI rewrites `.credentials.json` on every
-refresh and writing through a mount clobbered the host's own session — changing
-the file's owner to root and logging out the person who mounted it. The copy
-stops the container corrupting the file; it does not make a shared session safe,
-because an OAuth refresh rotates the token server-side and invalidates whichever
-side didn't refresh. A non-rotating `ANTHROPIC_API_KEY` is the only arrangement
-without that conflict.
+**Authenticating the CLI provider.** The point of this provider is that it runs
+on a Claude subscription rather than usage billing, so "just use an API key"
+gives up the reason it exists. `CLAUDE_CODE_OAUTH_TOKEN` — from `claude
+setup-token` — is the route that keeps the subscription: a long-lived credential
+of its own, so the server holds a separate session from the operator's machine
+and neither can invalidate the other.
+
+Mounting a signed-in `.claude` is supported but second-best. The CLI rewrites
+`.credentials.json` on every refresh, and writing through the mount clobbered the
+host's own session — changing the file's owner to root and logging out the person
+who mounted it — so the credentials are copied into a private HOME first. That
+stops the container corrupting the file, but it cannot make a shared session
+safe: an OAuth refresh rotates the token server-side and invalidates whichever
+side didn't refresh.
 
 `AiModule` is deliberately importless. The scanner depends on it for the metadata
 fill, so anything imported there ends up upstream of the library — which is how

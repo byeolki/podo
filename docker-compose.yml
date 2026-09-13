@@ -20,9 +20,8 @@ services:
       LIBRARY_ROOTS: ${LIBRARY_ROOTS:-/music}
       MUSICBRAINZ_USER_AGENT: ${MUSICBRAINZ_USER_AGENT:-podo/0.1.0}
     volumes:
-      # Only needed for the claude-code AI provider, and only if you sign in with
-      # `claude` on the host rather than setting ANTHROPIC_API_KEY. Read-only:
-      # the container has no reason to write your credentials.
+      # Only if you mount a signed-in `.claude` instead of setting
+      # CLAUDE_CODE_OAUTH_TOKEN, which is the better route — see .env.example.
       # - ~/.claude:/claude-home/.claude:ro   # with CLAUDE_CONFIG_HOME=/claude-home
       - podo-data:/data
       - ${MUSIC_DIR:-./music}:/music:ro

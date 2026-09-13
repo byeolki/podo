@@ -28,6 +28,12 @@ const MAX_STDOUT_BYTES = 1 << 20;
 /** How long a *failed* availability probe is trusted before asking again. */
 const AVAILABILITY_RECHECK_MS = 60_000;
 
+function pick(env: NodeJS.ProcessEnv, keys: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of keys) if (env[key]) out[key] = env[key] as string;
+  return out;
+}
+
 function safeParse(stdout: string): { result?: unknown; is_error?: boolean } | null {
   try {
     const parsed = JSON.parse(stdout) as unknown;
@@ -123,7 +129,11 @@ export class ClaudeCodeProvider implements AiProvider {
       await this.complete('Reply with the single word ok.', 'ping', this.probeModel);
       return this.cache(null);
     } catch (e) {
-      return this.cache(`Claude Code CLI: ${(e as Error).message}`);
+      const reason = (e as Error).message;
+      const hint = /not logged in|authenticate|oauth/i.test(reason)
+        ? ' — run `claude setup-token` on a machine where you are signed in and set CLAUDE_CODE_OAUTH_TOKEN'
+        : '';
+      return this.cache(`Claude Code CLI: ${reason}${hint}`);
     }
   }
 
@@ -229,7 +239,12 @@ export class ClaudeCodeProvider implements AiProvider {
           env: {
             PATH: process.env.PATH ?? '',
             HOME: this.sessionHome(),
-            ...(process.env.ANTHROPIC_API_KEY ? { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY } : {}),
+            // The three credentials the CLI knows about, passed through if set.
+            // `CLAUDE_CODE_OAUTH_TOKEN` is the one that matters here: it comes
+            // from `claude setup-token`, is backed by a subscription rather than
+            // usage billing, and is its own long-lived credential — so the server
+            // is not sharing (and cannot rotate) the session on anyone's laptop.
+            ...pick(process.env, ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']),
           },
         });
       } catch (e) {

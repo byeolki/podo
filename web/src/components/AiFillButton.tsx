@@ -3,6 +3,7 @@ import { Sparkles } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { aiAutofillTracks } from '../api/tracks'
 import { useAiStatus } from '../hooks/useAiStatus'
+import { btn, btnSize } from '../ui/button'
 
 interface Props {
   trackIds: string[]
@@ -69,13 +70,20 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    // The progress bar and the outcome line hang below the button rather than
+    // sitting in the layout with it. As flow content they made this item taller
+    // than every other button in the toolbar, so the row stopped lining up the
+    // moment a fill finished.
+    <div className="relative">
       <button
         type="button"
         onClick={() => run(canForce)}
         disabled={!available || running || !total}
         title={reason ?? 'Guess title, artist and cover details from the filename'}
-        className={className ?? 'flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed'}
+        // Falls back to the shared recipe rather than its own near-copy of it:
+        // the hand-written one had different padding and no border, so it stood a
+        // pixel taller than every other button it sits beside in a toolbar.
+        className={className ?? `${btn.primary} ${btnSize.md}`}
       >
         <Sparkles size={iconSize} aria-hidden="true" />
         {running
@@ -83,20 +91,22 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
           : canForce ? 'Fill again' : 'AI Fill'}
       </button>
 
-      {running && total > 1 && (
-        <div className="h-1 rounded-full bg-surface-3 overflow-hidden">
-          <div
-            className="h-full bg-accent transition-[opacity,color,background-color,border-color,scale] duration-300"
-            style={{ width: `${Math.round(((done ?? 0) / total) * 100)}%` }}
-          />
-        </div>
-      )}
-      {outcome && !running && (
-        <p role="status" className="text-xs text-ink-tertiary">
-          {summarize(outcome)}
-        </p>
-      )}
-      {error && <p role="alert" className="text-xs text-danger">{error}</p>}
+      <div className="absolute left-0 right-0 top-full mt-1 space-y-1">
+        {running && total > 1 && (
+          <div className="h-1 rounded-full bg-surface-3 overflow-hidden">
+            <div
+              className="h-full bg-accent transition-[width] duration-300"
+              style={{ width: `${Math.round(((done ?? 0) / total) * 100)}%` }}
+            />
+          </div>
+        )}
+        {outcome && !running && (
+          <p role="status" className="text-xs text-ink-tertiary whitespace-nowrap">
+            {summarize(outcome)}
+          </p>
+        )}
+        {error && <p role="alert" className="text-xs text-danger whitespace-nowrap">{error}</p>}
+      </div>
     </div>
   )
 }

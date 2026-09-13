@@ -88,6 +88,12 @@ export default function Player() {
    * signal that anything was wrong was silence.
    */
   const reportPlaybackFailure = useCallback((e: unknown) => {
+    // `AbortError` means a newer load superseded this play() — which is exactly
+    // what advancing to the next track does, since the queue change swaps `src`
+    // while the previous play() promise is still pending. Treating it as a
+    // failure paused the player between tracks, at random, part way through a
+    // queue. It is not an error; the newer load is about to start playing.
+    if ((e as Error)?.name === 'AbortError') return
     const message = (e as Error)?.name === 'NotAllowedError'
       ? 'Your browser blocked playback — press play again.'
       : `Couldn't play this track — ${(e as Error)?.message ?? 'unknown error'}`

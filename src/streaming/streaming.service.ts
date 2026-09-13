@@ -179,13 +179,14 @@ export class StreamingService {
 
     if (videoServedAsAudio && !req.normalize && !manualVolumeDb) {
       const extracted = await this.audioTrackOf(source);
-      if (extracted) {
+      if (extracted && fs.existsSync(extracted)) {
         // Served as an ordinary file, which is the whole point: a live transcode
         // answers `Accept-Ranges: none`, so the client cannot seek — and cannot
         // resume from where it stopped when a stall knocks it over, which turns
         // one hiccup into a restart. Extracting once and serving the result gives
         // these tracks the same seek and recovery behaviour as any other file.
         const stat = fs.statSync(extracted);
+        reply.header('X-Podo-Delivery', 'extracted-audio');
         return this.servePassthrough(extracted, stat.size, source, httpReq, reply, sessionId, 'audio/aac');
       }
       this.logger.warn(`Audio extraction failed for ${source.locator}; streaming the transcode instead`);
@@ -194,6 +195,10 @@ export class StreamingService {
     const needsTranscode =
       videoServedAsAudio || this.needsTranscode(source, req.format, req.bitrate) || !!req.normalize || !!manualVolumeDb;
     if (!needsTranscode) {
+      // Named so the four delivery paths can be told apart from the client. They
+      // behave very differently — one is a seekable file, one is an unseekable
+      // live transcode — and nothing in the response said which you had.
+      reply.header('X-Podo-Delivery', source.media_kind === 'video' ? 'video-passthrough' : 'passthrough');
       await this.servePassthrough(filePath, fileStat.size, source, httpReq, reply, sessionId);
     } else {
       await this.serveTranscoded(source, req, httpReq, reply, sessionId, manualVolumeDb);
@@ -334,6 +339,7 @@ export class StreamingService {
       try {
         const stat = fs.statSync(cachePath);
         reply.header('X-Cache', 'HIT');
+        reply.header('X-Podo-Delivery', 'transcode-cached');
         // A cached transcode is an ordinary complete file, so it can serve ranges
         // like any other. Sending it as an unseekable chunked body — as this did —
         // meant a track that needed transcoding could never be scrubbed, however
@@ -364,6 +370,7 @@ export class StreamingService {
     reply.header('Content-Type', this.mimeType(targetFormat));
     reply.header('Accept-Ranges', 'none');
     reply.header('X-Cache', 'MISS');
+    reply.header('X-Podo-Delivery', 'transcode-live');
 
     // Written to a `.part` sibling and only published on a clean exit, so a
     // concurrent request for the same key can't pick up a partial file.

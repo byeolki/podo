@@ -144,7 +144,7 @@ async function bootstrap() {
     origin: config.get<string>('cors_origin', '*'),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
-    exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length'],
+    exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length', 'X-Cache', 'X-Podo-Delivery'],
   });
 
   if (config.get<boolean>('swagger_enabled', true)) {

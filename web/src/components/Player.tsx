@@ -20,7 +20,23 @@ import QueuePanel from './QueuePanel'
 const RECOVERY_WINDOW_MS = 90_000
 const MAX_RECOVERY_ATTEMPTS = 30
 const MAX_RECOVERY_DELAY_MS = 4_000
-const STALL_TIMEOUT_MS = 12_000
+/**
+ * How long to let a gap in the audio go before trying to reload.
+ *
+ * Measured rather than assumed: when a stream dies mid-play the browser fires
+ * neither `error` nor `pause` — `paused` stays false, `error` stays null, and
+ * all you get is `waiting` followed by `stalled`. So these two timers are the
+ * only thing standing between a dead stream and silence, and the old single
+ * 12-second timer meant a redeploy was at least twelve seconds of nothing before
+ * anything even tried.
+ *
+ * `stalled` is the stronger signal — the browser expected bytes and got none —
+ * so it reacts sooner. `waiting` also fires during ordinary buffering, so it
+ * waits long enough not to interrupt a slow but healthy load. A false positive
+ * costs a re-buffer from the same position, not a restart.
+ */
+const WAITING_TIMEOUT_MS = 6_000
+const STALLED_TIMEOUT_MS = 2_500
 
 export default function Player() {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -44,6 +60,10 @@ export default function Player() {
   const playRecordedRef = useRef<string | null>(null)
   const recoveryAttemptsRef = useRef(0)
   const recoverySinceRef = useRef<number | null>(null)
+  // `recover` and `armStallTimer` each need the other, and one has to be defined
+  // first; these break the cycle without reordering the file around it.
+  const recoverRef = useRef<(() => void) | null>(null)
+  const armStallTimerRef = useRef<((delay: number) => void) | null>(null)
   const [reconnecting, setReconnecting] = useState(false)
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -122,9 +142,22 @@ export default function Player() {
       // survivable; it only works because the stream is a seekable file.
       const pos = audio.currentTime || usePlayerStore.getState().currentTime
       const wasPlaying = usePlayerStore.getState().isPlaying
-      await loadSource(pos, wasPlaying)
+      try {
+        await loadSource(pos, wasPlaying)
+      } catch {
+        // Nothing to react to otherwise: a reload that fails before the element
+        // has a source fires no media event, so without this the retry loop ends
+        // here and the track stays stopped.
+        recoverRef.current?.()
+        return
+      }
+      // The server may still be down, in which case the new source stalls exactly
+      // like the old one did and the media events bring us back here.
+      armStallTimerRef.current?.(STALLED_TIMEOUT_MS)
     }, delay)
   }, [loadSource])
+
+  useEffect(() => { recoverRef.current = recover }, [recover])
 
   const clearStallTimer = useCallback(() => {
     if (stallTimerRef.current) {
@@ -230,8 +263,13 @@ export default function Player() {
     }
   }
 
-  function handleWaiting() {
+  const armStallTimer = useCallback((delay: number) => {
     if (!usePlayerStore.getState().isPlaying) return
+    // Once a recovery is under way the longer `waiting` timer is the wrong
+    // instrument: we already know the stream is in trouble, and a reload that
+    // fails fires `waiting` again, which would otherwise reset the wait to six
+    // seconds every time round the loop.
+    if (recoverySinceRef.current !== null) delay = Math.min(delay, STALLED_TIMEOUT_MS)
     clearStallTimer()
     stallTimerRef.current = setTimeout(() => {
       stallTimerRef.current = null
@@ -239,8 +277,10 @@ export default function Player() {
       if (audio && usePlayerStore.getState().isPlaying && audio.readyState < 3) {
         recover()
       }
-    }, STALL_TIMEOUT_MS)
-  }
+    }, delay)
+  }, [clearStallTimer, recover])
+
+  useEffect(() => { armStallTimerRef.current = armStallTimer }, [armStallTimer])
 
   // Keep the store in sync when playback stops/starts for reasons outside our
   // own toggle() calls — e.g. the OS pausing HTML5 audio when a Bluetooth
@@ -318,8 +358,8 @@ export default function Player() {
         onDurationChange={(e) => setDuration(e.currentTarget.duration)}
         onEnded={handleTrackEnd}
         onError={recover}
-        onStalled={handleWaiting}
-        onWaiting={handleWaiting}
+        onStalled={() => armStallTimer(STALLED_TIMEOUT_MS)}
+        onWaiting={() => armStallTimer(WAITING_TIMEOUT_MS)}
         onPlaying={() => {
           clearStallTimer()
           setPlaybackError(null)

@@ -19,6 +19,14 @@ export interface RecordingCandidate {
 const CACHE_TTL_MS = 30 * 24 * 3600 * 1000;
 const REQUEST_TIMEOUT_MS = 10_000;
 const RETRY_DELAYS_MS = [1_000, 3_000];
+/**
+ * MusicBrainz scores a partial title match lower, and "으르렁 (Growl)" against a
+ * search for "으르렁" scores 86 — so a 90 cutoff dropped EXO's recording while
+ * keeping an unrelated group's track titled plainly "으르렁", which scored 100.
+ * The title check is the gate that actually decides relevance now; this is only
+ * here to drop obvious noise.
+ */
+const MIN_SCORE = 70;
 
 /**
  * Exact-title matching is what makes a title-only search usable at all. Searching
@@ -29,6 +37,31 @@ const RETRY_DELAYS_MS = [1_000, 3_000];
  */
 function normalizeTitle(value: string): string {
   return value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Does a MusicBrainz title name the same song as the one being looked up?
+ *
+ * Equality alone is too strict in exactly the case this database is most useful
+ * for. MusicBrainz files EXO's 으르렁 as "으르렁 (Growl)", so an equality test
+ * rejected it — and accepted an unrelated group's track that happens to be
+ * titled plainly "으르렁", which is worse than finding nothing. A bilingual or
+ * subtitled release is the same song; only the parenthetical differs.
+ *
+ * The looseness stops there. Nothing is split on spaces or commas, so "Creep
+ * Creep" and "Creep, creep, softly creep" still fail against "Creep" — which is
+ * what keeps a title-only search usable at all.
+ */
+function titleMatches(candidate: string, wanted: string): boolean {
+  const c = normalizeTitle(candidate);
+  const w = normalizeTitle(wanted);
+  if (c === w) return true;
+
+  const stripped = normalizeTitle(c.replace(/[([{].*$/, ''));
+  if (stripped === w) return true;
+
+  const inner = /[([{]([^)\]}]+)[)\]}]/.exec(c);
+  return !!inner && normalizeTitle(inner[1]) === w;
 }
 
 /**
@@ -80,7 +113,7 @@ export class MusicBrainzService {
     if (!data?.recordings) return [];
 
     return data.recordings
-      .filter((r) => normalizeTitle(r.title ?? '') === wanted && (r.score ?? 0) >= 90)
+      .filter((r) => titleMatches(r.title ?? '', title) && (r.score ?? 0) >= MIN_SCORE)
       .map((r) => ({
         artist: (r['artist-credit'] ?? []).map((c) => c.artist?.name).filter(Boolean).join(', '),
         title: r.title ?? title,

@@ -94,6 +94,42 @@ export class UploadService {
     return { path: destPath };
   }
 
+  /**
+   * The track ids the given uploaded files became, for the ones the scanner has
+   * picked up so far.
+   *
+   * Upload answers with paths, but a path isn't a track — the scanner imports in
+   * the background, and until it does there is nothing to edit. The uploader was
+   * left to find their own files again in a library sorted by date, which is the
+   * one moment they most want to correct a title. Returning the subset that has
+   * landed lets the page fill in as the import proceeds.
+   */
+  async resolveImported(paths: string[], userId: string, isAdmin: boolean): Promise<string[]> {
+    if (!paths.length) return [];
+    // Confined to the upload directory for the same reason `listFiles` is: these
+    // are ids supplied by a client, and nothing outside what this service wrote
+    // is any of its business.
+    const wanted = paths.filter((p) => p.startsWith(`${this.uploadDir}/`));
+    if (!wanted.length) return [];
+
+    const rows = await this.db
+      .select({ track_id: schema.sources.track_id })
+      .from(schema.sources)
+      .innerJoin(schema.tracks, eq(schema.sources.track_id, schema.tracks.id))
+      .where(
+        and(
+          inArray(schema.sources.locator, wanted),
+          isNull(schema.sources.deleted_at),
+          isNull(schema.tracks.deleted_at),
+          isAdmin ? undefined : eq(schema.tracks.added_by, userId),
+        ),
+      );
+
+    // A video and its audio sibling share one track, so the same id can come back
+    // twice for two uploaded files.
+    return [...new Set(rows.map((r) => r.track_id))];
+  }
+
   async listFiles(userId: string, isAdmin: boolean): Promise<FileEntry[]> {
     const rows = await this.db
       .select({

@@ -14,6 +14,7 @@ import { useAuthStore } from '../store/auth'
 import { Link } from 'react-router-dom'
 import { importPlaylistFromUrl } from '../api/playlists'
 import { btn, btnSize } from '../ui/button'
+import JustUploaded from '../components/JustUploaded'
 
 const URL_PATTERN = /^https?:\/\//i
 
@@ -381,6 +382,9 @@ export default function Upload() {
   const role = useAuthStore((s) => s.role)
   const [items, setItems] = useState<UploadItem[]>([])
   const [dragging, setDragging] = useState(false)
+  // The paths the last batch produced, so the tracks they become can be edited
+  // here rather than hunted for in the library afterwards.
+  const [justUploaded, setJustUploaded] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: myFiles = [], isLoading } = useQuery({
@@ -418,9 +422,11 @@ export default function Upload() {
     for (const item of newItems) {
       setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: 'uploading' } : i))
       try {
-        await uploadFilesApi([item.file], (pct) => {
+        const res = await uploadFilesApi([item.file], (pct) => {
           setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, progress: pct } : i))
         })
+        const stored = res.uploaded.map((u) => u.path).filter((p): p is string => !!p)
+        if (stored.length) setJustUploaded((prev) => [...new Set([...prev, ...stored])])
         setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: 'done', progress: 100 } : i))
       } catch (e: unknown) {
         setItems((prev) => prev.map((i) =>
@@ -458,6 +464,8 @@ export default function Upload() {
         <h1 className="text-display font-semibold">Upload</h1>
         <p className="text-sm text-ink-secondary mt-0.5">Add music and video files to your library</p>
       </div>
+
+      <JustUploaded paths={justUploaded} onDismiss={() => setJustUploaded([])} />
 
       <div
         className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors mb-6 ${

@@ -12,7 +12,7 @@ import {
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger';
-import { IsString, MinLength, MaxLength } from 'class-validator';
+import { IsString, MinLength, MaxLength, IsArray, ArrayNotEmpty, ArrayMaxSize } from 'class-validator';
 import { FastifyRequest } from 'fastify';
 import { UploadService } from './upload.service';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -25,6 +25,10 @@ class RenameFileDto {
   // Undecorated, this was stripped by the global `whitelist: true` pipe, so the
   // handler always received `undefined` and every rename 500'd.
   @IsString() @MinLength(1) @MaxLength(255) filename!: string;
+}
+
+class ResolveImportedDto {
+  @IsArray() @ArrayNotEmpty() @ArrayMaxSize(500) @IsString({ each: true }) paths!: string[];
 }
 
 @ApiTags('upload')
@@ -72,6 +76,14 @@ export class UploadController {
     }
 
     return { uploaded: results };
+  }
+
+  @Post('imported')
+  @ApiOperation({ summary: 'Track ids for files from a just-finished upload, as the scanner imports them' })
+  resolveImported(@Body() dto: ResolveImportedDto, @CurrentUser() user: JwtPayload) {
+    return this.upload
+      .resolveImported(dto.paths, user.sub, user.role === 'admin')
+      .then((track_ids) => ({ track_ids }));
   }
 
   @Get('files')

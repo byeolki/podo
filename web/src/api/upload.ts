@@ -16,6 +16,14 @@ export interface UploadResult {
   uploaded: Array<{ filename: string; path?: string; error?: string }>
 }
 
+/**
+ * The tracks the given uploaded paths have become so far. The scanner imports in
+ * the background, so this is polled until it stops growing.
+ */
+export function resolveImported(paths: string[]): Promise<{ track_ids: string[] }> {
+  return api.post('/upload/imported', { paths })
+}
+
 export function uploadFiles(files: File[], onProgress?: (pct: number) => void): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
     const form = new FormData()

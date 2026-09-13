@@ -9,6 +9,7 @@ import TrackRow, { TrackListHeader } from '../components/TrackRow'
 import MyRadioUrls from '../components/MyRadioUrls'
 import { btn, btnSize } from '../ui/button'
 import EmptyState from '../ui/EmptyState'
+import { field } from '../ui/field'
 
 export default function Radio() {
   const qc = useQueryClient()
@@ -69,7 +70,7 @@ export default function Radio() {
           value={seedArtist}
           onChange={(e) => setSeedArtist(e.target.value)}
           placeholder="Artist name (blank = whole library)"
-          className="bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent w-60"
+          className={`${field} w-60`}
           onKeyDown={(e) => e.key === 'Enter' && stationMut.mutate()}
         />
         <button
@@ -94,7 +95,7 @@ export default function Radio() {
                 value={mixName}
                 onChange={(e) => setMixName(e.target.value)}
                 placeholder="Mix name (optional)"
-                className="bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent w-48"
+                className={`${field} w-48`}
               />
               <button
                 onClick={() => mixMut.mutate()}

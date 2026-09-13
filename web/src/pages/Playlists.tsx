@@ -10,6 +10,7 @@ import SortMenu from '../components/SortMenu'
 import { useAuthStore } from '../store/auth'
 import { btn, btnSize } from '../ui/button'
 import EmptyState from '../ui/EmptyState'
+import { field } from '../ui/field'
 
 type PlaylistFilter = 'mine' | 'all'
 type PlaylistSort = 'az' | 'za' | 'newest'
@@ -99,7 +100,7 @@ export default function Playlists() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Playlist name"
-              className="flex-1 bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+              className={`flex-1 ${field}`}
               onKeyDown={(e) => e.key === 'Enter' && newName && createMut.mutate()}
             />
             <button

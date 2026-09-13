@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Plus, ListMusic, Check } from 'lucide-react'
 import { getPlaylists, createPlaylist, addTracksToPlaylist } from '../api/playlists'
 import { btn, btnSize } from '../ui/button'
+import { field } from '../ui/field'
 
 interface Props {
   trackIds: string[]
@@ -90,7 +91,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Playlist name"
-                className="flex-1 bg-surface-1 border border-border rounded-lg px-3 py-1.5 text-sm focus:border-accent"
+                className={`flex-1 ${field} py-1.5`}
               />
               <button
                 type="submit"

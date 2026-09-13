@@ -6,6 +6,7 @@ import { getChatStatus, sendChat } from '../api/admin'
 import type { ChatAction } from '../api/admin'
 import { getTracksByIds } from '../api/tracks'
 import { usePlayerStore } from '../store/player'
+import { field } from '../ui/field'
 
 interface Turn {
   role: 'user' | 'assistant'
@@ -251,7 +252,7 @@ export default function AssistantPanel() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask for something to play…"
-          className="flex-1 bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+          className={`flex-1 ${field}`}
         />
         <button
           type="submit"

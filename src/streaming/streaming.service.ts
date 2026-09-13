@@ -1,6 +1,6 @@
-import { Injectable, Logger, NotFoundException, InternalServerErrorException, Inject } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, InternalServerErrorException, Inject, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, and, asc, isNull } from 'drizzle-orm';
+import { eq, and, asc, isNull, lt } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { TranscodeCacheService } from './transcode-cache.service';
@@ -40,12 +40,20 @@ const CONTAINER_CODEC: Record<string, string> = {
   wav: 'pcm',
 };
 
+/**
+ * How long a finished stream session is kept. The admin traffic view looks back a
+ * month at most; everything older is only taking up space.
+ */
+const SESSION_RETENTION_DAYS = 90;
+const SESSION_PRUNE_INTERVAL_MS = 6 * 3600 * 1000;
+
 @Injectable()
-export class StreamingService {
+export class StreamingService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(StreamingService.name);
   private readonly activeProcesses = new Map<string, ChildProcess>();
   /** In-flight audio extractions, keyed by cache key, so two clients never race. */
   private readonly extractions = new Map<string, Promise<string | null>>();
+  private pruneTimer: NodeJS.Timeout | null = null;
   /// Bytes actually handed to the client per stream session, flushed to
   /// `stream_sessions.bytes_sent` when the session ends — that column backs the
   /// admin traffic dashboard and stays at 0 unless something counts here.
@@ -56,6 +64,34 @@ export class StreamingService {
     private readonly cache: TranscodeCacheService,
     private readonly config: ConfigService,
   ) {}
+
+  onApplicationBootstrap(): void {
+    // One row per HTTP request, and a browser fetches a track in many ranges, so
+    // this table grows for as long as anyone listens and nothing ever removed
+    // from it. It is small per row and nothing here is slow because of it today —
+    // it simply has no reason to keep every request ever served.
+    void this.pruneStreamSessions();
+    this.pruneTimer = setInterval(() => void this.pruneStreamSessions(), SESSION_PRUNE_INTERVAL_MS);
+    this.pruneTimer.unref();
+  }
+
+  onApplicationShutdown(): void {
+    if (this.pruneTimer) clearInterval(this.pruneTimer);
+    this.pruneTimer = null;
+  }
+
+  private async pruneStreamSessions(): Promise<void> {
+    try {
+      const cutoff = new Date(Date.now() - SESSION_RETENTION_DAYS * 86_400_000);
+      const result = await this.db
+        .delete(schema.stream_sessions)
+        .where(lt(schema.stream_sessions.started_at, cutoff));
+      const removed = (result as { changes?: number }).changes ?? 0;
+      if (removed) this.logger.log(`Pruned ${removed} stream sessions older than ${SESSION_RETENTION_DAYS} days`);
+    } catch (e) {
+      this.logger.warn(`Could not prune stream sessions: ${(e as Error).message}`);
+    }
+  }
 
   /**
    * Whether a path the user supplied points inside somewhere this server is

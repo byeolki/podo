@@ -8,6 +8,7 @@ import ArtworkImage from './ArtworkImage'
 import AiFillButton from './AiFillButton'
 import TrackSourcePanel from './TrackSourcePanel'
 import { useAuthStore } from '../store/auth'
+import { field } from '../ui/field'
 
 interface Props {
   track: Track
@@ -240,7 +241,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+              className={`w-full ${field}`}
             />
           </div>
 

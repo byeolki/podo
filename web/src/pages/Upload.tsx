@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom'
 import { importPlaylistFromUrl } from '../api/playlists'
 import { btn, btnSize } from '../ui/button'
 import JustUploaded from '../components/JustUploaded'
+import { field } from '../ui/field'
 
 const URL_PATTERN = /^https?:\/\//i
 
@@ -134,7 +135,7 @@ function AddMusicSection() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Paste a link, or search by title/artist..."
-          className="flex-1 bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm focus:border-accent"
+          className={`flex-1 ${field}`}
         />
         <button
           type="submit"

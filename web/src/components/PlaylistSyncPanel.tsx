@@ -4,6 +4,7 @@ import { RefreshCw, Link2, Unlink, AlertCircle, CheckCircle2 } from 'lucide-reac
 import {
   getSubscription, setSubscription, removeSubscription, syncSubscriptionNow,
 } from '../api/playlists'
+import { field } from '../ui/field'
 
 interface Props {
   playlistId: string
@@ -97,7 +98,7 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://www.youtube.com/playlist?list=..."
-              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+              className={`w-full ${field}`}
             />
           </div>
 
@@ -107,7 +108,7 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
               id="playlistSyncPanel-check-for-new-items"
               value={interval}
               onChange={(e) => setIntervalMinutes(Number(e.target.value))}
-              className="w-full bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+              className={`w-full ${field}`}
             >
               {INTERVALS.map((option) => (
                 <option key={option.minutes} value={option.minutes}>{option.label}</option>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login, bootstrap } from '../api/auth'
 import { useAuthStore } from '../store/auth'
+import { field } from '../ui/field'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -66,7 +67,7 @@ export default function Login() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full bg-canvas border border-border-strong rounded-lg px-3 py-2.5 text-sm text-base sm:text-sm focus:border-accent transition-colors"
+                className={`w-full ${field} py-2.5`}
                 placeholder="Your name"
               />
             </div>
@@ -80,7 +81,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-canvas border border-border-strong rounded-lg px-3 py-2.5 text-sm text-base sm:text-sm focus:border-accent transition-colors"
+              className={`w-full ${field} py-2.5`}
               placeholder="you@example.com"
             />
           </div>
@@ -94,7 +95,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              className="w-full bg-canvas border border-border-strong rounded-lg px-3 py-2.5 text-sm text-base sm:text-sm focus:border-accent transition-colors"
+              className={`w-full ${field} py-2.5`}
               placeholder="Min. 8 characters"
             />
           </div>

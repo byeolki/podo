@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAiSettings, updateAiSettings } from '../api/admin'
 import type { AiProviderName } from '../api/admin'
 import { btn, btnSize } from '../ui/button'
+import { field } from '../ui/field'
 
 const PROVIDERS: { value: AiProviderName; label: string; hint: string }[] = [
   { value: 'openai', label: 'OpenAI', hint: 'Needs OPENAI_API_KEY on the server.' },
@@ -131,7 +132,7 @@ export default function AiSettingsCard() {
               value={model}
               onChange={(e) => { setModel(e.target.value); setModelDirty(true) }}
               placeholder={defaultModel}
-              className="flex-1 bg-surface-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+              className={`flex-1 ${field}`}
             />
             <button
               type="button"

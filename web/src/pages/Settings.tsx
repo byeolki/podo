@@ -15,6 +15,7 @@ import { useAuthStore } from '../store/auth'
 import UpdateCard from '../components/UpdateCard'
 import AiSettingsCard from '../components/AiSettingsCard'
 import { btn, btnSize } from '../ui/button'
+import { field, fieldReadOnly, settingsSections } from '../ui/field'
 
 type Tab = 'account' | 'library' | 'users' | 'ai' | 'health' | 'files' | 'radio'
 
@@ -64,7 +65,7 @@ function AccountTab() {
   }
 
   return (
-    <div className="space-y-6 max-w-md">
+    <div className={`${settingsSections} max-w-xl`}>
       <div>
         <h3 className="text-base font-semibold mb-3">Profile</h3>
         <form
@@ -78,7 +79,7 @@ function AccountTab() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+              className={`w-full ${field}`}
             />
           </div>
           <div>
@@ -88,7 +89,7 @@ function AccountTab() {
               type="email"
               value={me?.email ?? ''}
               disabled
-              className="w-full bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-ink-tertiary cursor-not-allowed"
+              className={`w-full ${fieldReadOnly}`}
             />
           </div>
           <button
@@ -112,7 +113,7 @@ function AccountTab() {
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+              className={`w-full ${field}`}
             />
           </div>
           <div>
@@ -122,7 +123,7 @@ function AccountTab() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+              className={`w-full ${field}`}
             />
           </div>
           <div>
@@ -132,7 +133,7 @@ function AccountTab() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+              className={`w-full ${field}`}
             />
           </div>
           <button
@@ -194,7 +195,7 @@ function LibraryTab() {
   const verifyMut = useMutation({ mutationFn: verifyIntegrity })
 
   return (
-    <div className="space-y-6">
+    <div className={settingsSections}>
       <div>
         <h3 className="text-base font-semibold mb-3">Library Roots</h3>
         <div className="flex gap-2 mb-3">
@@ -203,7 +204,7 @@ function LibraryTab() {
             value={newPath}
             onChange={(e) => setNewPath(e.target.value)}
             placeholder="/path/to/music"
-            className="flex-1 bg-surface-2 border border-border-strong rounded-lg px-3 py-2 text-sm focus:border-accent"
+            className={`flex-1 ${field}`}
             onKeyDown={(e) => e.key === 'Enter' && newPath && addMut.mutate()}
           />
           <button
@@ -295,7 +296,7 @@ function UsersTab() {
   const inviteMut = useMutation({ mutationFn: createInvite })
 
   return (
-    <div className="space-y-6">
+    <div className={settingsSections}>
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold">Users</h3>
         <button
@@ -353,7 +354,7 @@ function HealthTab() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className={settingsSections}>
       <UpdateCard />
 
       <div>
@@ -528,7 +529,7 @@ function AdminFileRow({ file, onRename, onDelete }: {
 /** Provider, model and the feature switches — configuration, not a status page. */
 function AiTab() {
   return (
-    <div className="space-y-6">
+    <div className={settingsSections}>
       <AiSettingsCard />
     </div>
   )

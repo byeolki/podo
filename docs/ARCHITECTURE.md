@@ -225,6 +225,15 @@ Playback is the one thing it can't do: the server has no speaker. So a reply
 carries *actions* the browser performs, which also means the queue visibly
 changes rather than the assistant claiming it did.
 
+The CLI provider copies whatever credentials it is pointed at into a private
+HOME before running, because the CLI rewrites `.credentials.json` on every
+refresh and writing through a mount clobbered the host's own session — changing
+the file's owner to root and logging out the person who mounted it. The copy
+stops the container corrupting the file; it does not make a shared session safe,
+because an OAuth refresh rotates the token server-side and invalidates whichever
+side didn't refresh. A non-rotating `ANTHROPIC_API_KEY` is the only arrangement
+without that conflict.
+
 `AiModule` is deliberately importless. The scanner depends on it for the metadata
 fill, so anything imported there ends up upstream of the library — which is how
 the assistant (playlists → downloads → library → ai) first produced a module

@@ -1,6 +1,8 @@
 import { Logger } from '@nestjs/common';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
 import OpenAI from 'openai';
 
 /**
@@ -85,6 +87,7 @@ export class ClaudeCodeProvider implements AiProvider {
   private readonly logger = new Logger(ClaudeCodeProvider.name);
   private cachedAvailability: string | null | undefined;
   private recheckAfter = 0;
+  private cachedHome: string | null = null;
 
   constructor(
     private readonly binaryPath: string,
@@ -170,6 +173,38 @@ export class ClaudeCodeProvider implements AiProvider {
     return result.stdout.trim() || null;
   }
 
+  /**
+   * A private HOME holding a *copy* of the mounted credentials.
+   *
+   * The CLI rewrites `.credentials.json` whenever it refreshes, and pointing it
+   * straight at a mount meant the container wrote into the host's own Claude
+   * session — clobbering the file, changing its owner to root, and leaving the
+   * person who mounted it logged out. The container reads the credentials and
+   * writes only to its copy.
+   *
+   * This does not make the session safe to share. An OAuth refresh rotates the
+   * token at Anthropic's end, so whichever side refreshes first invalidates the
+   * other no matter where the file lives. The only arrangement without that
+   * conflict is a credential that doesn't rotate: set `ANTHROPIC_API_KEY` and
+   * mount nothing.
+   */
+  private sessionHome(): string {
+    if (!this.configHome) return process.env.HOME || tmpdir();
+    if (this.cachedHome) return this.cachedHome;
+
+    const source = path.join(this.configHome, '.claude');
+    const home = fs.mkdtempSync(path.join(tmpdir(), 'podo-claude-'));
+    try {
+      fs.cpSync(source, path.join(home, '.claude'), { recursive: true });
+      const credentials = path.join(this.configHome, '.claude.json');
+      if (fs.existsSync(credentials)) fs.cpSync(credentials, path.join(home, '.claude.json'));
+    } catch (e) {
+      this.logger.warn(`Could not copy Claude credentials from ${source}: ${(e as Error).message}`);
+    }
+    this.cachedHome = home;
+    return home;
+  }
+
   private run(args: string[], timeoutMs: number): Promise<{ ok: boolean; stdout: string; error?: string }> {
     return new Promise((resolve) => {
       let stdout = '';
@@ -193,7 +228,7 @@ export class ClaudeCodeProvider implements AiProvider {
           cwd: tmpdir(),
           env: {
             PATH: process.env.PATH ?? '',
-            HOME: this.configHome || process.env.HOME || tmpdir(),
+            HOME: this.sessionHome(),
             ...(process.env.ANTHROPIC_API_KEY ? { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY } : {}),
           },
         });

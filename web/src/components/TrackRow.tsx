@@ -132,10 +132,10 @@ export default function TrackRow({
               {lead}
               {isCover && (
                 <span className="text-ink-tertiary">
-                  {' · '}
+                  {lead ? ' · ' : ''}
                   {coverPerformers ? (
                     <>
-                      <span className="text-accent">covered by</span>
+                      <span className="text-accent">{lead ? 'covered by' : 'Cover by'}</span>
                       {` ${coverPerformers}`}
                     </>
                   ) : (

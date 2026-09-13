@@ -17,7 +17,8 @@ export default function Player() {
   const nowPlayingArtist = (() => {
     if (!track) return ''
     const { lead, coverPerformers } = artistLine(track)
-    return coverPerformers ? `${lead} · covered by ${coverPerformers}` : lead
+    if (!coverPerformers) return lead ?? ''
+    return lead ? `${lead} · covered by ${coverPerformers}` : `Cover by ${coverPerformers}`
   })()
   const {
     isPlaying, volume, currentTime, duration,

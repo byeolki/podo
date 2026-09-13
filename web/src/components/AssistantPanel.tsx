@@ -127,22 +127,28 @@ export default function AssistantPanel() {
     return (
       <button
         onClick={() => setOpen(true)}
-        // A round button sitting clear of the edge, rather than a slab welded to
-        // it — the half-cut tab read as a rendering artefact.
-        className="group fixed right-4 bottom-28 z-[60] flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 border border-border text-ink-secondary shadow-xl transition-all hover:w-auto hover:gap-2 hover:px-4 hover:text-white hover:border-accent"
+        className="group fixed right-5 bottom-28 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 border border-border text-ink-secondary shadow-xl transition-all hover:w-auto hover:gap-2 hover:px-4 hover:text-white hover:border-accent"
         title="Assistant"
         aria-label="Open the assistant"
       >
-        <Sparkles size={16} className="text-accent flex-shrink-0" />
+        <Sparkles size={17} className="text-accent flex-shrink-0" />
         <span className="hidden group-hover:inline text-sm font-medium whitespace-nowrap">Assistant</span>
       </button>
     )
   }
 
   return (
-    <div className="fixed right-0 top-0 bottom-28 z-[60] w-full sm:w-[380px] bg-surface-1 border-l border-border flex flex-col shadow-2xl"
+    <div
+      // A popup growing out of the corner it was launched from, rather than a
+      // full-height panel welded to the window edge: it covers a strip of the
+      // page instead of a third of it, and reads as something you opened.
+      className="fixed z-[60] flex flex-col overflow-hidden rounded-2xl bg-surface-1 border border-border shadow-2xl
+                 inset-x-3 bottom-28 top-20
+                 sm:inset-x-auto sm:top-auto sm:right-5 sm:w-[380px] sm:h-[min(560px,72vh)]
+                 origin-bottom-right animate-[assistant-in_140ms_ease-out]"
       role="dialog"
-      aria-label="Assistant">
+      aria-label="Assistant"
+    >
       <div className="flex items-center justify-between px-4 h-14 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2">
           <Sparkles size={15} className="text-accent" />

@@ -71,11 +71,11 @@ function TagInput({ tags, onChange, placeholder }: { tags: string[]; onChange: (
 export default function TrackEditModal({ track, onClose }: Props) {
   const ov = track.override
   const [title, setTitle] = useState(ov?.title ?? track.title)
-  const [origArtists, setOrigArtists] = useState<string[]>(splitList(ov?.original_artist))
+  const [originalArtists, setOriginalArtists] = useState<string[]>(splitList(ov?.original_artist))
   // An empty array is truthy, so `||` here never reached the fallback: a track
   // with no artist override showed an empty "Cover by" field instead of its
   // current artists.
-  const [coverByArtists, setCoverByArtists] = useState<string[]>(() => {
+  const [performers, setPerformers] = useState<string[]>(() => {
     const fromOverride = splitList(ov?.artist)
     return fromOverride.length ? fromOverride : (track.artists?.map((a) => a.name) ?? [])
   })
@@ -122,9 +122,9 @@ export default function TrackEditModal({ track, onClose }: Props) {
     e.preventDefault()
     mutate({
       title: title.trim() || undefined,
-      artist: coverByArtists.join(', ') || undefined,
+      artist: performers.join(', ') || undefined,
       is_cover: isCover,
-      original_artist: origArtists.join(', ') || undefined,
+      original_artist: originalArtists.join(', ') || undefined,
       alternate_titles: alternateTitles.join(', ') || undefined,
       volume_db: volumeDb,
     })
@@ -149,8 +149,8 @@ export default function TrackEditModal({ track, onClose }: Props) {
               onResult={(r) => {
                 if (r.title) setTitle(r.title as string)
                 if (r.is_cover !== undefined) setIsCover(r.is_cover as boolean)
-                if (r.artist) setCoverByArtists(splitList(r.artist as string))
-                if (r.original_artist) setOrigArtists(splitList(r.original_artist as string))
+                if (r.artist) setPerformers(splitList(r.artist as string))
+                if (r.original_artist) setOriginalArtists(splitList(r.original_artist as string))
               }}
             />
             <button onClick={onClose} className="text-ink-tertiary hover:text-white transition-colors">
@@ -217,9 +217,14 @@ export default function TrackEditModal({ track, onClose }: Props) {
             />
           </div>
 
+          {/* This field wrote `original_artist` while being labelled "Artist", and
+              the one below wrote `artist` while being labelled "Cover by" — so
+              filling in "Artist" recorded the performer as whoever released the
+              song first, and the row then showed the person who covered it as
+              the artist. Each field writes the column it names now. */}
           <div>
             <label className="block text-xs text-ink-tertiary mb-1.5">Artist</label>
-            <TagInput tags={origArtists} onChange={setOrigArtists} placeholder="Add artist, press Enter" />
+            <TagInput tags={performers} onChange={setPerformers} placeholder="Who performs this recording" />
           </div>
 
           <div className="flex items-center gap-3">
@@ -236,8 +241,8 @@ export default function TrackEditModal({ track, onClose }: Props) {
           </div>
 
           <div className={isCover ? '' : 'hidden'}>
-            <label className="block text-xs text-ink-tertiary mb-1.5">Cover by</label>
-            <TagInput tags={coverByArtists} onChange={setCoverByArtists} placeholder="Add cover artist, press Enter" />
+            <label className="block text-xs text-ink-tertiary mb-1.5">Original artist</label>
+            <TagInput tags={originalArtists} onChange={setOriginalArtists} placeholder="Who released it first" />
           </div>
 
           <div>

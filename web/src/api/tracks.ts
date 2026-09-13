@@ -168,14 +168,20 @@ export function artistLine(track: {
   artists?: { name: string }[] | null
   is_cover?: boolean
   override?: { original_artist?: string | null } | null
-}): { lead: string; coverPerformers: string | null } {
+}): { lead: string | null; coverPerformers: string | null } {
   const performers = track.artists?.map((a) => a.name).join(', ') ?? ''
   const originalArtist = track.override?.original_artist ?? null
   const isCover = !!track.is_cover
 
-  const lead = (isCover && originalArtist ? originalArtist : performers) || 'Unknown Artist'
-  // Dropped when it would merely repeat the lead — a cover with no recorded
-  // original would otherwise read "윤단 · covered by 윤단".
-  const coverPerformers = isCover && performers && performers !== lead ? performers : null
-  return { lead, coverPerformers }
+  if (isCover) {
+    // The lead slot is "whose song this is". Falling back to the performer when
+    // no original is recorded put the person who covered it there — a track
+    // marked as a cover by 윤단, with the original unknown, read as though 윤단
+    // were the artist. With nothing to lead with, lead with nothing.
+    return {
+      lead: originalArtist || null,
+      coverPerformers: performers && performers !== originalArtist ? performers : null,
+    }
+  }
+  return { lead: performers || 'Unknown Artist', coverPerformers: null }
 }

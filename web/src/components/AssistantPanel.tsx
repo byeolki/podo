@@ -12,6 +12,14 @@ interface Turn {
   content: string
   actions?: ChatAction[]
   usedTools?: string[]
+  /**
+   * A failure, shown in the thread but never replayed to the model — "Failed to
+   * fetch" is not something it said. It belongs in the thread all the same: a
+   * request that dies in flight used to leave the panel simply stopped, with the
+   * spinner gone and nothing in its place, which reads as the assistant giving up
+   * silently rather than as something going wrong.
+   */
+  failed?: boolean
 }
 
 const SUGGESTIONS = [
@@ -51,7 +59,7 @@ export default function AssistantPanel() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: (history: Turn[]) =>
-      sendChat(history.map(({ role, content }) => ({ role, content }))),
+      sendChat(history.filter((t) => !t.failed).map(({ role, content }) => ({ role, content }))),
     onSuccess: (reply) => {
       setTurns((prev) => [
         ...prev,
@@ -65,9 +73,18 @@ export default function AssistantPanel() {
       qc.invalidateQueries({ queryKey: ['search'] })
     },
     onError: (err) => {
-      // Kept out of `turns`: everything in there is replayed to the model as
-      // conversation, and "Failed to fetch" is not something it said.
-      setError((err as Error).message)
+      const message = (err as Error).message
+      setTurns((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          failed: true,
+          content:
+            /failed to fetch|network|timeout|gateway/i.test(message)
+              ? `That request didn't come back — ${message}. Long jobs can outlast the connection; try asking for a smaller batch.`
+              : message,
+        },
+      ])
     },
   })
 
@@ -193,7 +210,11 @@ export default function AssistantPanel() {
           <div key={i} className={turn.role === 'user' ? 'flex justify-end' : ''}>
             <div
               className={`max-w-[90%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
-                turn.role === 'user' ? 'bg-accent/20 text-white' : 'bg-surface-2 text-ink-secondary'
+                turn.failed
+                  ? 'bg-danger/10 border border-danger/30 text-danger'
+                  : turn.role === 'user'
+                    ? 'bg-accent/20 text-white'
+                    : 'bg-surface-2 text-ink-secondary'
               }`}
             >
               {turn.content}

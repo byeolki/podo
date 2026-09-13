@@ -30,6 +30,8 @@ class BulkMetadataDto {
 
 class AiFillDto {
   @IsArray() @ArrayNotEmpty() @IsString({ each: true }) track_ids!: string[];
+  /** Re-fill tracks the server would otherwise consider already done. */
+  @IsOptional() @IsBoolean() force?: boolean;
 }
 
 class DeleteTracksDto {
@@ -162,7 +164,7 @@ export class TracksController {
     @Body() dto: AiFillDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.tracks.aiAutofill(dto.track_ids, user.sub);
+    return this.tracks.aiAutofill(dto.track_ids, user.sub, { force: dto.force });
   }
 
   @Get(':id/lyrics')

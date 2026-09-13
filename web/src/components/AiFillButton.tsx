@@ -21,26 +21,45 @@ interface Props {
  */
 const BATCH = 3
 
+interface Outcome {
+  filled: number
+  skipped: number
+  failed: number
+}
+
 export default function AiFillButton({ trackIds, onResult, className, iconSize = 14 }: Props) {
   const qc = useQueryClient()
   const { available, reason } = useAiStatus()
   const [done, setDone] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [outcome, setOutcome] = useState<Outcome | null>(null)
 
   const total = trackIds.length
   const running = done !== null
+  // Everything the server considered already complete. Offering a forced re-run
+  // is the whole point: the button previously reported nothing in this case, so
+  // a press that skipped every track was indistinguishable from a broken button.
+  const canForce = !!outcome && outcome.skipped > 0
 
-  async function run() {
+  async function run(force: boolean) {
     if (!available || running || !total) return
     setError(null)
+    setOutcome(null)
     setDone(0)
+    const tally: Outcome = { filled: 0, skipped: 0, failed: 0 }
     try {
       for (let i = 0; i < total; i += BATCH) {
         const batch = trackIds.slice(i, i + BATCH)
-        const results = await aiAutofillTracks(batch)
+        const results = await aiAutofillTracks(batch, force)
+        for (const r of results) {
+          if (r.applied) tally.filled++
+          else if (r.skipped) tally.skipped++
+          else tally.failed++
+        }
         if (onResult && results[0]?.result) onResult(results[0].result)
         setDone(Math.min(i + batch.length, total))
       }
+      setOutcome(tally)
       qc.invalidateQueries({ queryKey: ['tracks'] })
     } catch (e) {
       setError((e as Error).message)
@@ -53,13 +72,15 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
     <div className="flex flex-col gap-1">
       <button
         type="button"
-        onClick={run}
+        onClick={() => run(canForce)}
         disabled={!available || running || !total}
         title={reason ?? 'Guess title, artist and cover details from the filename'}
         className={className ?? 'flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed'}
       >
-        <Sparkles size={iconSize} />
-        {running ? (total > 1 ? `Filling ${done} / ${total}` : 'Filling…') : 'AI Fill'}
+        <Sparkles size={iconSize} aria-hidden="true" />
+        {running
+          ? (total > 1 ? `Filling ${done} / ${total}` : 'Filling…')
+          : canForce ? 'Fill again' : 'AI Fill'}
       </button>
 
       {running && total > 1 && (
@@ -70,7 +91,22 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
           />
         </div>
       )}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {outcome && !running && (
+        <p role="status" className="text-xs text-ink-tertiary">
+          {summarize(outcome)}
+        </p>
+      )}
+      {error && <p role="alert" className="text-xs text-danger">{error}</p>}
     </div>
   )
+}
+
+function summarize({ filled, skipped, failed }: Outcome): string {
+  const parts: string[] = []
+  if (filled) parts.push(`${filled} filled`)
+  if (skipped) parts.push(`${skipped} already complete`)
+  if (failed) parts.push(`${failed} with nothing to go on`)
+  if (!parts.length) return 'Nothing to fill'
+  const tail = skipped ? ' — press again to redo them' : ''
+  return parts.join(' · ') + tail
 }

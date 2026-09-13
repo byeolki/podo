@@ -109,8 +109,8 @@ export interface AiFillResult {
   result: { title: string | null; artist: string | null; is_cover: boolean; original_artist: string | null } | null
 }
 
-export function aiAutofillTracks(trackIds: string[]): Promise<AiFillResult[]> {
-  return api.post('/tracks/ai-fill', { track_ids: trackIds })
+export function aiAutofillTracks(trackIds: string[], force = false): Promise<AiFillResult[]> {
+  return api.post('/tracks/ai-fill', { track_ids: trackIds, force })
 }
 
 export function deleteTracks(trackIds: string[]): Promise<{ deleted: number }> {

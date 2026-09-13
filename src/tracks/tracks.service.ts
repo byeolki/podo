@@ -427,7 +427,11 @@ export class TracksService {
     return { deleted: trackIds.length };
   }
 
-  async aiAutofill(trackIds: string[], userId: string): Promise<{ track_id: string; applied: boolean; skipped: boolean; result: Record<string, unknown> | null }[]> {
+  async aiAutofill(
+    trackIds: string[],
+    userId: string,
+    opts: { force?: boolean } = {},
+  ): Promise<{ track_id: string; applied: boolean; skipped: boolean; result: Record<string, unknown> | null }[]> {
     // A clean empty success made "no provider configured" identical to "the model
     // had no answer", which is why this looked like a button that did nothing.
     if (!(await this.ai.isUsable())) {
@@ -440,13 +444,29 @@ export class TracksService {
         .from(schema.tracks)
         .where(inArray(schema.tracks.id, trackIds)),
       this.db
-        .select({ track_id: schema.track_metadata_overrides.track_id, title: schema.track_metadata_overrides.title, artist: schema.track_metadata_overrides.artist })
+        .select({
+          track_id: schema.track_metadata_overrides.track_id,
+          title: schema.track_metadata_overrides.title,
+          artist: schema.track_metadata_overrides.artist,
+          is_cover: schema.track_metadata_overrides.is_cover,
+          original_artist: schema.track_metadata_overrides.original_artist,
+        })
         .from(schema.track_metadata_overrides)
         .where(inArray(schema.track_metadata_overrides.track_id, trackIds)),
     ]);
 
+    // Skipping exists so filling a whole library doesn't re-pay for answers it
+    // already has. "Already has" has to mean the fill is actually finished,
+    // though: a cover whose original artist is still blank is exactly the track
+    // the fill is for, and counting it as done meant pressing the button again
+    // did nothing at all. `force` covers the rest — a deliberate second press is
+    // a request to redo the work, not to be told it was already done.
     const alreadyFilled = new Set(
-      existingOverrides.filter((o) => o.title && o.artist).map((o) => o.track_id),
+      opts.force
+        ? []
+        : existingOverrides
+            .filter((o) => o.title && o.artist && (!o.is_cover || o.original_artist))
+            .map((o) => o.track_id),
     );
 
     const sources = await this.db

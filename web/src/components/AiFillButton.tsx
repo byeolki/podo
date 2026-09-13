@@ -86,7 +86,7 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
       {running && total > 1 && (
         <div className="h-1 rounded-full bg-surface-3 overflow-hidden">
           <div
-            className="h-full bg-accent transition-all duration-300"
+            className="h-full bg-accent transition-[opacity,color,background-color,border-color,scale] duration-300"
             style={{ width: `${Math.round(((done ?? 0) / total) * 100)}%` }}
           />
         </div>

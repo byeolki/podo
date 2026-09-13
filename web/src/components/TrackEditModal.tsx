@@ -50,7 +50,7 @@ function TagInput({ tags, onChange, placeholder }: { tags: string[]; onChange: (
       {tags.map((tag) => (
         <span key={tag} className="flex items-center gap-1 bg-surface-3 text-sm px-2 py-0.5 rounded-md">
           {tag}
-          <button type="button" onClick={() => remove(tag)} className="text-ink-faint hover:text-white transition-colors">
+          <button type="button" onClick={() => remove(tag)} className="text-ink-faint hover:text-ink-primary transition-colors">
             <X size={10} />
           </button>
         </span>
@@ -148,7 +148,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
             <AiFillButton
               trackIds={[track.id]}
               iconSize={12}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-ink-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               onResult={(r) => {
                 if (r.title) setTitle(r.title as string)
                 if (r.is_cover !== undefined) setIsCover(r.is_cover as boolean)
@@ -178,7 +178,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
                   type="button"
                   onClick={() => thumbnailInputRef.current?.click()}
                   disabled={thumbnailMut.isPending}
-                  className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 group-hover:bg-black/50 text-transparent group-hover:text-white transition-all disabled:opacity-50"
+                  className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 group-hover:bg-black/50 text-transparent group-hover:text-ink-primary transition-[opacity,color,background-color,border-color,scale] disabled:opacity-50"
                   title="Change thumbnail"
                 >
                   <Camera size={18} />
@@ -272,7 +272,7 @@ export default function TrackEditModal({ track, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => setVolumeDb(0)}
-                    className="text-ink-faint hover:text-white transition-colors"
+                    className="text-ink-faint hover:text-ink-primary transition-colors"
                     title="Reset to 0 dB"
                   >
                     <RotateCcw size={12} />

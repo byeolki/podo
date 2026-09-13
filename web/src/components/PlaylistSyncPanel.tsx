@@ -173,7 +173,7 @@ export default function PlaylistSyncPanel({ playlistId, onClose }: Props) {
                 onClick={() => syncMut.mutate()}
                 disabled={syncMut.isPending}
                 title="Sync now"
-                className="px-3 py-2 rounded-lg bg-surface-1 hover:bg-surface-3 text-ink-secondary hover:text-white disabled:opacity-50 transition-colors"
+                className="px-3 py-2 rounded-lg bg-surface-1 hover:bg-surface-3 text-ink-secondary hover:text-ink-primary disabled:opacity-50 transition-colors"
               >
                 <RefreshCw size={14} className={syncMut.isPending ? 'animate-spin' : ''} />
               </button>

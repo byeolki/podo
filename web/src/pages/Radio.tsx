@@ -7,6 +7,8 @@ import { usePlayerStore } from '../store/player'
 import type { Track } from '../api/tracks'
 import TrackRow, { TrackListHeader } from '../components/TrackRow'
 import MyRadioUrls from '../components/MyRadioUrls'
+import { btn, btnSize } from '../ui/button'
+import EmptyState from '../ui/EmptyState'
 
 export default function Radio() {
   const qc = useQueryClient()
@@ -82,7 +84,7 @@ export default function Radio() {
           <>
             <button
               onClick={playStation}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm font-medium transition-colors"
+              className={`${btn.secondary} ${btnSize.md}`}
             >
               <Play size={14} fill="currentColor" /> Play
             </button>
@@ -133,11 +135,7 @@ export default function Radio() {
       )}
 
       {!stationMut.isPending && tracks.length === 0 && (
-        <div className="text-center py-20 text-ink-tertiary">
-          <RadioIcon size={40} className="mx-auto mb-3" />
-          <p className="text-lg font-medium">No station yet</p>
-          <p className="text-sm mt-1">Click "Generate Station" to start</p>
-        </div>
+        <EmptyState icon={RadioIcon} title="No station yet" hint="Generate one to start listening" />
       )}
     </div>
   )

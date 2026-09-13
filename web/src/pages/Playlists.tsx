@@ -8,6 +8,8 @@ import ArtworkImage from '../components/ArtworkImage'
 import SearchInput from '../components/SearchInput'
 import SortMenu from '../components/SortMenu'
 import { useAuthStore } from '../store/auth'
+import { btn, btnSize } from '../ui/button'
+import EmptyState from '../ui/EmptyState'
 
 type PlaylistFilter = 'mine' | 'all'
 type PlaylistSort = 'az' | 'za' | 'newest'
@@ -81,7 +83,7 @@ export default function Playlists() {
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
+          className={`${btn.primary} ${btnSize.md}`}
         >
           <Plus size={14} /> New playlist
         </button>
@@ -103,13 +105,13 @@ export default function Playlists() {
             <button
               onClick={() => createMut.mutate()}
               disabled={!newName || createMut.isPending}
-              className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
+              className={`${btn.primary} ${btnSize.md}`}
             >
               Create
             </button>
             <button
               onClick={() => setShowCreate(false)}
-              className="px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm"
+              className={`${btn.secondary} ${btnSize.md}`}
             >
               Cancel
             </button>
@@ -121,17 +123,16 @@ export default function Playlists() {
         </div>
       )}
 
-      <SearchInput value={q} onChange={setQ} placeholder="Search playlists..." className="mb-3" />
-
-      {/* Filter + Sort bar */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-1 bg-surface-2 rounded-lg p-0.5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+        <SearchInput value={q} onChange={setQ} placeholder="Search playlists..." className="flex-1 sm:max-w-sm" />
+        <div className="flex items-center gap-2 sm:ml-auto">
+        <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-lg p-0.5">
           {(Object.keys(FILTER_LABELS) as PlaylistFilter[]).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                filter === f ? 'bg-surface-3 text-white' : 'text-ink-tertiary hover:text-white'
+                filter === f ? 'bg-surface-3 text-ink-primary shadow-raised' : 'text-ink-tertiary hover:text-ink-primary'
               }`}
             >
               {FILTER_LABELS[f]}
@@ -140,34 +141,35 @@ export default function Playlists() {
         </div>
 
         <SortMenu value={sort} options={SORT_LABELS} onChange={setSort} menuWidthClass="w-32" />
+        </div>
       </div>
 
       {visible.length === 0 ? (
-        <div className="text-center py-20 text-ink-tertiary">
-          <ListMusic size={40} className="mx-auto mb-3" />
-          <p className="text-lg font-medium">No playlists</p>
-          <p className="text-sm mt-1">{filter === 'mine' ? 'Create one to get started' : 'No public playlists found'}</p>
-        </div>
+        <EmptyState
+          icon={ListMusic}
+          title="No playlists"
+          hint={filter === 'mine' ? 'Create one to get started' : 'No public playlists found'}
+        />
       ) : (
         <div className="space-y-1">
           {visible.map((pl) => {
             const isOwner = pl.owner_user_id === userId
             return (
-              <div key={pl.id} className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 group">
+              <div key={pl.id} className="group flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/[0.06] focus-within:bg-white/[0.06] transition-colors duration-150">
                 {pl.artwork_path ? (
                   <ArtworkImage
                     src={getArtworkUrl(pl.id)}
                     alt={pl.name}
-                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-surface-2"
+                    className="w-12 h-12 rounded-md object-cover flex-shrink-0 bg-surface-2"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-lg bg-surface-2 flex items-center justify-center flex-shrink-0">
-                    <ListMusic size={16} className="text-ink-faint" />
+                  <div className="artwork-edge w-12 h-12 rounded-md bg-surface-2 flex items-center justify-center flex-shrink-0">
+                    <ListMusic size={18} className="text-ink-faint" aria-hidden="true" />
                   </div>
                 )}
                 <Link to={`/playlists/${pl.id}`} className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate hover:text-accent-text transition-colors">{pl.name}</p>
-                  <p className="text-xs text-ink-tertiary flex items-center gap-1">
+                  <p className="text-title font-medium truncate group-hover:text-accent-text transition-colors">{pl.name}</p>
+                  <p className="text-meta text-ink-tertiary flex items-center gap-1 mt-0.5">
                     {pl.is_public ? <Globe size={10} /> : <Lock size={10} />}
                     {pl.is_public ? 'Public' : 'Private'}
                     {filter === 'all' && !isOwner && <span className="ml-1 opacity-60">· by others</span>}
@@ -175,10 +177,15 @@ export default function Playlists() {
                 </Link>
                 {isOwner && (
                   <button
+                    type="button"
                     onClick={() => deleteMut.mutate(pl.id)}
-                    className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 text-ink-tertiary hover:text-danger transition-all"
+                    aria-label={`Delete ${pl.name}`}
+                    className="p-1.5 text-ink-tertiary hover:text-danger transition-[opacity,color,background-color,border-color,scale] opacity-0 pointer-events-none
+                               group-hover:opacity-100 group-hover:pointer-events-auto
+                               group-focus-within:opacity-100 group-focus-within:pointer-events-auto
+                               [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={14} aria-hidden="true" />
                   </button>
                 )}
               </div>

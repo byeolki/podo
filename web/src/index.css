@@ -55,6 +55,25 @@ body {
   }
 }
 
+/* iOS Safari zooms the whole page whenever a focused field's text is under 16px,
+   and the UI type here is 14. Held at 16 below the small breakpoint only, so the
+   desktop density is untouched — one rule instead of a prop on eighteen fields. */
+@media (max-width: 639px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Lucide draws at stroke-width 2, which is the weight for semibold text; nearly
+   every icon here sits beside regular-weight UI text and read a step too heavy.
+   Set once on the icon class rather than as a prop on 200 call sites — anything
+   that genuinely needs a heavier stroke sets it inline, which still wins. */
+.lucide {
+  stroke-width: 1.5px;
+}
+
 /* Every cover in the app sits on a dark surface with no edge of its own, so a
    pale album and the page behind it ran together. A white hairline at 10% is the
    one outline that never tints the artwork it borders. */

@@ -4,6 +4,7 @@ import { getHistory, getStats } from '../api/history'
 import { formatDuration } from '../api/tracks'
 import { getArtworkUrl } from '../api/client'
 import ArtworkImage from '../components/ArtworkImage'
+import EmptyState from '../ui/EmptyState'
 
 function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -45,11 +46,7 @@ export default function History() {
       )}
 
       {history.length === 0 ? (
-        <div className="text-center py-20 text-ink-tertiary">
-          <HistoryIcon size={40} className="mx-auto mb-3" />
-          <p className="text-lg font-medium">No history yet</p>
-          <p className="text-sm mt-1">Start listening to see your history here</p>
-        </div>
+        <EmptyState icon={HistoryIcon} title="No history yet" hint="Start listening to see your history here" />
       ) : (
         <div className="space-y-1">
           {history.map((entry) => (

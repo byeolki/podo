@@ -43,7 +43,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               }`
             }
           >
-            <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
+            <Icon size={16} aria-hidden="true" />
             {label}
           </NavLink>
         ))}
@@ -55,7 +55,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm text-ink-secondary hover:text-ink-primary hover:bg-white/[0.06] transition-colors duration-150"
         >
-          <LogOut size={16} strokeWidth={1.5} aria-hidden="true" />
+          <LogOut size={16} aria-hidden="true" />
           Sign out
         </button>
       </div>

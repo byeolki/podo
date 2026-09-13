@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Plus, ListMusic, Check } from 'lucide-react'
 import { getPlaylists, createPlaylist, addTracksToPlaylist } from '../api/playlists'
+import { btn, btnSize } from '../ui/button'
 
 interface Props {
   trackIds: string[]
@@ -57,7 +58,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <span className="text-sm font-semibold">Add {trackIds.length} track{trackIds.length !== 1 ? 's' : ''} to playlist</span>
-          <button onClick={onClose} className="text-ink-faint hover:text-white transition-colors">
+          <button onClick={onClose} className="text-ink-faint hover:text-ink-primary transition-colors">
             <X size={15} />
           </button>
         </div>
@@ -94,14 +95,14 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
               <button
                 type="submit"
                 disabled={!newName.trim() || creatingAndAdding}
-                className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50"
+                className={`${btn.primary} ${btnSize.sm}`}
               >
                 {creatingAndAdding ? '…' : 'Create'}
               </button>
               <button
                 type="button"
                 onClick={() => setCreating(false)}
-                className="px-2 py-1.5 rounded-lg text-ink-faint hover:text-white transition-colors"
+                className="px-2 py-1.5 rounded-lg text-ink-faint hover:text-ink-primary transition-colors"
               >
                 <X size={13} />
               </button>
@@ -109,7 +110,7 @@ export default function AddToPlaylistModal({ trackIds, onClose }: Props) {
           ) : (
             <button
               onClick={() => setCreating(true)}
-              className="flex items-center gap-2 text-sm text-ink-secondary hover:text-white transition-colors"
+              className="flex items-center gap-2 text-sm text-ink-secondary hover:text-ink-primary transition-colors"
             >
               <Plus size={14} /> New playlist
             </button>

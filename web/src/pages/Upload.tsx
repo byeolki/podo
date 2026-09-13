@@ -13,6 +13,7 @@ import { startDownload, getDownloads, searchDownload, inspectUrl, type UnifiedSe
 import { useAuthStore } from '../store/auth'
 import { Link } from 'react-router-dom'
 import { importPlaylistFromUrl } from '../api/playlists'
+import { btn, btnSize } from '../ui/button'
 
 const URL_PATTERN = /^https?:\/\//i
 
@@ -137,7 +138,7 @@ function AddMusicSection() {
         <button
           type="submit"
           disabled={!input.trim() || isSearching || downloadMut.isPending || importMut.isPending}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
+          className={`${btn.primary} ${btnSize.md}`}
         >
           {isUrl ? <Download size={14} /> : <Search size={14} />}
           {isSearching
@@ -260,7 +261,7 @@ function AddMusicSection() {
               {job.status === 'running' && (
                 <div className="mt-2 h-1 bg-border-strong rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-accent rounded-full transition-all"
+                    className="h-full bg-accent rounded-full transition-[opacity,color,background-color,border-color,scale]"
                     style={{ width: `${job.progress}%` }}
                   />
                 </div>
@@ -317,7 +318,7 @@ function FileRow({ file, onRename, onDelete }: {
             <button onClick={handleRename} className="p-1 text-success hover:text-success transition-colors">
               <Check size={13} />
             </button>
-            <button onClick={() => setEditing(false)} className="p-1 text-ink-faint hover:text-white transition-colors">
+            <button onClick={() => setEditing(false)} className="p-1 text-ink-faint hover:text-ink-primary transition-colors">
               <X size={13} />
             </button>
           </div>
@@ -340,7 +341,7 @@ function FileRow({ file, onRename, onDelete }: {
                 href={file.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1 text-ink-faint hover:text-white transition-colors"
+                className="p-1 text-ink-faint hover:text-ink-primary transition-colors"
                 title={`Downloaded from: ${file.source_url}`}
               >
                 <ExternalLink size={13} />
@@ -348,7 +349,7 @@ function FileRow({ file, onRename, onDelete }: {
             )}
             <button
               onClick={() => setEditing(true)}
-              className="p-1 text-ink-faint hover:text-white transition-colors"
+              className="p-1 text-ink-faint hover:text-ink-primary transition-colors"
               title="Rename"
             >
               <Pencil size={13} />
@@ -492,7 +493,7 @@ export default function Upload() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-ink-secondary uppercase tracking-wider">Uploading</h3>
-            <button onClick={clearDone} className="text-xs text-ink-faint hover:text-white transition-colors">
+            <button onClick={clearDone} className="text-xs text-ink-faint hover:text-ink-primary transition-colors">
               Clear done
             </button>
           </div>
@@ -510,7 +511,7 @@ export default function Upload() {
                 {item.status === 'uploading' && (
                   <div className="h-1 bg-border-strong rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-accent rounded-full transition-all"
+                      className="h-full bg-accent rounded-full transition-[opacity,color,background-color,border-color,scale]"
                       style={{ width: `${item.progress}%` }}
                     />
                   </div>

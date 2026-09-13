@@ -51,7 +51,7 @@ export default function Layout() {
                 type="button"
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Close the menu"
-                className="p-2 -mr-1 text-ink-secondary hover:text-white"
+                className="p-2 -mr-1 text-ink-secondary hover:text-ink-primary"
               >
                 <X size={18} aria-hidden="true" />
               </button>
@@ -68,7 +68,7 @@ export default function Layout() {
             onClick={() => setDrawerOpen(true)}
             aria-label="Open the menu"
             aria-expanded={drawerOpen}
-            className="p-2 -ml-1 text-ink-secondary hover:text-white"
+            className="p-2 -ml-1 text-ink-secondary hover:text-ink-primary"
           >
             <Menu size={20} aria-hidden="true" />
           </button>

@@ -41,7 +41,7 @@ export default function AlbumDetail() {
 
   return (
     <div className="p-4 sm:p-6 lg:px-8">
-      <Link to="/albums" className="flex items-center gap-2 text-sm text-ink-secondary hover:text-white mb-6 transition-colors">
+      <Link to="/albums" className="flex items-center gap-2 text-sm text-ink-secondary hover:text-ink-primary mb-6 transition-colors">
         <ArrowLeft size={16} /> Back to Albums
       </Link>
 

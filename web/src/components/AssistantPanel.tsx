@@ -158,7 +158,7 @@ export default function AssistantPanel() {
           <Sparkles size={15} className="text-accent-text" />
           <span className="text-sm font-semibold">Assistant</span>
         </div>
-        <button onClick={() => setOpen(false)} className="text-ink-tertiary hover:text-white transition-colors" aria-label="Close">
+        <button onClick={() => setOpen(false)} className="text-ink-tertiary hover:text-ink-primary transition-colors" aria-label="Close">
           <X size={16} />
         </button>
       </div>
@@ -173,7 +173,7 @@ export default function AssistantPanel() {
               <button
                 key={s}
                 onClick={() => submit(s)}
-                className="block w-full text-left text-xs px-3 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-ink-secondary hover:text-white transition-colors"
+                className="block w-full text-left text-xs px-3 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-ink-secondary hover:text-ink-primary transition-colors"
               >
                 {s}
               </button>

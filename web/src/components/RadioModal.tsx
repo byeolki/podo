@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Radio, Plus, Trash2, Copy, Check, Shuffle } from 'lucide-react'
 import { createRadioToken, getRadioTokens, revokeRadioToken, getRadioStreamUrl, type RadioToken } from '../api/broadcast'
+import { btn, btnSize } from '../ui/button'
 
 interface Props {
   playlistId: string
@@ -36,7 +37,7 @@ function TokenRow({ token, onRevoke }: { token: RadioToken; onRevoke: () => void
           className="flex-1 bg-surface-1 border border-border rounded px-2 py-1.5 text-xs font-mono text-ink-secondary truncate"
           onFocus={(e) => e.target.select()}
         />
-        <button onClick={handleCopy} className="p-1.5 text-ink-faint hover:text-white transition-colors flex-shrink-0" title="Copy URL">
+        <button onClick={handleCopy} className="p-1.5 text-ink-faint hover:text-ink-primary transition-colors flex-shrink-0" title="Copy URL">
           {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
         </button>
         <button onClick={onRevoke} className="p-1.5 text-ink-faint hover:text-danger transition-colors flex-shrink-0" title="Close this radio stream">
@@ -51,7 +52,7 @@ function TokenRow({ token, onRevoke }: { token: RadioToken; onRevoke: () => void
                 key={f}
                 onClick={() => setFormat(f)}
                 className={`px-2 py-0.5 rounded text-[10px] uppercase font-medium transition-colors ${
-                  format === f ? 'bg-accent/20 text-accent-text' : 'bg-surface-2 text-ink-tertiary hover:text-white'
+                  format === f ? 'bg-accent/20 text-accent-text' : 'bg-surface-2 text-ink-tertiary hover:text-ink-primary'
                 }`}
               >
                 {f}
@@ -62,7 +63,7 @@ function TokenRow({ token, onRevoke }: { token: RadioToken; onRevoke: () => void
             onClick={() => setShuffle((v) => !v)}
             title="Shuffle playback"
             className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
-              shuffle ? 'bg-accent/20 text-accent-text' : 'bg-surface-2 text-ink-tertiary hover:text-white'
+              shuffle ? 'bg-accent/20 text-accent-text' : 'bg-surface-2 text-ink-tertiary hover:text-ink-primary'
             }`}
           >
             <Shuffle size={10} /> Shuffle
@@ -106,7 +107,7 @@ export default function RadioModal({ playlistId, onClose }: Props) {
           <span className="flex items-center gap-2 text-sm font-semibold">
             <Radio size={15} className="text-accent-text" /> Radio URLs
           </span>
-          <button onClick={onClose} className="text-ink-faint hover:text-white transition-colors">
+          <button onClick={onClose} className="text-ink-faint hover:text-ink-primary transition-colors">
             <X size={15} />
           </button>
         </div>
@@ -131,7 +132,7 @@ export default function RadioModal({ playlistId, onClose }: Props) {
           <button
             onClick={() => createMut.mutate()}
             disabled={createMut.isPending}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50 transition-colors"
+            className={`w-full ${btn.primary} ${btnSize.md}`}
           >
             <Plus size={14} /> {createMut.isPending ? 'Creating…' : 'Generate new radio URL'}
           </button>

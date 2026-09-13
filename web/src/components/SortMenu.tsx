@@ -44,7 +44,7 @@ export default function SortMenu<T extends string>({
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-white transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-ink-primary transition-colors"
       >
         {options[value]}
         <ChevronDown size={12} />
@@ -56,7 +56,7 @@ export default function SortMenu<T extends string>({
               key={key}
               onClick={() => { onChange(key); setOpen(false) }}
               className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                value === key ? 'text-accent-text bg-accent/10' : 'text-ink-secondary hover:text-white hover:bg-white/5'
+                value === key ? 'text-accent-text bg-accent/10' : 'text-ink-secondary hover:text-ink-primary hover:bg-white/5'
               }`}
             >
               {options[key]}

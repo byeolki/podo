@@ -3,6 +3,7 @@ import { Sparkles, Check, AlertCircle, RotateCcw } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAiSettings, updateAiSettings } from '../api/admin'
 import type { AiProviderName } from '../api/admin'
+import { btn, btnSize } from '../ui/button'
 
 const PROVIDERS: { value: AiProviderName; label: string; hint: string }[] = [
   { value: 'openai', label: 'OpenAI', hint: 'Needs OPENAI_API_KEY on the server.' },
@@ -100,7 +101,7 @@ export default function AiSettingsCard() {
                 className={`flex-1 px-3 py-2 rounded-lg text-sm transition-colors border ${
                   ai.provider === p.value
                     ? 'bg-accent/15 border-accent text-white'
-                    : 'bg-surface-1 border-border-strong text-ink-secondary hover:text-white'
+                    : 'bg-surface-1 border-border-strong text-ink-secondary hover:text-ink-primary'
                 }`}
               >
                 {p.label}
@@ -117,7 +118,7 @@ export default function AiSettingsCard() {
               <button
                 type="button"
                 onClick={() => { setModelDirty(false); mutate({ model: '' }) }}
-                className="flex items-center gap-1 text-xs text-ink-faint hover:text-white transition-colors"
+                className="flex items-center gap-1 text-xs text-ink-faint hover:text-ink-primary transition-colors"
                 title={`Back to ${defaultModel}`}
               >
                 <RotateCcw size={11} /> Default
@@ -136,7 +137,7 @@ export default function AiSettingsCard() {
               type="button"
               disabled={isPending || !modelDirty || !model.trim()}
               onClick={() => mutate({ model: model.trim() })}
-              className="px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-40"
+              className={`${btn.primary} ${btnSize.md}`}
             >
               Save
             </button>

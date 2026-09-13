@@ -5,6 +5,7 @@ import { Search as SearchIcon, Users, Disc3 } from 'lucide-react'
 import { search } from '../api/search'
 import { getTracksByIds, type Track } from '../api/tracks'
 import TrackRow from '../components/TrackRow'
+import EmptyState from '../ui/EmptyState'
 
 export default function Search() {
   const [q, setQ] = useState('')
@@ -43,16 +44,16 @@ export default function Search() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search tracks, artists, albums..."
-          className="w-full max-w-lg bg-surface-2 border border-border-strong rounded-xl pl-9 pr-4 py-3 text-sm focus:border-accent transition-colors"
+          className="w-full max-w-lg bg-surface-2 border border-border-strong rounded-xl pl-9 pr-4 py-3 text-base sm:text-sm focus:border-accent transition-colors"
         />
       </div>
 
       {debouncedQ.length < 2 ? (
-        <p className="text-ink-tertiary text-sm">Type at least 2 characters to search</p>
+        <EmptyState icon={SearchIcon} title="Search your library" hint="Type at least two characters" />
       ) : isLoading ? (
-        <p className="text-ink-tertiary text-sm">Searching...</p>
+        <EmptyState title="Searching…" />
       ) : !hasResults ? (
-        <p className="text-ink-tertiary text-sm">No results for "{debouncedQ}"</p>
+        <EmptyState icon={SearchIcon} title="Nothing found" hint={`No results for “${debouncedQ}”`} />
       ) : (
         <div className="space-y-8">
           {resultTracks.length > 0 && (

@@ -75,7 +75,7 @@ export default function VideoModal({ track, onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="ml-4 flex-shrink-0 text-ink-secondary hover:text-white transition-colors"
+            className="ml-4 flex-shrink-0 text-ink-secondary hover:text-ink-primary transition-colors"
           >
             <X size={20} />
           </button>

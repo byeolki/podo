@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Shuffle, X, Trash2, CheckSquare, Square, ListPlus } from 'lucide-react'
+import { Play, Shuffle, X, Trash2, CheckSquare, Square, ListPlus, Music } from 'lucide-react'
 import { getTracks, deleteTracks } from '../api/tracks'
 import type { SortOption, FilterOption } from '../api/tracks'
 import { usePlayerStore } from '../store/player'
@@ -9,6 +9,8 @@ import AiFillButton from '../components/AiFillButton'
 import AddToPlaylistModal from '../components/AddToPlaylistModal'
 import SearchInput from '../components/SearchInput'
 import SortMenu from '../components/SortMenu'
+import { btn, btnSize } from '../ui/button'
+import EmptyState from '../ui/EmptyState'
 
 const SORT_LABELS: Record<SortOption, string> = {
   newest: 'Newest',
@@ -101,19 +103,19 @@ export default function Library() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectionMode(true)}
-              className="press flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 hover:border-border-strong text-sm font-medium transition-[scale,background-color,border-color] duration-150"
+              className={`${btn.secondary} ${btnSize.md}`}
             >
               <CheckSquare size={14} /> Select
             </button>
             <button
               onClick={() => { setQueue(filteredTracks, 0); play() }}
-              className="press flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium shadow-raised transition-[scale,background-color] duration-150"
+              className={`${btn.primary} ${btnSize.md}`}
             >
               <Play size={14} fill="currentColor" /> Play all
             </button>
             <button
               onClick={() => { const s = [...filteredTracks].sort(() => Math.random() - 0.5); setQueue(s, 0); play() }}
-              className="press flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 hover:border-border-strong text-sm font-medium transition-[scale,background-color,border-color] duration-150"
+              className={`${btn.secondary} ${btnSize.md}`}
             >
               <Shuffle size={14} /> Shuffle
             </button>
@@ -124,7 +126,7 @@ export default function Library() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={allSelected ? deselectAll : selectAllVisible}
-              className="press flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 text-sm transition-[scale,background-color] duration-150"
+              className={`${btn.secondary} ${btnSize.md}`}
             >
               {allSelected ? <Square size={14} /> : <CheckSquare size={14} />}
               {allSelected ? 'Deselect all' : 'Select all'}
@@ -158,7 +160,7 @@ export default function Library() {
 
             <button
               onClick={exitSelection}
-              className="press flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 text-sm transition-[scale,background-color] duration-150"
+              className={`${btn.secondary} ${btnSize.md}`}
             >
               <X size={14} /> Cancel
             </button>
@@ -194,12 +196,11 @@ export default function Library() {
           ))}
         </div>
       ) : tracks.length === 0 ? (
-        <div className="text-center py-20 text-ink-tertiary">
-          <p className="text-lg font-medium text-ink-secondary">No tracks</p>
-          <p className="text-sm mt-1">
-            {filter === 'favorites' ? "You haven't favorited any tracks yet" : filter === 'mine' ? 'No tracks added by you' : 'Add a library root in Admin to get started'}
-          </p>
-        </div>
+        <EmptyState
+          icon={Music}
+          title="No tracks"
+          hint={filter === 'favorites' ? "You haven't favorited any tracks yet" : filter === 'mine' ? 'No tracks added by you' : 'Add a library root in Settings to get started'}
+        />
       ) : (
         <div className="-mx-3">
           <TrackListHeader />

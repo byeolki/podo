@@ -61,7 +61,7 @@ export default function MyRadioUrls() {
                 key={f}
                 onClick={() => setFormat(f)}
                 className={`px-2.5 py-1 rounded-md text-xs uppercase transition-colors ${
-                  format === f ? 'bg-accent text-white' : 'text-ink-secondary hover:text-white'
+                  format === f ? 'bg-accent text-white' : 'text-ink-secondary hover:text-ink-primary'
                 }`}
               >
                 {f}
@@ -101,7 +101,7 @@ export default function MyRadioUrls() {
                 {!state && (
                   <button
                     onClick={() => copy(token)}
-                    className="p-1.5 text-ink-tertiary hover:text-white transition-colors"
+                    className="p-1.5 text-ink-tertiary hover:text-ink-primary transition-colors"
                     title="Copy URL"
                   >
                     {copied === token.id ? <Check size={13} className="text-accent-text" /> : <Copy size={13} />}

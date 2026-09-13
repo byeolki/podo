@@ -129,11 +129,11 @@ export default function TrackRow({
               aria-checked={selected}
               aria-label={`Select ${track.title}`}
               onClick={(e) => { e.stopPropagation(); onSelect?.(track.id) }}
-              className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
+              className={`w-5 h-5 rounded border flex items-center justify-center transition-[opacity,color,background-color,border-color,scale] ${
                 selected ? 'bg-accent border-accent text-white' : 'border-ink-faint'
               }`}
             >
-              {selected && <Check size={11} strokeWidth={3} aria-hidden="true" />}
+              {selected && <Check size={11} style={{ strokeWidth: 3 }} aria-hidden="true" />}
             </button>
           ) : (
             <>
@@ -232,15 +232,15 @@ export default function TrackRow({
                 aria-label={track.is_favorited ? `Remove ${track.title} from favorites` : `Add ${track.title} to favorites`}
                 aria-pressed={track.is_favorited}
               >
-                <Heart size={14} strokeWidth={1.5} fill={track.is_favorited ? 'currentColor' : 'none'} aria-hidden="true" />
+                <Heart size={14} fill={track.is_favorited ? 'currentColor' : 'none'} aria-hidden="true" />
               </button>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
-                className={`p-1 text-ink-faint hover:text-white transition-colors ${REVEAL}`}
+                className={`p-1 text-ink-faint hover:text-ink-primary transition-colors ${REVEAL}`}
                 aria-label={`Edit ${track.title}`}
               >
-                <Pencil size={14} strokeWidth={1.5} aria-hidden="true" />
+                <Pencil size={14} aria-hidden="true" />
               </button>
               {track.has_video && (
                 <button
@@ -249,7 +249,7 @@ export default function TrackRow({
                   className={`p-1 text-ink-faint hover:text-accent-text transition-colors ${REVEAL}`}
                   aria-label={`Play the music video for ${track.title}`}
                 >
-                  <Video size={14} strokeWidth={1.5} aria-hidden="true" />
+                  <Video size={14} aria-hidden="true" />
                 </button>
               )}
             </>

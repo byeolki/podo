@@ -62,7 +62,7 @@ export default function UpdateCard() {
               </pre>
               {data.notes && (
                 <details className="mt-2">
-                  <summary className="text-xs text-ink-tertiary cursor-pointer hover:text-white">
+                  <summary className="text-xs text-ink-tertiary cursor-pointer hover:text-ink-primary">
                     Release notes
                   </summary>
                   <p className="mt-1 text-xs text-ink-secondary whitespace-pre-wrap max-h-40 overflow-y-auto">
@@ -91,7 +91,7 @@ export default function UpdateCard() {
               target="_blank"
               rel="noopener noreferrer"
               title="View the release"
-              className="p-1.5 text-ink-faint hover:text-white transition-colors"
+              className="p-1.5 text-ink-faint hover:text-ink-primary transition-colors"
             >
               <ExternalLink size={14} />
             </a>
@@ -101,7 +101,7 @@ export default function UpdateCard() {
               onClick={() => recheck.mutate()}
               disabled={recheck.isPending}
               title="Check now"
-              className="p-1.5 text-ink-faint hover:text-white transition-colors disabled:opacity-50"
+              className="p-1.5 text-ink-faint hover:text-ink-primary transition-colors disabled:opacity-50"
             >
               <RefreshCw size={14} className={recheck.isPending ? 'animate-spin' : ''} />
             </button>

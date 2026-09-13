@@ -93,7 +93,7 @@ export default function TrackSourcePanel({ trackId, onRefreshed }: Props) {
             type="button"
             onClick={() => refresh()}
             disabled={isPending}
-            className="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-white transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-ink-primary transition-colors disabled:opacity-50"
             title="Download this track again from its original URL"
           >
             <RefreshCw size={12} className={isPending ? 'animate-spin' : ''} />

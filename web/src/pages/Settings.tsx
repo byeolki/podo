@@ -14,6 +14,7 @@ import { getAllRadioTokens, adminRevokeRadioToken, getRadioStreamUrl, type Radio
 import { useAuthStore } from '../store/auth'
 import UpdateCard from '../components/UpdateCard'
 import AiSettingsCard from '../components/AiSettingsCard'
+import { btn, btnSize } from '../ui/button'
 
 type Tab = 'account' | 'library' | 'users' | 'ai' | 'health' | 'files' | 'radio'
 
@@ -93,7 +94,7 @@ function AccountTab() {
           <button
             type="submit"
             disabled={!name.trim() || name === me?.name || nameMut.isPending}
-            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50 transition-colors"
+            className={`${btn.primary} ${btnSize.md}`}
           >
             {nameMut.isPending ? 'Saving…' : 'Save name'}
           </button>
@@ -137,7 +138,7 @@ function AccountTab() {
           <button
             type="submit"
             disabled={!currentPassword || !newPassword || !confirmPassword || passwordMut.isPending}
-            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50 transition-colors"
+            className={`${btn.primary} ${btnSize.md}`}
           >
             {passwordMut.isPending ? 'Saving…' : 'Change password'}
           </button>
@@ -208,7 +209,7 @@ function LibraryTab() {
           <button
             onClick={() => addMut.mutate()}
             disabled={!newPath || addMut.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
+            className={`${btn.primary} ${btnSize.md}`}
           >
             <Plus size={14} /> Add
           </button>
@@ -251,7 +252,7 @@ function LibraryTab() {
           <button
             onClick={() => verifyMut.mutate()}
             disabled={verifyMut.isPending}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary transition-colors"
+            className={`${btn.secondary} ${btnSize.sm}`}
           >
             <Shield size={12} /> Verify Library
           </button>
@@ -418,7 +419,7 @@ function HealthTab() {
             <button
               onClick={() => clearCacheMut.mutate()}
               disabled={clearCacheMut.isPending}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary transition-colors"
+              className={`${btn.secondary} ${btnSize.sm}`}
             >
               <Trash2 size={12} /> Clear Transcode Cache
             </button>
@@ -435,7 +436,7 @@ function HealthTab() {
                 </div>
                 <div className="h-1.5 bg-border-strong rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-yellow-500' : 'bg-accent'}`}
+                    className={`h-full rounded-full transition-[opacity,color,background-color,border-color,scale] ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-yellow-500' : 'bg-accent'}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -502,7 +503,7 @@ function AdminFileRow({ file, onRename, onDelete }: {
             />
             <span className="text-sm text-ink-faint">{ext}</span>
             <button onClick={handleRename} className="p-1 text-success hover:text-success"><Check size={13} /></button>
-            <button onClick={() => setEditing(false)} className="p-1 text-ink-faint hover:text-white"><X size={13} /></button>
+            <button onClick={() => setEditing(false)} className="p-1 text-ink-faint hover:text-ink-primary"><X size={13} /></button>
           </div>
         ) : (
           <>
@@ -515,7 +516,7 @@ function AdminFileRow({ file, onRename, onDelete }: {
         {file.file_size != null && <span className="text-xs text-ink-faint">{formatBytes(file.file_size)}</span>}
         {!editing && (
           <div className="flex items-center gap-1">
-            <button onClick={() => setEditing(true)} className="p-1 text-ink-faint hover:text-white transition-colors" title="Rename"><Pencil size={13} /></button>
+            <button onClick={() => setEditing(true)} className="p-1 text-ink-faint hover:text-ink-primary transition-colors" title="Rename"><Pencil size={13} /></button>
             <button onClick={() => onDelete(file.source_id)} className="p-1 text-ink-faint hover:text-danger transition-colors" title="Delete"><Trash2 size={13} /></button>
           </div>
         )}
@@ -561,7 +562,7 @@ function FilesTab() {
         </div>
         <button
           onClick={() => qc.invalidateQueries({ queryKey: ['admin-files'] })}
-          className="p-1.5 text-ink-faint hover:text-white transition-colors"
+          className="p-1.5 text-ink-faint hover:text-ink-primary transition-colors"
           title="Refresh"
         >
           <RefreshCw size={14} />
@@ -619,7 +620,7 @@ function RadioTab() {
         </div>
         <button
           onClick={() => qc.invalidateQueries({ queryKey: ['admin-radio-tokens'] })}
-          className="p-1.5 text-ink-faint hover:text-white transition-colors"
+          className="p-1.5 text-ink-faint hover:text-ink-primary transition-colors"
           title="Refresh"
         >
           <RefreshCw size={14} />
@@ -710,7 +711,7 @@ export default function Settings() {
               tab === id ? 'bg-surface-3 text-ink-primary shadow-raised' : 'text-ink-secondary hover:text-ink-primary'
             }`}
           >
-            <Icon size={14} strokeWidth={1.5} aria-hidden="true" />
+            <Icon size={14} aria-hidden="true" />
             {label}
           </button>
         ))}

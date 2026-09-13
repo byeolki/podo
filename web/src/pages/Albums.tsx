@@ -7,6 +7,7 @@ import { getArtworkUrl } from '../api/client'
 import ArtworkImage from '../components/ArtworkImage'
 import SearchInput from '../components/SearchInput'
 import SortMenu from '../components/SortMenu'
+import EmptyState from '../ui/EmptyState'
 
 type AlbumSort = 'az' | 'za' | 'year_desc' | 'year_asc'
 
@@ -48,38 +49,36 @@ export default function Albums() {
         </div>
       </div>
 
-      <SearchInput value={q} onChange={setQ} placeholder="Search albums..." className="mb-3" />
-
-      <div className="flex justify-end mb-5">
-        <SortMenu value={sort} options={SORT_LABELS} onChange={setSort} />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-5">
+        <SearchInput value={q} onChange={setQ} placeholder="Search albums..." className="flex-1 sm:max-w-sm" />
+        <div className="sm:ml-auto">
+          <SortMenu value={sort} options={SORT_LABELS} onChange={setSort} />
+        </div>
       </div>
 
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="h-48 rounded-xl bg-surface-2 animate-pulse" />
+            <div key={i} className="aspect-[3/4] rounded-xl bg-surface-2 animate-pulse" />
           ))}
         </div>
       ) : visible.length === 0 ? (
-        <div className="text-center py-20 text-ink-tertiary">
-          <Disc3 size={40} className="mx-auto mb-3" />
-          <p className="text-lg font-medium">No albums found</p>
-        </div>
+        <EmptyState icon={Disc3} title="No albums found" />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {visible.map((album) => (
             <Link
               key={album.id}
               to={`/albums/${album.id}`}
-              className="group p-3 rounded-xl bg-surface-2 hover:bg-surface-2 transition-colors"
+              className="group p-3 rounded-xl bg-surface-2 border border-border hover:bg-surface-3 hover:border-border-strong transition-colors duration-150"
             >
               <ArtworkImage
                 src={getArtworkUrl(album.artwork_id)}
                 alt={album.title}
-                className="w-full aspect-square rounded-lg object-cover mb-3"
+                className="w-full aspect-square rounded-lg object-cover mb-3 transition-transform duration-150 group-hover:scale-[1.02]"
               />
-              <p className="text-sm font-medium truncate">{album.title}</p>
-              {album.year && <p className="text-xs text-ink-tertiary mt-0.5">{album.year}</p>}
+              <p className="text-title font-medium truncate">{album.title}</p>
+              {album.year && <p className="text-meta text-ink-tertiary mt-0.5 tabular-nums">{album.year}</p>}
             </Link>
           ))}
         </div>

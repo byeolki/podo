@@ -79,7 +79,7 @@ export default function SleepTimerMenu() {
             <button
               key={minutes}
               onClick={() => choose({ kind: 'at', endsAt: Date.now() + minutes * 60_000 })}
-              className="w-full text-left px-3 py-2 text-xs text-ink-secondary hover:text-white hover:bg-white/5 transition-colors"
+              className="w-full text-left px-3 py-2 text-xs text-ink-secondary hover:text-ink-primary hover:bg-white/5 transition-colors"
             >
               {minutes} minutes
             </button>
@@ -89,7 +89,7 @@ export default function SleepTimerMenu() {
             className={`w-full text-left px-3 py-2 text-xs transition-colors ${
               sleepTimer?.kind === 'endOfTrack'
                 ? 'text-accent-text bg-accent/10'
-                : 'text-ink-secondary hover:text-white hover:bg-white/5'
+                : 'text-ink-secondary hover:text-ink-primary hover:bg-white/5'
             }`}
           >
             End of this track

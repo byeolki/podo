@@ -10,6 +10,7 @@ import ArtworkImage from '../components/ArtworkImage'
 import TrackRow, { TrackListHeader } from '../components/TrackRow'
 import RadioModal from '../components/RadioModal'
 import PlaylistSyncPanel from '../components/PlaylistSyncPanel'
+import { btn, btnSize } from '../ui/button'
 
 export default function PlaylistDetail() {
   const { id } = useParams<{ id: string }>()
@@ -89,7 +90,7 @@ export default function PlaylistDetail() {
 
   return (
     <div className="p-4 sm:p-6 lg:px-8">
-      <Link to="/playlists" className="flex items-center gap-2 text-sm text-ink-secondary hover:text-white mb-6 transition-colors">
+      <Link to="/playlists" className="flex items-center gap-2 text-sm text-ink-secondary hover:text-ink-primary mb-6 transition-colors">
         <ArrowLeft size={16} /> Back to Playlists
       </Link>
 
@@ -105,7 +106,7 @@ export default function PlaylistDetail() {
               <button
                 onClick={() => coverInputRef.current?.click()}
                 disabled={coverMut.isPending}
-                className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 group-hover:bg-black/50 text-transparent group-hover:text-white transition-all disabled:opacity-50"
+                className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 group-hover:bg-black/50 text-transparent group-hover:text-ink-primary transition-[opacity,color,background-color,border-color,scale] disabled:opacity-50"
                 title="Change cover"
               >
                 <Camera size={22} />
@@ -113,7 +114,7 @@ export default function PlaylistDetail() {
               {playlist.artwork_path && (
                 <button
                   onClick={() => removeCoverMut.mutate()}
-                  className="absolute -top-1.5 -right-1.5 p-1 rounded-full bg-surface-2 border border-border-strong text-ink-secondary hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-1.5 -right-1.5 p-1 rounded-full bg-surface-2 border border-border-strong text-ink-secondary hover:text-ink-primary transition-opacity opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
                   title="Remove cover"
                 >
                   <X size={12} />
@@ -149,12 +150,12 @@ export default function PlaylistDetail() {
                   }}
                 />
                 <button onClick={() => updateMut.mutate({ name })} className="px-3 py-1 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm">Save</button>
-                <button onClick={() => setEditing(false)} className="px-3 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm">Cancel</button>
+                <button onClick={() => setEditing(false)} className={`${btn.secondary} ${btnSize.sm}`}>Cancel</button>
               </div>
             ) : (
               <>
                 <h1 className="text-display font-semibold">{playlist.name}</h1>
-                <button onClick={() => { setName(playlist.name); setEditing(true) }} className="mt-2 text-ink-tertiary hover:text-white">
+                <button onClick={() => { setName(playlist.name); setEditing(true) }} className="mt-2 text-ink-tertiary hover:text-ink-primary">
                   <Pencil size={16} />
                 </button>
               </>
@@ -168,7 +169,7 @@ export default function PlaylistDetail() {
                 onClick={() => setFavoritesOnly((v) => !v)}
                 title={favoritesOnly ? 'Show every track' : 'Play only tracks you favorited'}
                 className={`flex items-center gap-1 transition-colors ${
-                  favoritesOnly ? 'text-danger' : 'hover:text-white'
+                  favoritesOnly ? 'text-danger' : 'hover:text-ink-primary'
                 }`}
               >
                 <Heart size={12} fill={favoritesOnly ? 'currentColor' : 'none'} />
@@ -177,7 +178,7 @@ export default function PlaylistDetail() {
             )}
             <button
               onClick={() => updateMut.mutate({ is_public: !playlist.is_public })}
-              className="flex items-center gap-1 hover:text-white transition-colors"
+              className="flex items-center gap-1 hover:text-ink-primary transition-colors"
             >
               {playlist.is_public ? <><Globe size={12} /> Public</> : <><Lock size={12} /> Private</>}
             </button>
@@ -187,7 +188,7 @@ export default function PlaylistDetail() {
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => playTrack(tracks[0], tracks)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
+                className={`${btn.primary} ${btnSize.md}`}
               >
                 <Play size={14} fill="currentColor" /> Play
               </button>
@@ -196,14 +197,14 @@ export default function PlaylistDetail() {
                   const shuffled = [...tracks].sort(() => Math.random() - 0.5)
                   playTrack(shuffled[0], shuffled)
                 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm font-medium transition-colors"
+                className={`${btn.secondary} ${btnSize.md}`}
               >
                 <Shuffle size={14} /> Shuffle
               </button>
               {isOwner && (
                 <button
                   onClick={() => setRadioOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm font-medium transition-colors"
+                  className={`${btn.secondary} ${btnSize.md}`}
                 >
                   <Radio size={14} /> Radio URL
                 </button>
@@ -212,7 +213,7 @@ export default function PlaylistDetail() {
                 <button
                   onClick={() => setSyncOpen(true)}
                   title="Keep this playlist in step with a YouTube/SoundCloud/… playlist"
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm font-medium transition-colors"
+                  className={`${btn.secondary} ${btnSize.md}`}
                 >
                   <RefreshCw size={14} /> Auto-sync
                 </button>

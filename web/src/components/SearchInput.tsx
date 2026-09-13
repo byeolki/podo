@@ -23,7 +23,7 @@ export default function SearchInput({ value, onChange, placeholder, className = 
         <button
           onClick={() => onChange('')}
           aria-label="Clear search"
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-white"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink-primary"
         >
           <X size={13} />
         </button>

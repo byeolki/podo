@@ -49,7 +49,7 @@ export default function QueuePanel({ onClose }: Props) {
               {upNext > 0 ? ` · ${upNext} up next` : ''}
             </p>
           </div>
-          <button onClick={onClose} aria-label="Close queue" className="text-ink-faint hover:text-white transition-colors">
+          <button onClick={onClose} aria-label="Close queue" className="text-ink-faint hover:text-ink-primary transition-colors">
             <X size={16} />
           </button>
         </div>

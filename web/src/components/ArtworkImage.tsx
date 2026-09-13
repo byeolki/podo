@@ -26,7 +26,7 @@ export default function ArtworkImage({ src, fallbackSrc, alt, className = '' }: 
   if (!current) {
     return (
       <div className={`${className} artwork-edge flex items-center justify-center bg-surface-2`}>
-        <Music size={20} strokeWidth={1.5} className="text-ink-faint" aria-hidden="true" />
+        <Music size={20} className="text-ink-faint" aria-hidden="true" />
       </div>
     )
   }

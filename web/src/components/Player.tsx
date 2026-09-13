@@ -258,7 +258,7 @@ export default function Player() {
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[55] w-[min(92vw,560px)] flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-2 border border-danger/40 text-danger text-sm shadow-xl">
         <AlertCircle size={14} className="flex-shrink-0" />
         <span className="flex-1 min-w-0 truncate">{playbackError}</span>
-        <button onClick={() => setPlaybackError(null)} className="text-ink-tertiary hover:text-white" aria-label="Dismiss">
+        <button onClick={() => setPlaybackError(null)} className="text-ink-tertiary hover:text-ink-primary" aria-label="Dismiss">
           <X size={14} />
         </button>
       </div>
@@ -303,7 +303,7 @@ export default function Player() {
             onClick={prev}
             disabled={!track}
             aria-label="Previous track"
-            className="p-1.5 text-ink-secondary hover:text-white disabled:opacity-30 transition-colors"
+            className="p-1.5 text-ink-secondary hover:text-ink-primary disabled:opacity-30 transition-colors"
           >
             <SkipBack size={18} aria-hidden="true" />
           </button>
@@ -323,7 +323,7 @@ export default function Player() {
             onClick={next}
             disabled={!track || (currentIndex >= queue.length - 1 && repeatMode !== 'all')}
             aria-label="Next track"
-            className="p-1.5 text-ink-secondary hover:text-white disabled:opacity-30 transition-colors"
+            className="p-1.5 text-ink-secondary hover:text-ink-primary disabled:opacity-30 transition-colors"
           >
             <SkipForward size={18} aria-hidden="true" />
           </button>
@@ -370,7 +370,7 @@ export default function Player() {
             className="p-1.5 text-ink-tertiary hover:text-accent-text transition-colors"
             title="Music video"
           >
-            <Video size={16} strokeWidth={1.5} aria-hidden="true" />
+            <Video size={16} aria-hidden="true" />
           </button>
         )}
         <button
@@ -379,7 +379,7 @@ export default function Player() {
           title="Queue (q)"
           aria-label="Show queue"
         >
-          <ListMusic size={16} strokeWidth={1.5} aria-hidden="true" />
+          <ListMusic size={16} aria-hidden="true" />
         </button>
         <SleepTimerMenu />
         <button
@@ -387,7 +387,7 @@ export default function Player() {
           className={`hidden sm:block transition-colors ${normalize ? 'text-accent-text' : 'text-ink-tertiary hover:text-ink-secondary'}`}
           title={normalize ? 'Normalize: on' : 'Normalize: off'}
         >
-          <Activity size={16} strokeWidth={1.5} aria-hidden="true" />
+          <Activity size={16} aria-hidden="true" />
         </button>
         <button
           onClick={() => setVolume(volume > 0 ? 0 : 0.8)}

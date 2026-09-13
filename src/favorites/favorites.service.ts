@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, isNull } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { TracksService } from '../tracks/tracks.service';
@@ -36,7 +36,11 @@ export class FavoritesService {
   }
 
   async add(userId: string, trackId: string) {
-    const track = await this.db.select({ id: schema.tracks.id }).from(schema.tracks).where(eq(schema.tracks.id, trackId)).get();
+    const track = await this.db
+      .select({ id: schema.tracks.id })
+      .from(schema.tracks)
+      .where(and(eq(schema.tracks.id, trackId), isNull(schema.tracks.deleted_at)))
+      .get();
     if (!track) throw new NotFoundException('Track not found');
 
     await this.db

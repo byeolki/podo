@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { eq, desc, gte, and, sql } from 'drizzle-orm';
+import { eq, desc, gte, and, isNull, sql } from 'drizzle-orm';
 import { Db, DB_TOKEN } from '../db/database.module';
 import * as schema from '../db/schema';
 import { newId } from '../common/id';
@@ -9,7 +9,11 @@ export class HistoryService {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   async record(dto: { userId: string; trackId: string; sourceId?: string; playedAt: Date; playedDuration: number }) {
-    const track = await this.db.select({ id: schema.tracks.id }).from(schema.tracks).where(eq(schema.tracks.id, dto.trackId)).get();
+    const track = await this.db
+      .select({ id: schema.tracks.id })
+      .from(schema.tracks)
+      .where(and(eq(schema.tracks.id, dto.trackId), isNull(schema.tracks.deleted_at)))
+      .get();
     if (!track) throw new NotFoundException('Track not found');
 
     const id = newId();
@@ -28,6 +32,10 @@ export class HistoryService {
    * Joined against the track (and its override layer) rather than returned as bare
    * `play_history` rows: a history list has nothing to render without a title, and
    * every client would otherwise have to re-fetch the whole library to resolve ids.
+   *
+   * Deleting a track doesn't delete the rows that recorded playing it, so the join
+   * has to exclude them here. Without that, recently-played listed tracks that no
+   * longer exist and every one of them 404'd the moment it was clicked.
    */
   getRecent(userId: string, limit = 50) {
     return this.db
@@ -48,16 +56,21 @@ export class HistoryService {
         schema.track_metadata_overrides,
         eq(schema.track_metadata_overrides.track_id, schema.tracks.id),
       )
-      .where(eq(schema.play_history.user_id, userId))
+      .where(and(eq(schema.play_history.user_id, userId), isNull(schema.tracks.deleted_at)))
       .orderBy(desc(schema.play_history.played_at))
       .limit(limit);
   }
 
   async getStats(userId: string, period: 'week' | 'month' | 'all') {
     const cutoff = this.getCutoff(period);
-    const filter = cutoff
-      ? and(eq(schema.play_history.user_id, userId), gte(schema.play_history.played_at, cutoff))
-      : eq(schema.play_history.user_id, userId);
+    const filter = and(
+      eq(schema.play_history.user_id, userId),
+      ...(cutoff ? [gte(schema.play_history.played_at, cutoff)] : []),
+    );
+    // Same exclusion as getRecent: a deleted track must not turn up as one of your
+    // top tracks. The total is left over the raw history — time you actually spent
+    // listening doesn't stop having been spent because the file was removed later.
+    const liveFilter = and(filter, isNull(schema.tracks.deleted_at));
 
     const [totalDuration, topTracks] = await Promise.all([
       this.db
@@ -72,7 +85,8 @@ export class HistoryService {
           total_duration: sql<number>`sum(${schema.play_history.played_duration})`,
         })
         .from(schema.play_history)
-        .where(filter)
+        .innerJoin(schema.tracks, eq(schema.play_history.track_id, schema.tracks.id))
+        .where(liveFilter)
         .groupBy(schema.play_history.track_id)
         .orderBy(desc(sql<number>`count(*)`))
         .limit(10),

@@ -35,6 +35,8 @@ const OVERRIDE_SOURCE_ID = 'override';
 export class StreamingService {
   private readonly logger = new Logger(StreamingService.name);
   private readonly activeProcesses = new Map<string, ChildProcess>();
+  /** In-flight audio extractions, keyed by cache key, so two clients never race. */
+  private readonly extractions = new Map<string, Promise<string | null>>();
   /// Bytes actually handed to the client per stream session, flushed to
   /// `stream_sessions.bytes_sent` when the session ends — that column backs the
   /// admin traffic dashboard and stays at 0 unless something counts here.
@@ -167,12 +169,91 @@ export class StreamingService {
       .get();
     const manualVolumeDb = override?.volume_db ?? null;
 
-    const needsTranscode = this.needsTranscode(source, req.format, req.bitrate) || !!req.normalize || !!manualVolumeDb;
+    // A video file asked for as audio has to be transcoded, not sent whole. A
+    // cover uploaded as a single .mp4 has no audio sibling, so `resolveSource`
+    // falls back to the video — and the <audio> element then pulls the entire
+    // H.264 file down to play its soundtrack. That is several times the bytes the
+    // music needs, which on a phone is the difference between playing and
+    // stalling. `-vn` is already in the ffmpeg arguments; this is what reaches it.
+    const videoServedAsAudio = source.media_kind === 'video' && req.mediaKind !== 'video';
+
+    if (videoServedAsAudio && !req.normalize && !manualVolumeDb) {
+      const extracted = await this.audioTrackOf(source);
+      if (extracted) {
+        // Served as an ordinary file, which is the whole point: a live transcode
+        // answers `Accept-Ranges: none`, so the client cannot seek — and cannot
+        // resume from where it stopped when a stall knocks it over, which turns
+        // one hiccup into a restart. Extracting once and serving the result gives
+        // these tracks the same seek and recovery behaviour as any other file.
+        const stat = fs.statSync(extracted);
+        return this.servePassthrough(extracted, stat.size, source, httpReq, reply, sessionId, 'audio/aac');
+      }
+      this.logger.warn(`Audio extraction failed for ${source.locator}; streaming the transcode instead`);
+    }
+
+    const needsTranscode =
+      videoServedAsAudio || this.needsTranscode(source, req.format, req.bitrate) || !!req.normalize || !!manualVolumeDb;
     if (!needsTranscode) {
       await this.servePassthrough(filePath, fileStat.size, source, httpReq, reply, sessionId);
     } else {
       await this.serveTranscoded(source, req, httpReq, reply, sessionId, manualVolumeDb);
     }
+  }
+
+  /**
+   * The audio of a video file, on disk, transcoding it once if necessary.
+   *
+   * Only reached for a track whose one source is a video — a cover uploaded as a
+   * single .mp4 with no audio sibling. Playing it meant the <audio> element
+   * downloading the whole H.264 file to get at its soundtrack, which is roughly
+   * an order of magnitude more bytes than the music needs and the reason those
+   * tracks stuttered on anything but a fast connection.
+   *
+   * Returns null if the extraction fails, leaving the caller to fall back.
+   */
+  private async audioTrackOf(source: typeof schema.sources.$inferSelect): Promise<string | null> {
+    const key = this.cache.getCacheKey(source.id, 'extract', 0, 0);
+    if (this.cache.has(key)) return this.cache.getCachePath(key);
+
+    const inflight = this.extractions.get(key);
+    // A queue of clients arriving together — the page mounting an <audio> and
+    // immediately range-requesting it is two — must not each spawn their own
+    // ffmpeg over the same file.
+    if (inflight) return inflight;
+
+    const run = this.extractAudio(source.locator, key).finally(() => this.extractions.delete(key));
+    this.extractions.set(key, run);
+    return run;
+  }
+
+  private extractAudio(inputPath: string, key: string): Promise<string | null> {
+    const pendingPath = this.cache.getPendingPath(key);
+    // `-c:a copy` where the container already holds AAC, which is what yt-dlp
+    // leaves behind: a remux is near-instant and lossless, where re-encoding a
+    // four-minute track costs seconds and quality for nothing.
+    const attempts = [
+      ['-v', 'error', '-i', inputPath, '-vn', '-c:a', 'copy', '-f', 'adts', pendingPath, '-y'],
+      ['-v', 'error', '-i', inputPath, '-vn', '-c:a', 'aac', '-b:a', '256k', '-f', 'adts', pendingPath, '-y'],
+    ];
+
+    const attempt = (args: string[]): Promise<boolean> =>
+      new Promise((resolve) => {
+        const proc = spawn('ffmpeg', args);
+        proc.stderr.on('data', (d: Buffer) => this.logger.verbose(`ffmpeg extract: ${d.toString().trim()}`));
+        proc.on('error', () => resolve(false));
+        proc.on('close', (code) => resolve(code === 0));
+      });
+
+    return (async () => {
+      for (const args of attempts) {
+        if (await attempt(args)) {
+          await this.cache.commit(key);
+          return this.cache.getCachePath(key);
+        }
+      }
+      this.cache.abort(key);
+      return null;
+    })();
   }
 
   private async servePassthrough(
@@ -182,8 +263,9 @@ export class StreamingService {
     req: FastifyRequest,
     reply: FastifyReply,
     sessionId: string,
+    contentTypeOverride?: string,
   ): Promise<void> {
-    const contentType = this.sourceContentType(source);
+    const contentType = contentTypeOverride ?? this.sourceContentType(source);
     const rangeHeader = req.headers.range;
 
     if (!rangeHeader) {
@@ -251,9 +333,24 @@ export class StreamingService {
       const cachePath = this.cache.getCachePath(cacheKey);
       try {
         const stat = fs.statSync(cachePath);
+        reply.header('X-Cache', 'HIT');
+        // A cached transcode is an ordinary complete file, so it can serve ranges
+        // like any other. Sending it as an unseekable chunked body — as this did —
+        // meant a track that needed transcoding could never be scrubbed, however
+        // many times it had been played.
+        const cachedRange = httpReq.headers.range;
+        if (cachedRange) {
+          const { start, end } = this.parseRange(cachedRange, stat.size);
+          reply.status(206);
+          reply.header('Content-Range', `bytes ${start}-${end}/${stat.size}`);
+          reply.header('Content-Length', end - start + 1);
+          reply.header('Accept-Ranges', 'bytes');
+          reply.header('Content-Type', this.mimeType(targetFormat));
+          return reply.send(this.countingStream(sessionId, fs.createReadStream(cachePath, { start, end })));
+        }
         reply.header('Content-Type', this.mimeType(targetFormat));
         reply.header('Content-Length', stat.size);
-        reply.header('X-Cache', 'HIT');
+        reply.header('Accept-Ranges', 'bytes');
         return reply.send(this.countingStream(sessionId, fs.createReadStream(cachePath)));
       } catch {
         this.logger.warn(`Cache file missing for key ${cacheKey}, falling through to transcode`);

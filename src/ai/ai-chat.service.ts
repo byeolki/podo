@@ -80,8 +80,9 @@ Tools:
 - create_playlist {"name": string, "track_ids"?: string[]} — make a new playlist.
 - add_to_playlist {"playlist_id": string, "track_ids": string[]} — append to one.
 - get_favorites {"limit"?: number} — tracks the person favourited.
-- list_tracks {"where"?: {"is_cover"?: boolean, "has_artist"?: boolean, "has_original_artist"?: boolean, "artist"?: string}, "limit"?: number, "offset"?: number} — walk the library itself rather than searching it. Returns ids with their title, artist and original artist, plus the total number matching, so you can answer questions about the whole library and page through it. Use this, not search_tracks, when the person means "every track" or "all my …". "has_artist": false is the set the interface shows as Unknown Artist.
-- clear_track_fields {"fields": string[], "where": {"all"?: true, "is_cover"?: boolean, "has_artist"?: boolean, "has_original_artist"?: boolean, "artist"?: string}} — blank one or more of original_artist, alternate_titles, artist, title on every track matching, in one call and at any scale. Fields can only be emptied here, never set; use update_tracks to write values. "where" is required and {"all": true} has to be given explicitly — there is no accidental library-wide edit.
+- list_tracks {"where"?: {"is_cover"?: boolean, "has_artist"?: boolean, "has_original_artist"?: boolean, "artist"?: string, "artist_is"?: string}, "limit"?: number, "offset"?: number} — walk the library itself rather than searching it. Returns ids with their title, artist and original artist, plus the total number matching, so you can answer questions about the whole library and page through it. Use this, not search_tracks, when the person means "every track" or "all my …". "has_artist": false is the set the interface shows as Unknown Artist. "artist" matches a name anywhere in the credit; "artist_is" matches the whole credit exactly, which is the difference between "tracks 윤단 is on" and "tracks by 윤단 alone".
+- create_playlist_from_filter {"name": string, "where": {...same shape as list_tracks...}} — make a playlist of every track matching, however many there are, without listing them first. Use this instead of list_tracks + create_playlist whenever the person describes the contents by a rule rather than by naming tracks.
+- clear_track_fields {"fields": string[], "where": {"all"?: true, "is_cover"?: boolean, "has_artist"?: boolean, "has_original_artist"?: boolean, "artist"?: string, "artist_is"?: string}} — blank one or more of original_artist, alternate_titles, artist, title on every track matching, in one call and at any scale. Fields can only be emptied here, never set; use update_tracks to write values. "where" is required and {"all": true} has to be given explicitly — there is no accidental library-wide edit.
 - update_tracks {"updates": [{"track_id": string, "title"?: string, "artist"?: string, "original_artist"?: string, "is_cover"?: boolean, "track_number"?: number, "alternate_titles"?: string}]} — correct the details of up to 40 tracks in one call. Send every track you are changing in a single call rather than one per step.
 
 Actions (optional, in the final reply):
@@ -283,6 +284,15 @@ export class AiChatService {
             )!,
       );
     }
+    if (typeof w.artist_is === 'string' && w.artist_is.trim()) {
+      narrowed = true;
+      // Exact, against the whole credit rather than any name inside it: "윤단
+      // alone" and "윤단 with someone" are different sets, and a substring match
+      // cannot tell them apart.
+      const wanted = w.artist_is.trim().toLowerCase();
+      const effective = sql`lower(trim(COALESCE(NULLIF(${schema.track_metadata_overrides.artist}, ''), ${schema.tracks.artist}, '')))`;
+      conditions.push(sql`${effective} = ${wanted}`);
+    }
     if (typeof w.artist === 'string' && w.artist.trim()) {
       narrowed = true;
       const needle = `%${w.artist.trim().toLowerCase()}%`;
@@ -296,7 +306,7 @@ export class AiChatService {
     }
 
     if (requireExplicit && !narrowed && w.all !== true) {
-      return { error: 'refusing an unscoped edit: pass {"all": true} to mean every track, or narrow the filter' };
+      return { error: 'that filter selects the whole library: narrow it, or pass {"all": true} if you really mean every track' };
     }
     return { clause: and(...conditions) };
   }
@@ -405,6 +415,23 @@ export class AiChatService {
             more: offset + rows.length < total,
             tracks: rows.map((r) => ({ ...r, is_cover: !!r.is_cover })),
           };
+        }
+        case 'create_playlist_from_filter': {
+          const where = this.trackFilter(args.where as Record<string, unknown> | undefined, true);
+          if ('error' in where) return where;
+
+          const rows = await this.db
+            .select({ id: schema.tracks.id })
+            .from(schema.tracks)
+            .leftJoin(schema.track_metadata_overrides, eq(schema.track_metadata_overrides.track_id, schema.tracks.id))
+            .where(where.clause)
+            .orderBy(desc(schema.tracks.added_at));
+          if (!rows.length) return { error: 'nothing matches that filter, so no playlist was created' };
+
+          const created = await this.playlists.create({ name: str('name') || 'New playlist' }, userId);
+          if (!created) return { error: 'could not create the playlist' };
+          await this.playlists.addTracks(created.id, rows.map((r) => r.id), userId);
+          return { id: created.id, name: created.name, added: rows.length };
         }
         case 'clear_track_fields': {
           const fields = ids('fields').filter((f): f is ClearableField =>

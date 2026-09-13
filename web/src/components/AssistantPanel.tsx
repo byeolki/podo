@@ -146,9 +146,17 @@ export default function AssistantPanel() {
       // A popup growing out of the corner it was launched from, rather than a
       // full-height panel welded to the window edge: it covers a strip of the
       // page instead of a third of it, and reads as something you opened.
+      //
+      // Its bottom edge tracks the launcher's at every breakpoint. They were an
+      // inch apart at xl, so the popup appeared somewhere other than the button
+      // that opened it and the scale-from-the-corner animation had nothing to
+      // grow out of. Past xl that means overlapping the right end of the player
+      // bar — the transport is centred and stays clear, and the alternative is a
+      // popup that visibly detaches from its own trigger.
       className="fixed z-[60] flex flex-col overflow-hidden rounded-2xl bg-surface-1 border border-border shadow-overlay
                  inset-x-3 bottom-28 top-20
                  sm:inset-x-auto sm:top-auto sm:right-5 sm:w-[380px] sm:h-[min(560px,72vh)]
+                 xl:bottom-5
                  origin-bottom-right animate-[assistant-in_140ms_ease-out]"
       role="dialog"
       aria-label="Assistant"

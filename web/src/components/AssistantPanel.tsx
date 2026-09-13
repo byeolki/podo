@@ -123,16 +123,20 @@ export default function AssistantPanel() {
     }
   }
 
+  // Sits in the corner proper on a wide viewport: the player bar is capped at
+  // 1100px and centred, so the bottom corners are free. Below xl it has to clear
+  // the bar. It no longer widens into a labelled pill on hover — at 1280 the
+  // expanded pill reached back over the bar it had just cleared.
   if (!open) {
     return (
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="group fixed right-5 bottom-28 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 border border-border text-ink-secondary shadow-xl transition-all hover:w-auto hover:gap-2 hover:px-4 hover:text-white hover:border-accent"
+        className="press fixed right-5 bottom-28 xl:bottom-5 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 border border-border shadow-overlay transition-[scale,border-color] duration-150 hover:border-accent"
         title="Assistant"
         aria-label="Open the assistant"
       >
-        <Sparkles size={17} className="text-accent-text flex-shrink-0" />
-        <span className="hidden group-hover:inline text-sm font-medium whitespace-nowrap">Assistant</span>
+        <Sparkles size={18} className="text-accent-text" aria-hidden="true" />
       </button>
     )
   }
@@ -142,7 +146,7 @@ export default function AssistantPanel() {
       // A popup growing out of the corner it was launched from, rather than a
       // full-height panel welded to the window edge: it covers a strip of the
       // page instead of a third of it, and reads as something you opened.
-      className="fixed z-[60] flex flex-col overflow-hidden rounded-2xl bg-surface-1 border border-border shadow-2xl
+      className="fixed z-[60] flex flex-col overflow-hidden rounded-2xl bg-surface-1 border border-border shadow-overlay
                  inset-x-3 bottom-28 top-20
                  sm:inset-x-auto sm:top-auto sm:right-5 sm:w-[380px] sm:h-[min(560px,72vh)]
                  origin-bottom-right animate-[assistant-in_140ms_ease-out]"

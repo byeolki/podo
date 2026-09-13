@@ -144,8 +144,10 @@ export default function TrackRow({
               {showNumber && (
                 <span
                   aria-hidden="true"
-                  className={`col-start-1 row-start-1 text-meta tabular-nums text-ink-faint ${
-                    isActive ? 'hidden' : 'group-hover:invisible group-focus-within:invisible'
+                  className={`col-start-1 row-start-1 text-meta tabular-nums ${
+                    isActive ? 'text-accent-text' : 'text-ink-faint'
+                  } ${
+                    isActivelyPlaying ? 'hidden' : 'group-hover:invisible group-focus-within:invisible'
                   }`}
                 >
                   {index != null ? index + 1 : ''}

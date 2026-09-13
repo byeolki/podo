@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Folder, Plus, Trash2, RefreshCw, Users, Activity, UserCircle,
-  HardDrive, Shield, X, Pencil, Check, FileAudio, FileVideo, Files, Radio, type LucideIcon,
+  HardDrive, Shield, X, Pencil, Check, FileAudio, FileVideo, Files, Radio, Sparkles, type LucideIcon,
 } from 'lucide-react'
 import {
   getHealth, getUsers, getStorage, clearTranscodeCache, verifyIntegrity, rebuildThumbnails, formatBytes,
@@ -15,7 +15,7 @@ import { useAuthStore } from '../store/auth'
 import UpdateCard from '../components/UpdateCard'
 import AiSettingsCard from '../components/AiSettingsCard'
 
-type Tab = 'account' | 'library' | 'users' | 'health' | 'files' | 'radio'
+type Tab = 'account' | 'library' | 'users' | 'ai' | 'health' | 'files' | 'radio'
 
 function AccountTab() {
   const qc = useQueryClient()
@@ -354,7 +354,6 @@ function HealthTab() {
   return (
     <div className="space-y-6">
       <UpdateCard />
-      <AiSettingsCard />
 
       <div>
         <div className="flex items-start justify-between gap-4 mb-3">
@@ -525,6 +524,15 @@ function AdminFileRow({ file, onRename, onDelete }: {
   )
 }
 
+/** Provider, model and the feature switches — configuration, not a status page. */
+function AiTab() {
+  return (
+    <div className="space-y-6">
+      <AiSettingsCard />
+    </div>
+  )
+}
+
 function FilesTab() {
   const qc = useQueryClient()
   const { data: files = [], isLoading } = useQuery({ queryKey: ['admin-files'], queryFn: listAllFiles })
@@ -685,6 +693,7 @@ export default function Settings() {
     { id: 'files', label: 'Files', icon: Files },
     { id: 'radio', label: 'Radio', icon: Radio },
     { id: 'users', label: 'Users', icon: Users },
+    { id: 'ai', label: 'AI', icon: Sparkles },
     { id: 'health', label: 'Health', icon: Activity },
   ]
 
@@ -698,10 +707,10 @@ export default function Settings() {
             key={id}
             onClick={() => setTab(id)}
             className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors ${
-              tab === id ? 'bg-surface-3 text-white' : 'text-ink-secondary hover:text-white'
+              tab === id ? 'bg-surface-3 text-ink-primary shadow-raised' : 'text-ink-secondary hover:text-ink-primary'
             }`}
           >
-            <Icon size={14} />
+            <Icon size={14} strokeWidth={1.5} aria-hidden="true" />
             {label}
           </button>
         ))}
@@ -712,6 +721,7 @@ export default function Settings() {
       {tab === 'files' && <FilesTab />}
       {tab === 'radio' && <RadioTab />}
       {tab === 'users' && <UsersTab />}
+      {tab === 'ai' && <AiTab />}
       {tab === 'health' && <HealthTab />}
     </div>
   )

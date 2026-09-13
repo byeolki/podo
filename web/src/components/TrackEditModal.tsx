@@ -125,12 +125,16 @@ export default function TrackEditModal({ track, onClose }: Props) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // Empty has to travel as an empty string, not as `undefined`. The server
+    // clears a field it is sent empty and leaves alone one it is not sent at all,
+    // so omitting the blanks meant clearing a field, saving, and watching it come
+    // straight back — the edit was never transmitted.
     mutate({
-      title: title.trim() || undefined,
-      artist: performers.join(', ') || undefined,
+      title: title.trim(),
+      artist: performers.join(', '),
       is_cover: isCover,
-      original_artist: originalArtists.join(', ') || undefined,
-      alternate_titles: alternateTitles.join(', ') || undefined,
+      original_artist: originalArtists.join(', '),
+      alternate_titles: alternateTitles.join(', '),
       volume_db: volumeDb,
     })
   }
@@ -151,14 +155,27 @@ export default function TrackEditModal({ track, onClose }: Props) {
           <h2 className="text-sm font-semibold">Edit Track</h2>
           <div className="flex items-center gap-2">
             <AiFillButton
+              force
               trackIds={[track.id]}
               iconSize={12}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-ink-secondary hover:text-ink-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              // Fills the blanks and nothing else. Overwriting a field the person
+              // is in the middle of editing would throw away the more reliable of
+              // the two answers, and clearing a field then pressing this is how
+              // you ask for that one field back.
               onResult={(r) => {
-                if (r.title) setTitle(r.title as string)
-                if (r.is_cover !== undefined) setIsCover(r.is_cover as boolean)
-                if (r.artist) setPerformers(splitList(r.artist as string))
-                if (r.original_artist) setOriginalArtists(splitList(r.original_artist as string))
+                const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null)
+                if (str(r.title)) setTitle((prev) => (prev.trim() ? prev : (r.title as string)))
+                if (str(r.artist)) setPerformers((prev) => (prev.length ? prev : splitList(r.artist as string)))
+                if (str(r.original_artist)) {
+                  setOriginalArtists((prev) => {
+                    if (prev.length) return prev
+                    // An original artist only means anything alongside the cover
+                    // flag, so filling one sets the other.
+                    setIsCover(true)
+                    return splitList(r.original_artist as string)
+                  })
+                }
               }}
             />
             <button type="button" onClick={onClose} aria-label="Close" className="p-1.5 text-ink-tertiary hover:text-ink-primary transition-colors">

@@ -11,6 +11,12 @@ interface Props {
   onResult?: (result: Record<string, unknown>) => void
   className?: string
   iconSize?: number
+  /**
+   * Skip the "already done" check. Set where the press is about one track the
+   * person is looking at: there, being told it was already filled is never the
+   * answer they wanted — they pressed it to fill something.
+   */
+  force?: boolean
 }
 
 /**
@@ -28,7 +34,7 @@ interface Outcome {
   failed: number
 }
 
-export default function AiFillButton({ trackIds, onResult, className, iconSize = 14 }: Props) {
+export default function AiFillButton({ trackIds, onResult, className, iconSize = 14, force = false }: Props) {
   const qc = useQueryClient()
   const { available, reason } = useAiStatus()
   const [done, setDone] = useState<number | null>(null)
@@ -90,7 +96,7 @@ export default function AiFillButton({ trackIds, onResult, className, iconSize =
     <div className="relative">
       <button
         type="button"
-        onClick={() => run(canForce)}
+        onClick={() => run(force || canForce)}
         disabled={!available || running || !total}
         title={reason ?? 'Guess title, artist and cover details from the filename'}
         // Falls back to the shared recipe rather than its own near-copy of it:

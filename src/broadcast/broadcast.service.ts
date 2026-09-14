@@ -237,13 +237,21 @@ export class BroadcastService {
     const sources = await this.db
       .select()
       .from(schema.sources)
-      .where(and(eq(schema.sources.track_id, trackId), eq(schema.sources.media_kind, 'audio'), eq(schema.sources.available, true), isNull(schema.sources.deleted_at)))
+      .where(and(eq(schema.sources.track_id, trackId), eq(schema.sources.available, true), isNull(schema.sources.deleted_at)))
       .orderBy(asc(schema.sources.priority));
 
-    for (const source of sources) {
+    // Audio first, then anything else. A cover uploaded as a single .mp4 has no
+    // audio source at all, and filtering on `media_kind = 'audio'` dropped every
+    // one of them from the stream — silently, since a skipped track looks exactly
+    // like a short playlist. The decoder reads the audio out of a video container
+    // the same way it reads any other file.
+    const byKind = [...sources].sort((a, b) =>
+      (a.media_kind === 'audio' ? 0 : 1) - (b.media_kind === 'audio' ? 0 : 1));
+
+    for (const source of byKind) {
       if (fs.existsSync(source.locator)) return source;
     }
-    throw new Error('No available audio source for track');
+    throw new Error('No available source for track');
   }
 
   private async getOrderedTracks(playlistId: string): Promise<{ id: string }[]> {

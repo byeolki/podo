@@ -20,6 +20,7 @@ import { HistoryService } from '../dist/history/history.service.js';
 import { StreamingService } from '../dist/streaming/streaming.service.js';
 import { TranscodeCacheService } from '../dist/streaming/transcode-cache.service.js';
 import { titleMatches } from '../dist/musicbrainz/musicbrainz.service.js';
+import { BroadcastService } from '../dist/broadcast/broadcast.service.js';
 
 let failures = 0;
 const ok = (name, cond, detail = '') => {
@@ -106,6 +107,20 @@ await group('Asking for audio never 404s on a video-only track', async () => {
     try { await streaming.resolveSource({ trackId: 't2', mediaKind: 'video' }); } catch { threw = true; }
     ok('an explicit media_kind=video still refuses audio-only', threw);
     fs.rmSync(dir, { recursive: true, force: true });
+});
+
+await group('A radio stream does not skip video-backed tracks', async () => {
+  const { db, cfg } = fresh();
+  const dir = fs.mkdtempSync('/tmp/podo-reg-b-');
+  fs.writeFileSync(`${dir}/cover.mp4`, 'x');
+  await db.insert(schema.sources).values({
+    id: 'sb', track_id: 't1', media_kind: 'video', origin: 'local',
+    locator: `${dir}/cover.mp4`, available: true,
+  });
+  const broadcast = new BroadcastService(db, cfg, {});
+  const source = await broadcast.resolveAudioSource('t1');
+  ok('a video-only track resolves for broadcast', source?.id === 'sb');
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 await group('A container already holding the requested codec is not re-encoded', async () => {

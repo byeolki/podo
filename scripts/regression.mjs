@@ -21,6 +21,8 @@ import { StreamingService } from '../dist/streaming/streaming.service.js';
 import { TranscodeCacheService } from '../dist/streaming/transcode-cache.service.js';
 import { titleMatches } from '../dist/musicbrainz/musicbrainz.service.js';
 import { BroadcastService } from '../dist/broadcast/broadcast.service.js';
+import { ScannerService } from '../dist/library/scanner.service.js';
+import { SearchService } from '../dist/search/search.service.js';
 
 let failures = 0;
 const ok = (name, cond, detail = '') => {
@@ -141,6 +143,39 @@ await group('A bilingual MusicBrainz title is the same song', async () => {
     ok('"Creep Creep" does not match "Creep"', !titleMatches('Creep Creep', 'Creep'));
     ok('"Creep, creep, softly creep" does not match "Creep"', !titleMatches('Creep, creep, softly creep', 'Creep'));
     ok('an exact title still matches', titleMatches('밤편지', '밤편지'));
+});
+
+await group('Subtitles become synced lyrics', async () => {
+  const { s: raw, db } = fresh();
+  const dir = fs.mkdtempSync('/tmp/podo-reg-l-');
+  fs.writeFileSync(`${dir}/song.m4a`, 'x');
+  fs.writeFileSync(`${dir}/song.ko.vtt`,
+    'WEBVTT\n\n1\n00:00:12.500 --> 00:00:15.000\n어둠이 내려앉은 이 거리\n\n2\n00:01:05.000 --> 00:01:08.000\n<i>Everybody</i> watch your back\n');
+  fs.writeFileSync(`${dir}/song.en.vtt`, 'WEBVTT\n\n1\n00:00:12.500 --> 00:00:15.000\nOn this darkened street\n');
+  const scanner = new ScannerService(db, {}, {}, {}, { get: (_k, d) => d });
+  await scanner.maybeSetLyrics('t1', `${dir}/song.m4a`, 'ytdlp');
+  const rows = raw.prepare('SELECT language, content FROM lyrics WHERE track_id=? ORDER BY language').all('t1');
+  ok('every subtitle language is kept', rows.length === 2, `${rows.length} stored`);
+  const ko = rows.find((r) => r.language === 'ko');
+  ok('cue times become LRC stamps', ko?.content.startsWith('[00:12.50]'), ko?.content.slice(0, 20));
+  ok('markup is stripped from the line', ko?.content.includes('Everybody watch your back'));
+  ok('the subtitle files are cleaned up', fs.readdirSync(dir).filter((f) => f.endsWith('.vtt')).length === 0);
+  // A scan that is not from a download must not go looking for subtitles.
+  fs.writeFileSync(`${dir}/song.ko.vtt`, 'WEBVTT\n\n1\n00:00:01.000 --> 00:00:02.000\nlocal\n');
+  await scanner.maybeSetLyrics('t1', `${dir}/song.m4a`, 'local');
+  ok('a local scan leaves subtitles alone', fs.existsSync(`${dir}/song.ko.vtt`));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+await group('A renamed track is findable by the names it was given', async () => {
+  const { s: raw } = fresh();
+  raw.exec(`UPDATE track_metadata_overrides SET alternate_titles = 'Growl, Eureureong' WHERE track_id='t1'`);
+  const search = new SearchService(raw, { get: (_k, d) => d });
+  const q = (t) => search.searchTracksSimple(t, 10).map((h) => h.id);
+  ok('found by an alternate name', q('Growl').includes('t1'));
+  ok('found by a romanisation', q('Eureureong').includes('t1'));
+  ok('found by the original artist', q('시인과 촌장').includes('t1'));
+  ok('a deleted track is never returned', q('Gone').length === 0);
 });
 
 console.log(failures === 0 ? '\nAll regression cases hold.' : `\n${failures} regression(s) BROKEN.`);

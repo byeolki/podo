@@ -52,7 +52,7 @@ function normalizeTitle(value: string): string {
  * Creep" and "Creep, creep, softly creep" still fail against "Creep" — which is
  * what keeps a title-only search usable at all.
  */
-function titleMatches(candidate: string, wanted: string): boolean {
+export function titleMatches(candidate: string, wanted: string): boolean {
   const c = normalizeTitle(candidate);
   const w = normalizeTitle(wanted);
   if (c === w) return true;

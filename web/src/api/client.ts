@@ -60,6 +60,25 @@ export async function ensureFreshToken(): Promise<string | null> {
   return token
 }
 
+/**
+ * Tells the server something went wrong in the browser.
+ *
+ * Same reason the native client does it: a failure here is invisible to whoever
+ * runs the server, and "playback stops sometimes" is only actionable once the
+ * machine that saw it can say so. Fire-and-forget — a failed report must never
+ * become a second problem on top of the one it was describing.
+ */
+export function reportClientError(kind: string, message: string, context?: string): void {
+  void api
+    .post('/client-errors', {
+      platform: 'web',
+      kind: kind.slice(0, 200),
+      message: message.slice(0, 2000),
+      context: context?.slice(0, 500),
+    })
+    .catch(() => {})
+}
+
 export function getStreamUrl(trackId: string, normalize?: boolean): string {
   const token = getToken()
   const params = new URLSearchParams()

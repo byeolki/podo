@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Video, Activity, Repeat, Repeat1, ListMusic, AlertCircle, Loader2, X } from 'lucide-react'
 import { usePlayerStore, useCurrentTrack } from '../store/player'
-import { getStreamUrl, getArtworkUrl, ensureFreshToken } from '../api/client'
+import { getStreamUrl, getArtworkUrl, ensureFreshToken, reportClientError } from '../api/client'
 import { formatDuration, recordPlay, artistLine } from '../api/tracks'
 import ArtworkImage from './ArtworkImage'
 import VideoModal from './VideoModal'
@@ -107,6 +107,12 @@ export default function Player() {
    * the button stayed on Pause, the equaliser kept animating, and the only
    * signal that anything was wrong was silence.
    */
+  /** Which track a report is about — "it stopped" is only useful with the what. */
+  const trackContext = useCallback(() => {
+    const t = usePlayerStore.getState().queue[usePlayerStore.getState().currentIndex]
+    return t ? `track ${t.id} — ${t.title}` : undefined
+  }, [])
+
   const reportPlaybackFailure = useCallback((e: unknown) => {
     // `AbortError` means a newer load superseded this play() — which is exactly
     // what advancing to the next track does, since the queue change swaps `src`
@@ -118,6 +124,7 @@ export default function Player() {
       ? 'Your browser blocked playback — press play again.'
       : `Couldn't play this track — ${(e as Error)?.message ?? 'unknown error'}`
     setPlaybackError(message)
+    reportClientError('playback.failed', message, trackContext())
     usePlayerStore.getState().pause()
   }, [])
 
@@ -128,6 +135,7 @@ export default function Player() {
     const elapsed = Date.now() - recoverySinceRef.current
     if (elapsed > RECOVERY_WINDOW_MS || recoveryAttemptsRef.current >= MAX_RECOVERY_ATTEMPTS) {
       setPlaybackError("Lost the connection to the server and couldn't get it back. Press play to try again.")
+      reportClientError('playback.unrecoverable', `gave up after ${recoveryAttemptsRef.current} attempts over ${Math.round(elapsed / 1000)}s`, trackContext())
       usePlayerStore.getState().pause()
       return
     }

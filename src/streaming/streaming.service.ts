@@ -445,7 +445,14 @@ export class StreamingService implements OnApplicationBootstrap, OnApplicationSh
     let cacheUsable = true;
 
     cacheWriteStream.on('error', (err) => {
-      this.logger.error(`Cache write stream error for ${pendingPath}: ${err.message}`);
+      // A client that goes away mid-transcode destroys this stream, and the write
+      // already in flight lands after it — routine, not a fault, and logging it at
+      // error level buried the real failures in a session where the token had
+      // expired and every request was failing.
+      const routine = err.message.includes('after a stream was destroyed')
+        || (err as NodeJS.ErrnoException).code === 'ERR_STREAM_DESTROYED';
+      if (routine) this.logger.debug(`Cache write aborted for ${pendingPath}: client went away`);
+      else this.logger.error(`Cache write stream error for ${pendingPath}: ${err.message}`);
       cacheUsable = false;
       this.cache.abort(cacheKey);
     });

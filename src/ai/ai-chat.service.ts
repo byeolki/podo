@@ -54,6 +54,16 @@ const MAX_TOOL_STEPS = 10;
 const TURN_BUDGET_MS = 75_000;
 /** Leave enough of the budget to compose a final answer from what was found. */
 const FINAL_ANSWER_RESERVE_MS = 20_000;
+/**
+ * Every tool result is fed back into the next prompt, so the prompt grows with
+ * each step and each step is slower than the one before it. A `list_tracks` page
+ * is 200 rows on its own, and a turn that spent three steps collecting rows was
+ * asking the provider to re-read all of them on the fourth — which is the call
+ * that hit the provider's own 60s ceiling and lost the whole turn. Past this
+ * size the oldest results are dropped, with a line saying so, because the recent
+ * ones are what the next step is reasoning about.
+ */
+const MAX_TOOL_LOG_CHARS = 24_000;
 const MAX_HISTORY = 12;
 /** One batch can rewrite a lot of rows, so cap what a single call can touch. */
 const MAX_TRACK_UPDATES = 40;
@@ -143,8 +153,11 @@ export class AiChatService {
     const spent = () => Date.now() - startedAt;
     let ranOutOfTime = false;
 
+    let providerFailed = false;
+
     for (let step = 0; step < MAX_TOOL_STEPS; step++) {
-      if (spent() > TURN_BUDGET_MS - FINAL_ANSWER_RESERVE_MS) {
+      const remaining = TURN_BUDGET_MS - FINAL_ANSWER_RESERVE_MS - spent();
+      if (remaining <= 0) {
         ranOutOfTime = true;
         break;
       }
@@ -152,13 +165,24 @@ export class AiChatService {
         ? `${transcript}\n\nTool results so far:\n${toolLog}\n\nRespond with the next JSON object.`
         : `${transcript}\n\nRespond with a single JSON object.`;
 
-      const parsed = await this.ai.askJson<ToolStep>(SYSTEM_PROMPT, prompt);
+      // Bounded by what is left of the turn, not by the provider's own ceiling.
+      // A step that started at 35s and was allowed a full 60s produced a 97s
+      // response — past the 100s at which the proxy in front of this kills the
+      // request outright, which is the one failure the panel cannot describe.
+      const parsed = await this.ai.askJson<ToolStep>(SYSTEM_PROMPT, prompt, remaining);
       if (!parsed) {
-        return {
-          reply: "I couldn't reach the model just now. Check Settings → AI.",
-          actions: [],
-          used_tools: usedTools,
-        };
+        // Three successful tool steps used to be thrown away because the fourth
+        // call timed out, and the person was told to check settings that were
+        // fine. Whatever was already found is worth summarising.
+        providerFailed = true;
+        if (!toolLog) {
+          return {
+            reply: this.failureReply(),
+            actions: [],
+            used_tools: usedTools,
+          };
+        }
+        break;
       }
 
       if (parsed.reply !== undefined || !parsed.tool) {
@@ -174,24 +198,48 @@ export class AiChatService {
       // Fenced and labelled: tool results carry track titles, which come from
       // filenames any uploader controls. Without a boundary, a track named to
       // look like an instruction is read as one on someone else's turn.
-      toolLog += `\n${parsed.tool}(${JSON.stringify(parsed.args ?? {})}) -> <<<DATA\n${JSON.stringify(result)}\nDATA>>>`;
+      toolLog = trimToolLog(
+        toolLog + `\n${parsed.tool}(${JSON.stringify(parsed.args ?? {})}) -> <<<DATA\n${JSON.stringify(result)}\nDATA>>>`,
+      );
     }
 
     // Out of steps or out of time: answer with what the tools already found
     // rather than nothing.
-    const limit = ranOutOfTime ? 'You are out of time for this turn' : 'You have used all available tool steps';
+    const limit = providerFailed
+      ? 'The last step failed to reach the model'
+      : ranOutOfTime
+        ? 'You are out of time for this turn'
+        : 'You have used all available tool steps';
     const parsed = await this.ai.askJson<ToolStep>(
       SYSTEM_PROMPT,
       `${transcript}\n\nTool results so far:\n${toolLog}\n\n${limit}. Respond now with the final {"reply": ...} object. Say what you did manage to do and what is left, so the person can ask you to carry on.`,
+      Math.max(0, TURN_BUDGET_MS - spent()),
     );
-    const fallback = ranOutOfTime
-      ? "That was taking too long to finish in one go — ask me to carry on and I'll pick up where I left off."
-      : 'That turned out to need more steps than I have. Narrow it down and ask again.';
+    const fallback = providerFailed
+      ? this.failureReply()
+      : ranOutOfTime
+        ? "That was taking too long to finish in one go — ask me to carry on and I'll pick up where I left off."
+        : 'That turned out to need more steps than I have. Narrow it down and ask again.';
     return {
       reply: parsed?.reply?.trim() || fallback,
       actions: this.sanitizeActions(parsed?.actions),
       used_tools: usedTools,
     };
+  }
+
+  /**
+   * What actually went wrong, rather than a standing suggestion to check the
+   * settings. A timeout is the common failure here and has nothing to do with
+   * how the provider is configured, so sending someone to that page reads as an
+   * accusation that they set it up wrong.
+   */
+  private failureReply(): string {
+    const reason = this.ai.lastFailure();
+    if (reason && /timed out/i.test(reason)) {
+      return 'The model took too long to answer that one. Ask me again, or narrow it down a little.';
+    }
+    if (reason) return `I couldn't get an answer from the model — ${reason}.`;
+    return "I couldn't reach the model just now. Check Settings → AI.";
   }
 
   /** Drops anything malformed rather than handing the client ids to act on blindly. */
@@ -480,4 +528,28 @@ export class AiChatService {
       return { error: (e as Error).message };
     }
   }
+}
+
+/**
+ * Keeps the newest whole tool results and says how many were dropped, so the
+ * model knows its earlier findings existed rather than silently reasoning over
+ * a log that appears to start mid-sentence.
+ */
+export function trimToolLog(log: string): string {
+  if (log.length <= MAX_TOOL_LOG_CHARS) return log;
+
+  // Entries begin at a newline followed by `name(`; cutting anywhere else would
+  // leave a half-open <<<DATA fence, which is the boundary that keeps track
+  // titles from being read as instructions.
+  const entries = log.split(/\n(?=[a-z_]+\()/).filter(Boolean);
+  const kept: string[] = [];
+  let size = 0;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (size + entries[i].length > MAX_TOOL_LOG_CHARS && kept.length) break;
+    kept.unshift(entries[i]);
+    size += entries[i].length;
+  }
+  const dropped = entries.length - kept.length;
+  const header = dropped > 0 ? `[${dropped} earlier tool result(s) omitted to stay within the turn]\n` : '';
+  return header + kept.join('\n');
 }

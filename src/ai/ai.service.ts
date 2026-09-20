@@ -197,6 +197,16 @@ export class AiService {
     return status.available;
   }
 
+  /**
+   * Why the last request failed, for a caller that has to explain itself to
+   * someone. The chat panel used to answer every failure with "Check Settings →
+   * AI", which sends the person to a page that is usually fine — a timeout is
+   * not a misconfiguration.
+   */
+  lastFailure(): string | null {
+    return this.lastError;
+  }
+
   /** True when the assistant should be offered at all. */
   async isChatEnabled(): Promise<boolean> {
     const settings = await this.getSettings();
@@ -290,7 +300,7 @@ export class AiService {
    * One JSON round-trip through the configured provider. Null on any failure —
    * unconfigured, unreachable, or an answer that wasn't parseable JSON.
    */
-  async askJson<T>(system: string, user: string): Promise<T | null> {
+  async askJson<T>(system: string, user: string, timeoutMs?: number): Promise<T | null> {
     const settings = await this.getSettings();
     if (!settings.enabled) return null;
 
@@ -302,7 +312,7 @@ export class AiService {
     }
 
     try {
-      const raw = await provider.complete(system, user, settings.model);
+      const raw = await provider.complete(system, user, settings.model, timeoutMs);
       const parsed = parseJsonObject<T>(raw);
       // Only a usable answer clears the flag: a call that "succeeds" but returns
       // nothing parseable is still something the operator should see.

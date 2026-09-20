@@ -14,10 +14,22 @@ export interface AiProvider {
   readonly name: string;
   /** Why this provider can't run, or null when it can. */
   unavailableReason(): Promise<string | null>;
-  complete(system: string, user: string, model: string): Promise<string | null>;
+  /**
+   * `timeoutMs` bounds this one call. The chat loop passes what is left of its
+   * turn budget, because a fixed per-call ceiling can't stop a step that starts
+   * late from running the whole request past the proxy's own limit.
+   */
+  complete(system: string, user: string, model: string, timeoutMs?: number): Promise<string | null>;
 }
 
 const REQUEST_TIMEOUT_MS = 60_000;
+/** Below this a call cannot plausibly finish, so it is refused rather than started. */
+const MIN_TIMEOUT_MS = 5_000;
+
+function boundedTimeout(timeoutMs: number | undefined): number {
+  if (timeoutMs === undefined) return REQUEST_TIMEOUT_MS;
+  return Math.max(MIN_TIMEOUT_MS, Math.min(REQUEST_TIMEOUT_MS, Math.floor(timeoutMs)));
+}
 /** Everything that could read, write or reach the network from the server box. */
 const DISALLOWED_TOOLS = [
   'Bash', 'Read', 'Write', 'Edit', 'NotebookEdit',
@@ -55,7 +67,7 @@ export class OpenAiProvider implements AiProvider {
     return this.client ? null : 'OPENAI_API_KEY is not set';
   }
 
-  async complete(system: string, user: string, model: string): Promise<string | null> {
+  async complete(system: string, user: string, model: string, timeoutMs?: number): Promise<string | null> {
     if (!this.client) return null;
     const response = await this.client.chat.completions.create(
       {
@@ -69,7 +81,7 @@ export class OpenAiProvider implements AiProvider {
       // The SDK defaults to a 600s timeout with two retries, so one slow step
       // could hold an HTTP request open for half an hour and a whole chat for
       // hours. Match the CLI path's bound instead.
-      { timeout: REQUEST_TIMEOUT_MS, maxRetries: 1 },
+      { timeout: boundedTimeout(timeoutMs), maxRetries: 1 },
     );
     return response.choices[0]?.message?.content ?? null;
   }
@@ -143,7 +155,7 @@ export class ClaudeCodeProvider implements AiProvider {
     return reason;
   }
 
-  async complete(system: string, user: string, model: string): Promise<string | null> {
+  async complete(system: string, user: string, model: string, timeoutMs?: number): Promise<string | null> {
     // The CLI takes one prompt, so the system instructions are folded in above
     // the user's message rather than sent as a separate role.
     const prompt = `${system}\n\n---\n\n${user}`;
@@ -161,7 +173,7 @@ export class ClaudeCodeProvider implements AiProvider {
         '--disallowed-tools', DISALLOWED_TOOLS.join(','),
         '--permission-mode', 'default',
       ],
-      REQUEST_TIMEOUT_MS,
+      boundedTimeout(timeoutMs),
     );
 
     // The CLI reports its own failures in the envelope on stdout, not on stderr:

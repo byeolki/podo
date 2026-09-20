@@ -24,6 +24,8 @@ import { BroadcastService } from '../dist/broadcast/broadcast.service.js';
 import { ScannerService } from '../dist/library/scanner.service.js';
 import { SearchService } from '../dist/search/search.service.js';
 import { UploadService } from '../dist/upload/upload.service.js';
+import { AiChatService, trimToolLog } from '../dist/ai/ai-chat.service.js';
+import { ArtistsService, encodeArtistId } from '../dist/artists/artists.service.js';
 
 let failures = 0;
 const ok = (name, cond, detail = '') => {
@@ -203,6 +205,105 @@ await group('A file too large for the proxy still gets through', async () => {
     try { upload.beginChunked('notes.txt'); return false; } catch { return true; }
   })());
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+await group('A slow model does not throw away the tool steps that worked', async () => {
+  // Three tools ran, the fourth call timed out, and the panel answered "check
+  // Settings → AI" — sending someone to a page that was fine and discarding
+  // everything the turn had already found.
+  const asked = [];
+  const replies = [
+    { tool: 'list_playlists', args: {} },
+    { tool: 'get_playlist', args: { playlist_id: 'p1' } },
+    { tool: 'list_tracks', args: {} },
+    null,                                   // the call that times out
+    { reply: 'I got as far as reading the playlist.' },
+  ];
+  const ai = {
+    isChatEnabled: async () => true,
+    lastFailure: () => 'claude-code (claude-sonnet-5): timed out after 60000ms',
+    askJson: async (_system, _user, timeoutMs) => { asked.push(timeoutMs); return replies.shift() ?? null; },
+  };
+  const chat = new AiChatService(ai, {}, { findAllForUser: async () => [] }, {}, {});
+  const out = await chat.chat([{ role: 'user', content: 'hi' }], 'u1');
+  ok('the work already done is summarised', out.reply === 'I got as far as reading the playlist.');
+  ok('the tools that ran are still reported', out.used_tools.length === 3);
+  // Tool steps get the budget minus the reserve; the closing summary is allowed
+  // the reserve too. Neither may be unbounded — an unbounded step is how a turn
+  // reached 97s and died at the proxy instead of answering.
+  ok('every tool step is bounded by what is left of the turn',
+     asked.slice(0, -1).every((t) => typeof t === 'number' && t > 0 && t <= 55_000), JSON.stringify(asked));
+  ok('the closing summary is bounded too',
+     typeof asked.at(-1) === 'number' && asked.at(-1) > 0 && asked.at(-1) <= 75_000, String(asked.at(-1)));
+
+  // With nothing found yet, the reason has to be the real one.
+  const bare = new AiChatService(
+    { isChatEnabled: async () => true, lastFailure: () => 'claude-code: timed out after 60000ms', askJson: async () => null },
+    {}, {}, {}, {},
+  );
+  const first = await bare.chat([{ role: 'user', content: 'hi' }], 'u1');
+  ok('a timeout is not reported as a misconfiguration', !/Settings/.test(first.reply), first.reply);
+});
+
+await group('The prompt does not grow until the provider gives up', async () => {
+  const entry = (name) => `\n${name}(${JSON.stringify({})}) -> <<<DATA\n${JSON.stringify({ rows: 'x'.repeat(9000) })}\nDATA>>>`;
+  const log = entry('search_tracks') + entry('list_tracks') + entry('get_playlist') + entry('get_favorites');
+  const trimmed = trimToolLog(log);
+  ok('the log is bounded', trimmed.length < log.length && trimmed.length <= 26_000, `${trimmed.length}`);
+  ok('the newest result survives', trimmed.includes('get_favorites('));
+  ok('the oldest is what goes', !trimmed.includes('search_tracks('));
+  ok('the drop is stated rather than silent', /earlier tool result/.test(trimmed));
+  const fences = (trimmed.match(/<<<DATA/g) ?? []).length === (trimmed.match(/DATA>>>/g) ?? []).length;
+  ok('no half-open data fence is left behind', fences);
+  ok('a short log is untouched', trimToolLog('\nsearch_tracks({}) -> <<<DATA\n[]\nDATA>>>').startsWith('\nsearch_tracks'));
+});
+
+await group('A shared credit is several artists, not one entry', async () => {
+  // Every credit in this library names a group of people ("송밤, 키마, 콧시,
+  // 윤단"). Listing credit strings would have shown one unclickable entry per
+  // combination and none per person.
+  const { s, db, cfg } = fresh();
+  s.exec(`
+    INSERT INTO tracks (id,title,artist,is_cover) VALUES
+      ('a1','Two','송밤, 윤단',1),('a2','Four','송밤, 키마, 콧시, 윤단',1),
+      ('a3','Wide','ＳＯＮＧ  밤',0),('a4','Same','song 밤',0),('a5','Dead','송밤',0);
+    UPDATE tracks SET deleted_at = 1 WHERE id='a5';
+    INSERT INTO track_metadata_overrides (track_id,artist,updated_by) VALUES ('a2','송밤, 윤단','u1');
+  `);
+  const tracks = new TracksService(db, {}, cfg);
+  const artists = new ArtistsService(db, tracks);
+  const all = await artists.findAll();
+  const by = (n) => all.find((a) => a.name === n);
+
+  ok('each person is their own entry', !!by('송밤') && !!by('윤단'), all.map((a) => a.name).join(' | '));
+  ok('the credit string itself is never an entry', !all.some((a) => a.name.includes(',')));
+  ok('an override replaces the stored credit, it does not add to it',
+     by('키마') === undefined && by('콧시') === undefined, all.map((a) => a.name).join(' | '));
+  // a3 is 'ＳＯＮＧ  밤' and a4 is 'song 밤': full-width, double-spaced and cased
+  // differently, one artist.
+  const merged = all.filter((a) => ['ＳＯＮＧ  밤', 'song 밤'].includes(a.name));
+  ok('width, spacing and case are the same artist',
+     merged.length === 1 && merged[0].track_count === 2, JSON.stringify(merged));
+  // a1 and a2 credit 송밤; a5 does too but is deleted.
+  ok('a deleted track is not counted', by('송밤').track_count === 2, JSON.stringify(by('송밤')));
+  ok('the original artist of a cover gets an entry too', !!by('시인과 촌장'));
+  ok('someone only ever covered has no performed tracks',
+     by('시인과 촌장').track_count === 0 && by('시인과 촌장').original_count === 1);
+  ok('the busiest artist sorts first', all[0].track_count >= all[all.length - 1].track_count);
+
+  const detail = await artists.findOne(by('윤단').id, 'u1');
+  ok('the page lists every track they are credited on', detail.tracks.length === 3,
+     detail.tracks.map((t) => t.id).join(','));
+  ok('their own songs covered by others are a separate list', detail.original_tracks.length === 0);
+
+  const origin = await artists.findOne(by('시인과 촌장').id, 'u1');
+  ok('a covered artist still has a page', origin.tracks.length === 0 && origin.original_tracks.length === 1);
+
+  ok('an id survives a name with a slash in it',
+     encodeArtistId('AC/DC') === encodeArtistId('ac/dc') && !encodeArtistId('AC/DC').includes('/'));
+  let missing = false;
+  try { await artists.findOne(encodeArtistId('nobody at all'), 'u1'); } catch { missing = true; }
+  ok('an unknown artist is a 404, not an empty page', missing);
 });
 
 console.log(failures === 0 ? '\nAll regression cases hold.' : `\n${failures} regression(s) BROKEN.`);

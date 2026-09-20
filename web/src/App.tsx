@@ -17,6 +17,8 @@ const Upload = lazy(() => import('./pages/Upload'))
 const Search = lazy(() => import('./pages/Search'))
 const Albums = lazy(() => import('./pages/Albums'))
 const AlbumDetail = lazy(() => import('./pages/AlbumDetail'))
+const Artists = lazy(() => import('./pages/Artists'))
+const ArtistDetail = lazy(() => import('./pages/ArtistDetail'))
 
 function RouteFallback() {
   return (
@@ -51,6 +53,8 @@ export default function App() {
         <Route path="search" element={<Suspense fallback={<RouteFallback />}><Search /></Suspense>} />
         <Route path="albums" element={<Suspense fallback={<RouteFallback />}><Albums /></Suspense>} />
         <Route path="albums/:id" element={<Suspense fallback={<RouteFallback />}><AlbumDetail /></Suspense>} />
+        <Route path="artists" element={<Suspense fallback={<RouteFallback />}><Artists /></Suspense>} />
+        <Route path="artists/:id" element={<Suspense fallback={<RouteFallback />}><ArtistDetail /></Suspense>} />
         <Route path="playlists" element={<Suspense fallback={<RouteFallback />}><Playlists /></Suspense>} />
         <Route path="playlists/:id" element={<Suspense fallback={<RouteFallback />}><PlaylistDetail /></Suspense>} />
         <Route path="radio" element={<Suspense fallback={<RouteFallback />}><Radio /></Suspense>} />

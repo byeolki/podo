@@ -34,7 +34,7 @@ console.log('bootstrap ->', boot.status, token ? 'token acquired' : JSON.stringi
 if (!token) process.exit(1);
 
 const GETS = [
-  '/api/v1/tracks', '/api/v1/albums', '/api/v1/playlists', '/api/v1/playlists/public',
+  '/api/v1/tracks', '/api/v1/albums', '/api/v1/artists', '/api/v1/playlists', '/api/v1/playlists/public',
   '/api/v1/favorites', '/api/v1/history', '/api/v1/search?q=test', '/api/v1/radio',
   '/api/v1/library/roots', '/api/v1/library/scans', '/api/v1/upload/files',
   '/api/v1/admin/users', '/api/v1/admin/storage', '/api/v1/admin/update',
@@ -69,6 +69,12 @@ const raw = new Database(process.env.DB_PATH);
 const me = raw.prepare('SELECT id FROM users LIMIT 1').get().id;
 raw.prepare("INSERT INTO tracks (id,title,artist,added_by) VALUES ('tk1','Seed Track','Seed Artist',?)").run(me);
 raw.prepare("INSERT INTO sources (id,track_id,media_kind,origin,locator,available) VALUES ('sc1','tk1','audio','local','/tmp/nope.m4a',1)").run();
+
+// The seeded track is credited to "Seed Artist", so the artists list has one
+// entry whose id has to survive a round-trip through a URL path.
+const artistList = await call('GET', '/api/v1/artists', undefined, token);
+await check('GET    artist detail', 'GET', `/api/v1/artists/${artistList.body?.[0]?.id ?? 'x'}`, undefined, [200]);
+await check('GET    unknown artist is 404', 'GET', '/api/v1/artists/bm9ib2R5', undefined, [404]);
 
 const pl = await check('POST   playlist',                'POST',   '/api/v1/playlists', { name: 'Swept' }, [201, 200]);
 const plId = pl?.id;

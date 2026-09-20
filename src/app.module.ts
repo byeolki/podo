@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { LibraryModule } from './library/library.module';
 import { TracksModule } from './tracks/tracks.module';
 import { AlbumsModule } from './albums/albums.module';
+import { ArtistsModule } from './artists/artists.module';
 import { SearchModule } from './search/search.module';
 import { StreamingModule } from './streaming/streaming.module';
 import { SyncModule } from './sync/sync.module';
@@ -35,6 +36,7 @@ import { TelemetryModule } from './telemetry/telemetry.module';
     LibraryModule,
     TracksModule,
     AlbumsModule,
+    ArtistsModule,
     SearchModule,
     StreamingModule,
     PlaylistsModule,

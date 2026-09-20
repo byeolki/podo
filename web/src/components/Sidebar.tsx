@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Music, ListMusic, Radio, Search, Disc3,
+  Music, ListMusic, Radio, Search, Disc3, Users,
   History, Settings, LogOut, Upload,
 } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
@@ -10,6 +10,7 @@ const navItems = [
   { to: '/library', icon: Music, label: 'Library' },
   { to: '/search', icon: Search, label: 'Search' },
   { to: '/albums', icon: Disc3, label: 'Albums' },
+  { to: '/artists', icon: Users, label: 'Artists' },
   { to: '/playlists', icon: ListMusic, label: 'Playlists' },
   { to: '/radio', icon: Radio, label: 'Radio' },
   { to: '/history', icon: History, label: 'History' },

@@ -36,7 +36,11 @@ function formatYtDuration(seconds: number | null): string {
 function AddMusicSection() {
   const qc = useQueryClient()
   const [input, setInput] = useState('')
-  const [audioOnly, setAudioOnly] = useState(true)
+  // Off by default: audio-only leaves the track with no video source, and a
+  // library of covers is mostly music videos — the video is the thing the player
+  // and the cover artwork both want. Keeping it costs disk; discarding it cannot
+  // be undone without downloading again.
+  const [audioOnly, setAudioOnly] = useState(false)
   const [searchResult, setSearchResult] = useState<UnifiedSearchResult | null>(null)
   const [lastQuery, setLastQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)

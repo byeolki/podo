@@ -63,9 +63,14 @@ export default function JustUploaded({
   }, [paths.length, trackIds.length])
 
   const { data: tracks = [] } = useQuery({
-    queryKey: ['tracks', 'imported', trackIds],
+    queryKey: ['tracks', 'imported', trackIds.join(',')],
     queryFn: () => getTracksByIds(trackIds),
     enabled: trackIds.length > 0,
+    // Every track that finishes importing changes this key, and a fresh key has
+    // no data — so the list emptied for a moment on each poll, taking every row
+    // with it, including the one holding an open editor and whatever had been
+    // typed into it. Keeping the previous rows means nothing unmounts.
+    placeholderData: (previous) => previous,
   })
 
   if (!paths.length && !jobIds.length) return null

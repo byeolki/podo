@@ -65,7 +65,7 @@ function AccountTab() {
   }
 
   return (
-    <div className={`${settingsSections} max-w-xl`}>
+    <div className={settingsSections}>
       <div>
         <h3 className="text-base font-semibold mb-3">Profile</h3>
         <form
@@ -555,44 +555,46 @@ function FilesTab() {
   const totalSize = files.reduce((acc, f) => acc + (f.file_size ?? 0), 0)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold">Uploaded Files</h3>
-          <p className="text-xs text-ink-faint mt-0.5">{files.length} files · {formatBytes(totalSize)}</p>
+    <div className={settingsSections}>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold">Uploaded Files</h3>
+            <p className="text-xs text-ink-faint mt-0.5">{files.length} files · {formatBytes(totalSize)}</p>
+          </div>
+          <button
+            onClick={() => qc.invalidateQueries({ queryKey: ['admin-files'] })}
+            className="p-1.5 text-ink-faint hover:text-ink-primary transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={14} />
+          </button>
         </div>
-        <button
-          onClick={() => qc.invalidateQueries({ queryKey: ['admin-files'] })}
-          className="p-1.5 text-ink-faint hover:text-ink-primary transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw size={14} />
-        </button>
-      </div>
 
-      {isLoading ? (
-        <div className="space-y-1.5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 rounded-lg bg-surface-2 animate-pulse" />
-          ))}
-        </div>
-      ) : files.length === 0 ? (
-        <div className="text-center py-12 text-ink-faint">
-          <Files size={28} className="mx-auto mb-2 opacity-40" />
-          <p className="text-sm">No uploaded files</p>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          {files.map((file) => (
-            <AdminFileRow
-              key={file.source_id}
-              file={file}
-              onRename={(sourceId, filename) => renameMut.mutate({ sourceId, filename })}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
-      )}
+        {isLoading ? (
+          <div className="space-y-1.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-12 rounded-lg bg-surface-2 animate-pulse" />
+            ))}
+          </div>
+        ) : files.length === 0 ? (
+          <div className="text-center py-12 text-ink-faint">
+            <Files size={28} className="mx-auto mb-2 opacity-40" />
+            <p className="text-sm">No uploaded files</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {files.map((file) => (
+              <AdminFileRow
+                key={file.source_id}
+                file={file}
+                onRename={(sourceId, filename) => renameMut.mutate({ sourceId, filename })}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -613,64 +615,66 @@ function RadioTab() {
   })
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold">Radio URLs</h3>
-          <p className="text-xs text-ink-faint mt-0.5">{tokens.length} total</p>
+    <div className={settingsSections}>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold">Radio URLs</h3>
+            <p className="text-xs text-ink-faint mt-0.5">{tokens.length} total</p>
+          </div>
+          <button
+            onClick={() => qc.invalidateQueries({ queryKey: ['admin-radio-tokens'] })}
+            className="p-1.5 text-ink-faint hover:text-ink-primary transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={14} />
+          </button>
         </div>
-        <button
-          onClick={() => qc.invalidateQueries({ queryKey: ['admin-radio-tokens'] })}
-          className="p-1.5 text-ink-faint hover:text-ink-primary transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw size={14} />
-        </button>
-      </div>
 
-      {isLoading ? (
-        <div className="space-y-1.5">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-14 rounded-lg bg-surface-2 animate-pulse" />
-          ))}
-        </div>
-      ) : tokens.length === 0 ? (
-        <div className="text-center py-12 text-ink-faint">
-          <Radio size={28} className="mx-auto mb-2 opacity-40" />
-          <p className="text-sm">No radio URLs created yet</p>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          {tokens.map((t) => {
-            const status = radioStatus(t)
-            return (
-              <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-2 border border-border">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-sm font-medium truncate">{t.playlist_name ?? '(deleted playlist)'}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${status.className}`}>
-                      {status.label}
-                    </span>
+        {isLoading ? (
+          <div className="space-y-1.5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-14 rounded-lg bg-surface-2 animate-pulse" />
+            ))}
+          </div>
+        ) : tokens.length === 0 ? (
+          <div className="text-center py-12 text-ink-faint">
+            <Radio size={28} className="mx-auto mb-2 opacity-40" />
+            <p className="text-sm">No radio URLs created yet</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {tokens.map((t) => {
+              const status = radioStatus(t)
+              return (
+                <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-2 border border-border">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className="text-sm font-medium truncate">{t.playlist_name ?? '(deleted playlist)'}</p>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${status.className}`}>
+                        {status.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-ink-faint truncate font-mono">{getRadioStreamUrl(t.token)}</p>
+                    <p className="text-xs text-ink-faint">
+                      by {t.created_by_name ?? 'unknown'} · expires {new Date(t.expires_at).toLocaleDateString()}
+                    </p>
                   </div>
-                  <p className="text-xs text-ink-faint truncate font-mono">{getRadioStreamUrl(t.token)}</p>
-                  <p className="text-xs text-ink-faint">
-                    by {t.created_by_name ?? 'unknown'} · expires {new Date(t.expires_at).toLocaleDateString()}
-                  </p>
+                  {!t.revoked_at && (
+                    <button
+                      onClick={() => revokeMut.mutate(t.id)}
+                      className="p-1.5 text-ink-faint hover:text-danger transition-colors flex-shrink-0"
+                      title="Close this radio stream"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
-                {!t.revoked_at && (
-                  <button
-                    onClick={() => revokeMut.mutate(t.id)}
-                    className="p-1.5 text-ink-faint hover:text-danger transition-colors flex-shrink-0"
-                    title="Close this radio stream"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -700,7 +704,10 @@ export default function Settings() {
   ]
 
   return (
-    <div className="p-4 sm:p-6 lg:px-8">
+    // One column for every tab. Each panel used to set its own width or none at
+    // all, so Account was 576px and AI filled the window — switching tabs
+    // resized the page under the pointer.
+    <div className="p-4 sm:p-6 lg:px-8 max-w-4xl">
       <h1 className="text-display font-semibold mb-6">Settings</h1>
 
       <div className="flex gap-1 mb-6 bg-surface-2 p-1 rounded-lg w-fit max-w-full overflow-x-auto border border-border">

@@ -101,7 +101,11 @@ export function getArtworkUrl(id: string | null | undefined): string | null {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = {
-    ...(init.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    // FormData carries its own multipart content type, boundary included; setting
+    // one here would replace it with a header the server cannot parse.
+    ...(init.body !== undefined && !(init.body instanceof FormData)
+      ? { 'Content-Type': 'application/json' }
+      : {}),
     ...(init.headers as Record<string, string> || {}),
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
@@ -139,4 +143,6 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  /** Multipart body — the browser sets the boundary, so no Content-Type here. */
+  postForm: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
 }

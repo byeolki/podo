@@ -25,6 +25,14 @@ export interface DownloadJob {
   created_at: Date;
   /** Set when the job is re-fetching an existing track rather than adding one. */
   refresh_track_id?: string;
+  /**
+   * The tracks this job put in the library.
+   *
+   * Recorded for every job, not only the ones with a callback: a caller who has
+   * just pasted a link wants to name the thing it fetched, and without this the
+   * only way back to it is to go and find it in the library by date.
+   */
+  imported_track_ids: string[];
 }
 
 /** What `GET /download/source/:trackId` reports about a track's remote origin. */
@@ -141,6 +149,7 @@ export class DownloadService {
       progress: 0,
       completed_items: 0,
       created_at: new Date(),
+      imported_track_ids: [],
     };
     this.jobs.set(jobId, job);
 
@@ -214,7 +223,7 @@ export class DownloadService {
         completed_items: job.completed_items,
         total_items: job.total_items,
       });
-      imports.push(this.importFile(filePath, sourceUrl || undefined, opts, index));
+      imports.push(this.importFile(job.id, filePath, sourceUrl || undefined, opts, index));
     };
 
     try {
@@ -276,6 +285,7 @@ export class DownloadService {
    * so the file's own locator is the correlation key.
    */
   private async importFile(
+    jobId: string,
     filePath: string,
     sourceUrl: string | undefined,
     opts: DownloadOptions,
@@ -286,14 +296,19 @@ export class DownloadService {
       // sidecar files sitting next to the media, so they have to be there first.
       if (sourceUrl) await this.fetchSidecars(filePath, sourceUrl);
       await this.scanner.scanFile(filePath, 'ytdlp', sourceUrl);
-      if (!opts.onTrackImported) return;
 
       const source = await this.db
         .select({ track_id: schema.sources.track_id })
         .from(schema.sources)
         .where(eq(schema.sources.locator, filePath))
         .get();
-      if (source) await opts.onTrackImported(source.track_id, sourceUrl, index);
+      if (!source) return;
+
+      const job = this.jobs.get(jobId);
+      if (job && !job.imported_track_ids.includes(source.track_id)) {
+        job.imported_track_ids.push(source.track_id);
+      }
+      if (opts.onTrackImported) await opts.onTrackImported(source.track_id, sourceUrl, index);
     } catch (e) {
       this.logger.warn(`Failed to import ${filePath}: ${(e as Error).message}`);
     }
@@ -347,6 +362,7 @@ export class DownloadService {
       progress: 0,
       completed_items: 0,
       created_at: new Date(),
+      imported_track_ids: [],
       refresh_track_id: trackId,
     };
     this.jobs.set(job.id, job);

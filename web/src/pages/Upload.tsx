@@ -33,7 +33,10 @@ function formatYtDuration(seconds: number | null): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-function AddMusicSection() {
+/** `onAdded` carries each started job up to the page, which owns the list of
+ *  things added in this session — a link and a dropped file are two ways of
+ *  adding a song and both end with wanting to name it. */
+function AddMusicSection({ onAdded }: { onAdded: (jobId: string) => void }) {
   const qc = useQueryClient()
   const [input, setInput] = useState('')
   // Off by default: audio-only leaves the track with no video source, and a
@@ -60,12 +63,16 @@ function AddMusicSection() {
 
   const downloadMut = useMutation({
     mutationFn: (url: string) => startDownload(url, audioOnly),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['downloads'] }),
+    onSuccess: (job) => {
+      onAdded(job.id)
+      qc.invalidateQueries({ queryKey: ['downloads'] })
+    },
   })
 
   const importMut = useMutation({
     mutationFn: (url: string) => importPlaylistFromUrl(url, audioOnly),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result?.job_id) onAdded(result.job_id)
       qc.invalidateQueries({ queryKey: ['downloads'] })
       qc.invalidateQueries({ queryKey: ['playlists'] })
     },
@@ -390,6 +397,10 @@ export default function Upload() {
   // The paths the last batch produced, so the tracks they become can be edited
   // here rather than hunted for in the library afterwards.
   const [justUploaded, setJustUploaded] = useState<string[]>([])
+  // Downloads started from a link land in the same list: pasting a YouTube URL and
+  // dropping a file are two ways of adding a song, and both end with wanting to
+  // name it.
+  const [justDownloaded, setJustDownloaded] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: myFiles = [], isLoading } = useQuery({
@@ -470,7 +481,11 @@ export default function Upload() {
         <p className="text-sm text-ink-secondary mt-0.5">Add music and video files to your library</p>
       </div>
 
-      <JustUploaded paths={justUploaded} onDismiss={() => setJustUploaded([])} />
+      <JustUploaded
+        paths={justUploaded}
+        jobIds={justDownloaded}
+        onDismiss={() => { setJustUploaded([]); setJustDownloaded([]) }}
+      />
 
       <div
         className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors mb-6 ${
@@ -500,7 +515,7 @@ export default function Upload() {
         </p>
       </div>
 
-      {role === 'admin' && <AddMusicSection />}
+      {role === 'admin' && <AddMusicSection onAdded={(id) => setJustDownloaded((prev) => [...new Set([...prev, id])])} />}
 
       {items.length > 0 && (
         <div className="mb-6">

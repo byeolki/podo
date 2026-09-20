@@ -47,6 +47,8 @@ export type Provider =
   | 'tiktok' | 'instagram' | 'twitch' | 'niconico' | 'bilibili' | 'other'
 
 export interface DownloadJob {
+  /** The tracks this job put in the library, so a caller can go and name them. */
+  imported_track_ids?: string[]
   id: string
   url: string
   provider: Provider

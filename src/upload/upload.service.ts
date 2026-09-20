@@ -7,16 +7,44 @@ import * as schema from '../db/schema';
 import * as path from 'path';
 import * as fs from 'fs';
 import { pipeline } from 'stream/promises';
+import { newId } from '../common/id';
 import { Readable } from 'stream';
 
 const ALLOWED_EXTS = new Set(['.mp3', '.m4a', '.flac', '.aac', '.wav', '.ogg', '.opus', '.mp4', '.m4v', '.mkv']);
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
+/**
+ * How much of a file goes in one request.
+ *
+ * Comfortably under the 100MB a free Cloudflare plan allows, with room for the
+ * multipart envelope — the point of chunking is that no single request can reach
+ * a proxy's limit, so the margin matters more than the round number.
+ */
+const CHUNK_SIZE = 8 * 1024 * 1024;
+/** How long an unfinished chunked upload is kept before its parts are dropped. */
+const CHUNK_TTL_MS = 6 * 3600 * 1000;
 // Strips path separators and control characters, and keeps letters and digits in
 // any script. The previous allowlist named Hangul explicitly and nothing else, so
 // a Japanese or Chinese filename came out as a row of underscores — "米津玄師 -
 // Lemon.m4a" was stored as "_____ - Lemon.m4a", losing the name and defeating any
 // later attempt to match the file by it.
 const FILENAME_SANITIZE = /[\p{C}\p{Zl}\p{Zp}\\/:*?"<>|]/gu;
+
+/**
+ * Where a chunked upload accumulates before it becomes a real file.
+ *
+ * A proxy in front of this server caps a single request — Cloudflare's free plan
+ * at 100MB — and that cap is applied at the edge, so no setting here can raise it
+ * and the server never learns the request happened. Sending the file in pieces is
+ * the only way a browser can put a large file through such a proxy: each request
+ * is small, and the file is reassembled on this side.
+ */
+export interface ChunkedUpload {
+  id: string;
+  filename: string;
+  partPath: string;
+  received: number;
+  createdAt: number;
+}
 
 export interface FileEntry {
   source_id: string;
@@ -92,6 +120,82 @@ export class UploadService {
     await this.scanner.scanFile(destPath);
 
     return { path: destPath };
+  }
+
+  /** Chunked uploads in flight, keyed by the id the client was handed. */
+  private readonly chunked = new Map<string, ChunkedUpload>();
+
+  /**
+   * Opens a chunked upload and returns the id every later part carries.
+   *
+   * The name is validated now rather than at the end, so a file that was never
+   * going to be accepted is refused before anything is sent.
+   */
+  beginChunked(filename: string): { upload_id: string; chunk_size: number } {
+    const ext = path.extname(filename).toLowerCase();
+    if (!ALLOWED_EXTS.has(ext)) {
+      throw new BadRequestException(`Unsupported file type: ${ext}`);
+    }
+    this.sweepStaleChunked();
+
+    const id = newId();
+    const sanitizedName = path.basename(filename).replace(FILENAME_SANITIZE, '_');
+    const partPath = path.join(this.uploadDir, `.${id}.part`);
+    fs.writeFileSync(partPath, '');
+    this.chunked.set(id, { id, filename: sanitizedName, partPath, received: 0, createdAt: Date.now() });
+    return { upload_id: id, chunk_size: CHUNK_SIZE };
+  }
+
+  /** Appends one part. Parts must arrive in order; a gap is a client bug, not a resume. */
+  async appendChunk(uploadId: string, stream: Readable): Promise<{ received: number }> {
+    const upload = this.chunked.get(uploadId);
+    if (!upload) throw new NotFoundException('Unknown upload — it may have expired');
+
+    await pipeline(stream, fs.createWriteStream(upload.partPath, { flags: 'a' }));
+    upload.received = fs.statSync(upload.partPath).size;
+    upload.createdAt = Date.now();
+
+    if (upload.received > MAX_FILE_SIZE) {
+      this.abortChunked(uploadId);
+      throw new BadRequestException('File too large (max 500MB)');
+    }
+    return { received: upload.received };
+  }
+
+  /** Turns the accumulated parts into a real upload and scans it. */
+  async finishChunked(uploadId: string): Promise<{ path: string }> {
+    const upload = this.chunked.get(uploadId);
+    if (!upload) throw new NotFoundException('Unknown upload — it may have expired');
+    this.chunked.delete(uploadId);
+
+    const destPath = path.join(this.uploadDir, `${Date.now()}_${upload.filename}`);
+    fs.renameSync(upload.partPath, destPath);
+    this.logger.log(`Uploaded in parts: ${destPath} (${upload.received} bytes)`);
+
+    await this.scanner.scanFile(destPath);
+    return { path: destPath };
+  }
+
+  abortChunked(uploadId: string): void {
+    const upload = this.chunked.get(uploadId);
+    if (!upload) return;
+    this.chunked.delete(uploadId);
+    fs.rmSync(upload.partPath, { force: true });
+  }
+
+  /**
+   * Drops uploads nobody finished. A browser tab closed mid-upload leaves its
+   * parts behind, and without this they would sit in the upload directory taking
+   * up disk for as long as the server runs.
+   */
+  private sweepStaleChunked(): void {
+    const cutoff = Date.now() - CHUNK_TTL_MS;
+    for (const [id, upload] of this.chunked) {
+      if (upload.createdAt < cutoff) {
+        this.logger.warn(`Abandoned chunked upload ${id} (${upload.filename}); removing its parts`);
+        this.abortChunked(id);
+      }
+    }
   }
 
   /**

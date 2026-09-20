@@ -23,6 +23,7 @@ import { titleMatches } from '../dist/musicbrainz/musicbrainz.service.js';
 import { BroadcastService } from '../dist/broadcast/broadcast.service.js';
 import { ScannerService } from '../dist/library/scanner.service.js';
 import { SearchService } from '../dist/search/search.service.js';
+import { UploadService } from '../dist/upload/upload.service.js';
 
 let failures = 0;
 const ok = (name, cond, detail = '') => {
@@ -176,6 +177,32 @@ await group('A renamed track is findable by the names it was given', async () =>
   ok('found by a romanisation', q('Eureureong').includes('t1'));
   ok('found by the original artist', q('시인과 촌장').includes('t1'));
   ok('a deleted track is never returned', q('Gone').length === 0);
+});
+
+await group('A file too large for the proxy still gets through', async () => {
+  const { db, cfg } = fresh();
+  const dir = fs.mkdtempSync('/tmp/podo-reg-c-');
+  const cfg2 = { get: (k, d) => ({ upload_dir: dir })[k] ?? d };
+  const upload = new UploadService(cfg2, { scanFile: async () => {} }, db);
+  const begun = upload.beginChunked('big cover.mp4');
+  ok('the part size stays well under a 100MB proxy limit', begun.chunk_size <= 16 * 1024 * 1024,
+     `${begun.chunk_size} bytes`);
+  const piece = Buffer.alloc(1024, 3);
+  for (let i = 0; i < 5; i++) {
+    const { Readable } = await import('node:stream');
+    await upload.appendChunk(begun.upload_id, Readable.from(piece));
+  }
+  const done = await upload.finishChunked(begun.upload_id);
+  ok('the parts reassemble to the whole file', fs.statSync(done.path).size === 5 * 1024);
+  ok('nothing is left in the upload directory but the file',
+     fs.readdirSync(dir).filter((f) => f.endsWith('.part')).length === 0);
+  let refused = false;
+  try { await upload.finishChunked(begun.upload_id); } catch { refused = true; }
+  ok('finishing twice is refused', refused);
+  ok('an unusable extension is refused before anything is sent', (() => {
+    try { upload.beginChunked('notes.txt'); return false; } catch { return true; }
+  })());
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 console.log(failures === 0 ? '\nAll regression cases hold.' : `\n${failures} regression(s) BROKEN.`);

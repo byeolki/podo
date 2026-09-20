@@ -8,6 +8,8 @@ import {
   Body,
   Param,
   UseGuards,
+  HttpCode,
+  HttpStatus,
   BadRequestException,
   PayloadTooLargeException,
 } from '@nestjs/common';
@@ -20,6 +22,10 @@ import { AdminOnly } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 import { Readable } from 'stream';
+
+class BeginChunkedDto {
+  @IsString() @MinLength(1) @MaxLength(255) filename!: string;
+}
 
 class RenameFileDto {
   // Undecorated, this was stripped by the global `whitelist: true` pipe, so the
@@ -84,6 +90,37 @@ export class UploadController {
     return this.upload
       .resolveImported(dto.paths, user.sub, user.role === 'admin')
       .then((track_ids) => ({ track_ids }));
+  }
+
+  @Post('chunked')
+  @ApiOperation({ summary: 'Open a chunked upload for a file too large for one request' })
+  beginChunked(@Body() dto: BeginChunkedDto) {
+    return this.upload.beginChunked(dto.filename);
+  }
+
+  @Post('chunked/:uploadId')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Append one part to a chunked upload' })
+  async appendChunk(@Param('uploadId') uploadId: string, @Req() req: FastifyRequest) {
+    if (!req.isMultipart()) throw new BadRequestException('Expected multipart/form-data');
+    for await (const part of req.parts()) {
+      if (part.type !== 'file') continue;
+      return this.upload.appendChunk(uploadId, part.file as unknown as Readable);
+    }
+    throw new BadRequestException('No chunk in the request');
+  }
+
+  @Post('chunked/:uploadId/finish')
+  @ApiOperation({ summary: 'Assemble the parts into a file and scan it' })
+  finishChunked(@Param('uploadId') uploadId: string) {
+    return this.upload.finishChunked(uploadId);
+  }
+
+  @Delete('chunked/:uploadId')
+  @ApiOperation({ summary: 'Abandon a chunked upload and drop its parts' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  abortChunked(@Param('uploadId') uploadId: string): void {
+    this.upload.abortChunked(uploadId);
   }
 
   @Get('files')

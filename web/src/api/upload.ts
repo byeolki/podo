@@ -55,14 +55,44 @@ function describeUploadFailure(status: number, body: string): string {
   return body.trim() || `Upload failed (HTTP ${status}).`
 }
 
+/**
+ * Sends one file in pieces, so no single request can reach the proxy's limit.
+ *
+ * The limit is applied at the edge — the server never sees the request and no
+ * setting on it can raise the ceiling — so splitting the file is the only way a
+ * browser can put a large one through. Each part is an ordinary small upload;
+ * the server appends them and scans the result.
+ */
+async function uploadInChunks(file: File, onProgress?: (pct: number) => void): Promise<UploadResult> {
+  const begun = await api.post<{ upload_id: string; chunk_size: number }>(
+    '/upload/chunked', { filename: file.name },
+  )
+  const size = begun.chunk_size || 8 * 1024 * 1024
+  try {
+    for (let sent = 0; sent < file.size; sent += size) {
+      const form = new FormData()
+      form.append('chunk', file.slice(sent, Math.min(sent + size, file.size)))
+      await api.postForm(`/upload/chunked/${begun.upload_id}`, form)
+      onProgress?.(Math.round((Math.min(sent + size, file.size) / file.size) * 100))
+    }
+    const done = await api.post<{ path: string }>(`/upload/chunked/${begun.upload_id}/finish`)
+    return { uploaded: [{ filename: file.name, path: done.path }] }
+  } catch (e) {
+    // Leaving the parts behind would hold disk on the server until they aged out.
+    await api.delete(`/upload/chunked/${begun.upload_id}`).catch(() => {})
+    throw e
+  }
+}
+
 export function uploadFiles(files: File[], onProgress?: (pct: number) => void): Promise<UploadResult> {
-  const tooBig = files.find((f) => f.size > PROXY_BODY_LIMIT)
-  if (tooBig) {
-    const mb = Math.round(tooBig.size / 1024 / 1024)
-    return Promise.reject(new Error(
-      `${tooBig.name} is ${mb}MB. Anything over 100MB is rejected by the server\u2019s proxy before it arrives — ` +
-      'upload it with the podo CLI over a connection that bypasses the proxy.',
-    ))
+  // Chunked automatically rather than refused: the size is the server's problem
+  // to solve, not something to hand back to whoever is holding the file.
+  const large = files.find((f) => f.size > PROXY_BODY_LIMIT)
+  if (large) {
+    if (files.length > 1) {
+      return Promise.reject(new Error('Send large files one at a time.'))
+    }
+    return uploadInChunks(large, onProgress)
   }
   return new Promise((resolve, reject) => {
     const form = new FormData()
